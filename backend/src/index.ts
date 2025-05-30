@@ -4,7 +4,6 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
-
 import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
 import { logger } from './services/logger';
@@ -18,6 +17,8 @@ import documentsRoutes from './routes/documents';
 import usageRoutes from './routes/usage';
 
 dotenv.config();
+
+// TODO: Add Sentry integration in production
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -68,7 +69,7 @@ app.use(helmet());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://grants.etownz.com'] 
-    : ['http://localhost:3000'],
+    : ['http://localhost:3001'],
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));

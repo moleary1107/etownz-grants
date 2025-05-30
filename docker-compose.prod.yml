@@ -1,0 +1,105 @@
+services:
+  # Frontend - Next.js
+  frontend:
+    image: registry.digitalocean.com/etownz/frontend:latest
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://grants.etownz.com/api
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+
+  # Backend API
+  backend:
+    image: registry.digitalocean.com/etownz/backend:latest
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - DO_SPACES_KEY=${DO_SPACES_KEY}
+      - DO_SPACES_SECRET=${DO_SPACES_SECRET}
+      - DO_SPACES_ENDPOINT=${DO_SPACES_ENDPOINT}
+      - DO_SPACES_BUCKET=${DO_SPACES_BUCKET}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # Crawler Service
+  crawler:
+    image: registry.digitalocean.com/etownz/crawler:latest
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - CRAWL_ENABLED=${CRAWL_ENABLED}
+    depends_on:
+      - postgres
+      - rabbitmq
+    restart: unless-stopped
+
+  # AI Pipeline Service
+  ai-pipeline:
+    image: registry.digitalocean.com/etownz/ai-pipeline:latest
+    environment:
+      - NODE_ENV=production
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - RABBITMQ_URL=${RABBITMQ_URL}
+    depends_on:
+      - rabbitmq
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=etownz_grants
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # RabbitMQ Message Queue
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  default:
+    driver: bridge
