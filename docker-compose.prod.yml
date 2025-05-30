@@ -33,30 +33,54 @@ services:
       - redis
     restart: unless-stopped
 
-  # Crawler Service
-  crawler:
-    image: registry.digitalocean.com/etownz/crawler:latest
+  # MCP Documentation Server
+  mcp-docs:
+    image: registry.digitalocean.com/etownz/mcp-docs:latest
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
-      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-      - CRAWL_ENABLED=${CRAWL_ENABLED}
-    depends_on:
-      - postgres
-      - rabbitmq
+      - PROJECT_ROOT=/project
+    volumes:
+      - ./:/project
+    ports:
+      - "9000:9000"
     restart: unless-stopped
 
-  # AI Pipeline Service
-  ai-pipeline:
-    image: registry.digitalocean.com/etownz/ai-pipeline:latest
+  # MCP Fetch Server
+  mcp-fetch:
+    image: registry.digitalocean.com/etownz/mcp-fetch:latest
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "9001:9001"
+    restart: unless-stopped
+
+  # MCP Filesystem Server
+  mcp-filesystem:
+    image: registry.digitalocean.com/etownz/mcp-filesystem:latest
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./documents:/app/documents
+      - ./templates:/app/templates
+    ports:
+      - "9002:9002"
+    restart: unless-stopped
+
+  # MCP Document Processor
+  mcp-document-processor:
+    image: registry.digitalocean.com/etownz/mcp-document-processor:latest
     environment:
       - NODE_ENV=production
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - PINECONE_API_KEY=${PINECONE_API_KEY}
-      - RABBITMQ_URL=${RABBITMQ_URL}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./documents:/app/documents
+      - ./templates:/app/templates
+    ports:
+      - "9003:9003"
     depends_on:
-      - rabbitmq
+      - mcp-filesystem
     restart: unless-stopped
 
   # PostgreSQL Database
@@ -82,23 +106,9 @@ services:
       - "6379:6379"
     restart: unless-stopped
 
-  # RabbitMQ Message Queue
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    restart: unless-stopped
-
 volumes:
   postgres_data:
   redis_data:
-  rabbitmq_data:
 
 networks:
   default:
