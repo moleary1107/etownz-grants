@@ -125,35 +125,43 @@ jobs:
     strategy:
       matrix:
         service: [frontend, backend, crawler, ai-pipeline]
+        platform: [linux/amd64]
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Log in to Container Registry
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to DigitalOcean Container Registry
       uses: docker/login-action@v3
       with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        registry: registry.digitalocean.com
+        username: ${{ secrets.DO_REGISTRY_TOKEN }}
+        password: ${{ secrets.DO_REGISTRY_TOKEN }}
     
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}
+        images: registry.digitalocean.com/etownz-grants-container/${{ matrix.service }}
         tags: |
           type=ref,event=branch
           type=ref,event=pr
           type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
     
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: ./${{ matrix.service }}
         file: ./${{ matrix.service }}/Dockerfile.dev
+        platforms: ${{ matrix.platform }}
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
   # Deploy to staging (develop branch)
   deploy-staging:
@@ -168,14 +176,33 @@ jobs:
     - name: Deploy to DigitalOcean Staging
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.STAGING_HOST }}
-        username: ${{ secrets.STAGING_USER }}
-        key: ${{ secrets.STAGING_SSH_KEY }}
+        host: ${{ secrets.DO_STAGING_DROPLET_IP }}
+        username: root
+        key: ${{ secrets.DO_STAGING_SSH_KEY }}
         script: |
           cd /opt/etownz-grants-staging
           git pull origin develop
-          docker-compose -f docker-compose.staging.yml pull
-          docker-compose -f docker-compose.staging.yml up -d
+          
+          # Create environment file
+          cat > .env << EOF
+          DATABASE_URL=${{ secrets.STAGING_DATABASE_URL }}
+          REDIS_URL=${{ secrets.STAGING_REDIS_URL }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          FIRECRAWL_API_KEY=${{ secrets.FIRECRAWL_API_KEY }}
+          PINECONE_API_KEY=${{ secrets.PINECONE_API_KEY }}
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }}
+          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+          DO_SPACES_KEY=${{ secrets.DO_SPACES_KEY }}
+          DO_SPACES_SECRET=${{ secrets.DO_SPACES_SECRET }}
+          DO_SPACES_ENDPOINT=${{ secrets.DO_SPACES_ENDPOINT }}
+          DO_SPACES_BUCKET=${{ secrets.DO_SPACES_BUCKET }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          DO_STAGING_DROPLET_IP=${{ secrets.DO_STAGING_DROPLET_IP }}
+          EOF
+          
+          docker compose -f docker-compose.staging.yml pull
+          docker compose -f docker-compose.staging.yml up -d --force-recreate
           docker system prune -f
 
   # Deploy to production (main branch)
@@ -191,14 +218,32 @@ jobs:
     - name: Deploy to DigitalOcean Production
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.PRODUCTION_HOST }}
-        username: ${{ secrets.PRODUCTION_USER }}
-        key: ${{ secrets.PRODUCTION_SSH_KEY }}
+        host: ${{ secrets.DO_DROPLET_IP }}
+        username: root
+        key: ${{ secrets.DO_SSH_KEY }}
         script: |
-          cd /opt/etownz-grants
+          cd /root
           git pull origin main
-          docker-compose -f docker-compose.prod.yml pull
-          docker-compose -f docker-compose.prod.yml up -d
+          
+          # Create environment file
+          cat > .env << EOF
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          REDIS_URL=${{ secrets.REDIS_URL }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          FIRECRAWL_API_KEY=${{ secrets.FIRECRAWL_API_KEY }}
+          PINECONE_API_KEY=${{ secrets.PINECONE_API_KEY }}
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }}
+          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+          DO_SPACES_KEY=${{ secrets.DO_SPACES_KEY }}
+          DO_SPACES_SECRET=${{ secrets.DO_SPACES_SECRET }}
+          DO_SPACES_ENDPOINT=${{ secrets.DO_SPACES_ENDPOINT }}
+          DO_SPACES_BUCKET=${{ secrets.DO_SPACES_BUCKET }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          EOF
+          
+          docker compose -f docker-compose.prod.yml pull
+          docker compose -f docker-compose.prod.yml up -d --force-recreate
           docker system prune -f
 
   # Update documentation

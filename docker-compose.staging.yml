@@ -1,0 +1,115 @@
+services:
+  # Frontend - Next.js
+  frontend:
+    image: registry.digitalocean.com/etownz-grants-container/frontend:latest
+    environment:
+      - NODE_ENV=staging
+      - NEXT_PUBLIC_API_URL=http://${DO_STAGING_DROPLET_IP}:8000/api
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+
+  # Backend API
+  backend:
+    image: registry.digitalocean.com/etownz-grants-container/backend:latest
+    environment:
+      - NODE_ENV=staging
+      - DATABASE_URL=${STAGING_DATABASE_URL}
+      - REDIS_URL=${STAGING_REDIS_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - DO_SPACES_KEY=${DO_SPACES_KEY}
+      - DO_SPACES_SECRET=${DO_SPACES_SECRET}
+      - DO_SPACES_ENDPOINT=${DO_SPACES_ENDPOINT}
+      - DO_SPACES_BUCKET=${DO_SPACES_BUCKET}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  # MCP Documentation Server
+  mcp-docs:
+    image: registry.digitalocean.com/etownz-grants-container/mcp-docs:latest
+    environment:
+      - NODE_ENV=staging
+      - PROJECT_ROOT=/project
+    volumes:
+      - ./:/project
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+
+  # MCP Fetch Server
+  mcp-fetch:
+    image: registry.digitalocean.com/etownz-grants-container/mcp-fetch:latest
+    environment:
+      - NODE_ENV=staging
+    ports:
+      - "9001:9001"
+    restart: unless-stopped
+
+  # MCP Filesystem Server
+  mcp-filesystem:
+    image: registry.digitalocean.com/etownz-grants-container/mcp-filesystem:latest
+    environment:
+      - NODE_ENV=staging
+    volumes:
+      - ./uploads:/app/uploads
+      - ./documents:/app/documents
+      - ./templates:/app/templates
+    ports:
+      - "9002:9002"
+    restart: unless-stopped
+
+  # MCP Document Processor
+  mcp-document-processor:
+    image: registry.digitalocean.com/etownz-grants-container/mcp-document-processor:latest
+    environment:
+      - NODE_ENV=staging
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./documents:/app/documents
+      - ./templates:/app/templates
+    ports:
+      - "9003:9003"
+    depends_on:
+      - mcp-filesystem
+    restart: unless-stopped
+
+  # PostgreSQL Database (for staging - use same as prod for simplicity)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=etownz_grants_staging
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+      - ./infrastructure/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_staging_data:/data
+    ports:
+      - "6380:6379"  # Different port to avoid conflicts
+    restart: unless-stopped
+
+volumes:
+  postgres_staging_data:
+  redis_staging_data:
+
+networks:
+  default:
+    driver: bridge
