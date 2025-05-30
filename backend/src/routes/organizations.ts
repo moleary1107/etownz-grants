@@ -1,5 +1,5 @@
 import express from 'express';
-import { asyncHandler } from '@/middleware/errorHandler';
+import { asyncHandler } from '../middleware/errorHandler';
 
 const router = express.Router();
 

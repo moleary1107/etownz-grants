@@ -1,5 +1,5 @@
 import rateLimit from 'express-rate-limit';
-import { createError } from '@/middleware/errorHandler';
+import { createError } from './errorHandler';
 
 export const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

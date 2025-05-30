@@ -11,26 +11,14 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "declaration": true,
-    "declarationMap": true,
     "sourceMap": true,
-    "removeComments": true,
-    "noImplicitAny": false,
-    "baseUrl": "./src",
-    "paths": {
-      "@/*": ["*"],
-      "@/types/*": ["types/*"],
-      "@/services/*": ["services/*"],
-      "@/middleware/*": ["middleware/*"],
-      "@/models/*": ["models/*"],
-      "@/routes/*": ["routes/*"]
-    }
+    "baseUrl": "./src"
   },
   "include": [
     "src/**/*"
   ],
   "exclude": [
     "node_modules",
-    "dist",
-    "**/*.test.ts"
+    "dist"
   ]
 }

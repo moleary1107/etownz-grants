@@ -26,14 +26,22 @@ A comprehensive SaaS platform for automating the grant application lifecycle in 
 git clone https://github.com/yourusername/etownz_grants.git
 cd etownz_grants
 
-# Start all services with Docker
-docker-compose up -d
+# Quick start (recommended)
+./scripts/dev-start.sh
 
-# Install frontend dependencies
-cd frontend
-npm install
-npm run dev
+# OR manual setup
+cp .env.example .env
+docker-compose up -d
 ```
+
+## 📡 Service URLs
+
+- **Frontend**: http://localhost:3001
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **Crawler Service**: http://localhost:8001  
+- **AI Pipeline**: http://localhost:8002
+- **MCP Documentation**: http://localhost:9000
 
 ## 📁 Project Structure
 

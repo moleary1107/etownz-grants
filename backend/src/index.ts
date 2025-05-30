@@ -5,17 +5,17 @@ import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 
-import { errorHandler } from '@/middleware/errorHandler';
-import { rateLimiter } from '@/middleware/rateLimiter';
-import { logger } from '@/services/logger';
+import { errorHandler } from './middleware/errorHandler';
+import { rateLimiter } from './middleware/rateLimiter';
+import { logger } from './services/logger';
 
 // Import routes
-import authRoutes from '@/routes/auth';
-import grantsRoutes from '@/routes/grants';
-import organizationsRoutes from '@/routes/organizations';
-import submissionsRoutes from '@/routes/submissions';
-import documentsRoutes from '@/routes/documents';
-import usageRoutes from '@/routes/usage';
+import authRoutes from './routes/auth';
+import grantsRoutes from './routes/grants';
+import organizationsRoutes from './routes/organizations';
+import submissionsRoutes from './routes/submissions';
+import documentsRoutes from './routes/documents';
+import usageRoutes from './routes/usage';
 
 dotenv.config();
 
