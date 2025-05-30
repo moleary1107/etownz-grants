@@ -1,0 +1,24 @@
+{
+  "name": "@modelcontextprotocol/server-fetch",
+  "version": "0.6.1",
+  "description": "MCP server for web content fetching and conversion",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.0.2",
+    "jsdom": "^25.0.1",
+    "node-fetch": "^3.3.2",
+    "robots-parser": "^3.0.1",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "@types/turndown": "^5.0.5",
+    "@types/node": "^20.11.17",
+    "typescript": "^5.6.3"
+  }
+}

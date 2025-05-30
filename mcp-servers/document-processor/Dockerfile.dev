@@ -1,0 +1,35 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install system dependencies for image processing
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    giflib-dev
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Build the project
+RUN npm run build
+
+# Create necessary directories
+RUN mkdir -p /app/documents /app/uploads /app/templates /tmp/processing
+
+# Expose port
+EXPOSE 9003
+
+# Start development server
+CMD ["npm", "start"]

@@ -86,6 +86,54 @@ services:
     ports:
       - "9000:9000"
 
+  # MCP Fetch Server - Web scraping for grants
+  mcp-fetch:
+    build:
+      context: ./mcp-servers/fetch
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./mcp-servers/fetch:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    ports:
+      - "9001:9001"
+
+  # MCP Filesystem Server - Document management
+  mcp-filesystem:
+    build:
+      context: ./mcp-servers/filesystem
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./mcp-servers/filesystem:/app
+      - ./uploads:/app/uploads
+      - ./documents:/app/documents
+      - ./templates:/app/templates
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    ports:
+      - "9002:9002"
+
+  # MCP Document Processor - PDF/DOCX to JSON conversion with AI
+  mcp-document-processor:
+    build:
+      context: ./mcp-servers/document-processor
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./mcp-servers/document-processor:/app
+      - ./uploads:/app/uploads
+      - ./documents:/app/documents
+      - ./templates:/app/templates
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    ports:
+      - "9003:9003"
+    depends_on:
+      - mcp-filesystem
+
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine

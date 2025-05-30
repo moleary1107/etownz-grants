@@ -15,6 +15,7 @@ import organizationsRoutes from './routes/organizations';
 import submissionsRoutes from './routes/submissions';
 import documentsRoutes from './routes/documents';
 import usageRoutes from './routes/usage';
+import applicationsRoutes from './routes/applications';
 
 dotenv.config();
 
@@ -99,6 +100,7 @@ app.use('/organizations', organizationsRoutes);
 app.use('/submissions', submissionsRoutes);
 app.use('/documents', documentsRoutes);
 app.use('/usage', usageRoutes);
+app.use('/applications', applicationsRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

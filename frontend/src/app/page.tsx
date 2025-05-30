@@ -1,103 +1,241 @@
-import Image from "next/image";
+import Link from "next/link"
+import { Button } from "../components/ui/button"
+import { 
+  Search, 
+  FileText, 
+  Clock, 
+  CheckCircle, 
+  TrendingUp, 
+  Users, 
+  Globe,
+  Shield,
+  Zap,
+  ArrowRight
+} from "lucide-react"
 
-export default function Home() {
+export default function LandingPage() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+      {/* Header */}
+      <header className="container mx-auto px-4 py-6">
+        <nav className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Globe className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-bold text-gray-900">eTownz Grants</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Link href="/auth/login">
+              <Button variant="ghost">Sign In</Button>
+            </Link>
+            <Link href="/auth/register">
+              <Button>Get Started</Button>
+            </Link>
+          </div>
+        </nav>
+      </header>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {/* Hero Section */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="text-center max-w-4xl mx-auto">
+          <h1 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
+            Discover & Apply for Grants in Ireland
+            <span className="text-blue-600"> 10x Faster</span>
+          </h1>
+          <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+            Stop wasting time searching through countless websites. Our AI-powered platform automatically discovers relevant grants, 
+            tracks deadlines, and helps you submit winning applications.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/auth/register">
+              <Button size="lg" className="text-lg px-8 py-4">
+                Start Free Trial
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+            </Link>
+            <Link href="#how-it-works">
+              <Button variant="outline" size="lg" className="text-lg px-8 py-4">
+                See How It Works
+              </Button>
+            </Link>
+          </div>
+          <p className="text-sm text-gray-500 mt-4">No credit card required • 14-day free trial</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      </section>
+
+      {/* Stats Section */}
+      <section className="container mx-auto px-4 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
+          {[
+            { number: "500+", label: "Active Grants Tracked" },
+            { number: "95%", label: "Time Saved on Discovery" },
+            { number: "€50M+", label: "Funding Secured" },
+            { number: "1,200+", label: "Irish Organizations" }
+          ].map((stat, index) => (
+            <div key={index} className="p-6">
+              <div className="text-3xl font-bold text-blue-600 mb-2">{stat.number}</div>
+              <div className="text-gray-600">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section id="how-it-works" className="bg-white py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">How eTownz Grants Works</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              Our platform automates the entire grant discovery and application process, saving you weeks of manual work.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: Search,
+                title: "AI-Powered Discovery",
+                description: "Our system automatically scans 500+ Irish grant sources daily, finding opportunities that match your organization's profile and needs."
+              },
+              {
+                icon: FileText,
+                title: "Smart Application Builder",
+                description: "Generate professional grant applications using our AI templates. Reuse content across applications and maintain consistency."
+              },
+              {
+                icon: Clock,
+                title: "Deadline Management",
+                description: "Never miss another deadline. Get automated reminders, track application progress, and manage your grant portfolio in one place."
+              }
+            ].map((step, index) => (
+              <div key={index} className="text-center p-6">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <step.icon className="w-8 h-8 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">{step.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Benefits Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Irish Organizations Choose Us</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[
+              {
+                icon: Zap,
+                title: "Save 95% of Research Time",
+                description: "Stop manually searching through Enterprise Ireland, SFI, councils, and EU sources. We do it automatically."
+              },
+              {
+                icon: TrendingUp,
+                title: "Higher Success Rates",
+                description: "Our AI analyzes successful applications to help you write more compelling proposals with better outcomes."
+              },
+              {
+                icon: Users,
+                title: "Team Collaboration",
+                description: "Multiple team members can collaborate on applications with role-based permissions and approval workflows."
+              },
+              {
+                icon: CheckCircle,
+                title: "Compliance Tracking",
+                description: "Ensure all applications meet requirements with automated compliance checks and document validation."
+              },
+              {
+                icon: Shield,
+                title: "Secure & Compliant",
+                description: "Bank-level security with GDPR compliance. Your sensitive data is protected with enterprise-grade encryption."
+              },
+              {
+                icon: Globe,
+                title: "Ireland-Focused",
+                description: "Covers all major Irish funding sources: government, local councils, EU programs, and private foundations."
+              }
+            ].map((benefit, index) => (
+              <div key={index} className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                  <benefit.icon className="w-6 h-6 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">{benefit.title}</h3>
+                <p className="text-gray-600">{benefit.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="bg-blue-600 py-20">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold text-white mb-4">
+            Ready to Transform Your Grant Process?
+          </h2>
+          <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
+            Join over 1,200 Irish organizations that have already secured €50M+ in funding using our platform.
+          </p>
+          <Link href="/auth/register">
+            <Button size="lg" variant="secondary" className="text-lg px-8 py-4">
+              Start Your Free Trial
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-50 py-12">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div>
+              <div className="flex items-center space-x-2 mb-4">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <Globe className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-xl font-bold text-gray-900">eTownz Grants</span>
+              </div>
+              <p className="text-gray-600">
+                AI-powered grant discovery and application platform for Irish organizations.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-4">Product</h4>
+              <ul className="space-y-2 text-gray-600">
+                <li><Link href="#" className="hover:text-blue-600">Features</Link></li>
+                <li><Link href="#" className="hover:text-blue-600">Pricing</Link></li>
+                <li><Link href="#" className="hover:text-blue-600">API</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-4">Support</h4>
+              <ul className="space-y-2 text-gray-600">
+                <li><Link href="#" className="hover:text-blue-600">Help Center</Link></li>
+                <li><Link href="#" className="hover:text-blue-600">Contact</Link></li>
+                <li><Link href="#" className="hover:text-blue-600">Status</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-4">Company</h4>
+              <ul className="space-y-2 text-gray-600">
+                <li><Link href="#" className="hover:text-blue-600">About</Link></li>
+                <li><Link href="#" className="hover:text-blue-600">Privacy</Link></li>
+                <li><Link href="#" className="hover:text-blue-600">Terms</Link></li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-gray-200 mt-8 pt-8 text-center text-gray-600">
+            <p>&copy; 2024 eTownz Grants. All rights reserved.</p>
+          </div>
+        </div>
       </footer>
     </div>
-  );
+  )
 }

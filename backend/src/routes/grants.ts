@@ -1,5 +1,6 @@
 import express from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
+import { DEMO_GRANTS } from '../data/demoUsers';
 
 const router = express.Router();
 
@@ -159,29 +160,68 @@ const router = express.Router();
  *                       type: integer
  */
 router.get('/', asyncHandler(async (req, res) => {
-  // TODO: Implement grants listing with filters
-  const { page = 1, limit = 20, search, funder, categories } = req.query;
+  const { page = 1, limit = 20, search, funder, category, provider } = req.query;
   
+  let filteredGrants = [...DEMO_GRANTS];
+
+  // Apply search filter
+  if (search && typeof search === 'string') {
+    const searchLower = search.toLowerCase();
+    filteredGrants = filteredGrants.filter(grant =>
+      grant.title.toLowerCase().includes(searchLower) ||
+      grant.description.toLowerCase().includes(searchLower) ||
+      grant.provider.toLowerCase().includes(searchLower)
+    );
+  }
+
+  // Apply provider filter
+  if (provider && typeof provider === 'string' && provider !== 'all') {
+    filteredGrants = filteredGrants.filter(grant => grant.providerType === provider);
+  }
+
+  // Apply category filter
+  if (category && typeof category === 'string' && category !== 'all') {
+    filteredGrants = filteredGrants.filter(grant => grant.category === category);
+  }
+
+  // Apply funder filter
+  if (funder && typeof funder === 'string') {
+    filteredGrants = filteredGrants.filter(grant =>
+      grant.provider.toLowerCase().includes(funder.toLowerCase())
+    );
+  }
+
+  // Pagination
+  const pageNum = Number(page);
+  const limitNum = Number(limit);
+  const startIndex = (pageNum - 1) * limitNum;
+  const endIndex = startIndex + limitNum;
+  const paginatedGrants = filteredGrants.slice(startIndex, endIndex);
+
+  // Transform to frontend format
+  const grantsResponse = paginatedGrants.map(grant => ({
+    id: grant.id,
+    title: grant.title,
+    description: grant.description,
+    provider: grant.provider,
+    providerType: grant.providerType,
+    amount: grant.amount,
+    deadline: grant.deadline,
+    location: grant.location,
+    eligibility: grant.eligibility,
+    category: grant.category,
+    url: grant.url,
+    isFavorite: false, // TODO: Implement user favorites
+    matchScore: Math.floor(Math.random() * 30) + 70 // Mock match score
+  }));
+
   res.json({
-    grants: [
-      {
-        id: '123e4567-e89b-12d3-a456-426614174000',
-        title: 'Enterprise Ireland Innovation Grant',
-        description: 'Funding for innovative technology projects',
-        deadline: '2024-12-31T23:59:59Z',
-        funder: 'Enterprise Ireland',
-        amountMin: 25000,
-        amountMax: 500000,
-        currency: 'EUR',
-        categories: ['technology', 'innovation'],
-        isActive: true
-      }
-    ],
+    grants: grantsResponse,
     pagination: {
-      page: Number(page),
-      limit: Number(limit),
-      total: 1,
-      pages: 1
+      page: pageNum,
+      limit: limitNum,
+      total: filteredGrants.length,
+      pages: Math.ceil(filteredGrants.length / limitNum)
     }
   });
 }));

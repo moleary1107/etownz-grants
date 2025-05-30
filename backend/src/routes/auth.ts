@@ -1,5 +1,7 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { asyncHandler } from '../middleware/errorHandler';
+import { DEMO_USERS, DEMO_ORGANIZATIONS } from '../data/demoUsers';
 
 const router = express.Router();
 
@@ -147,11 +149,57 @@ router.post('/register', asyncHandler(async (req, res) => {
  *         description: Invalid credentials
  */
 router.post('/login', asyncHandler(async (req, res) => {
-  // TODO: Implement user authentication
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required' });
+  }
+
+  // Find user in demo data
+  const user = DEMO_USERS.find(u => u.email === email && u.password === password);
+  
+  if (!user) {
+    return res.status(401).json({ message: 'Invalid email or password' });
+  }
+
+  // Get organization data if user belongs to one
+  const organization = user.organizationId 
+    ? DEMO_ORGANIZATIONS.find(org => org.id === user.organizationId)
+    : null;
+
+  // Generate JWT token
+  const token = jwt.sign(
+    { userId: user.id, email: user.email, role: user.role },
+    process.env.JWT_SECRET || 'demo_secret_key',
+    { expiresIn: '24h' }
+  );
+
+  // Update last login
+  user.lastLogin = new Date();
+
+  const userResponse = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    organizationId: user.organizationId,
+    avatar: user.avatar,
+    verified: user.verified,
+    lastLogin: user.lastLogin
+  };
+
   res.json({
     message: 'Login successful',
-    user: { id: '123', email: req.body.email },
-    token: 'jwt_token_here'
+    user: userResponse,
+    organization: organization ? {
+      id: organization.id,
+      name: organization.name,
+      description: organization.description,
+      location: organization.location,
+      sector: organization.sector,
+      verified: organization.verified
+    } : null,
+    token
   });
 }));
 

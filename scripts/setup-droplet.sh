@@ -7,7 +7,9 @@ echo "🔧 Setting up DigitalOcean Droplet for eTownz Grants..."
 
 # Load environment variables
 if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
+    set -a
+    source .env
+    set +a
 fi
 
 if [ -z "$DO_DROPLET_IP" ]; then
