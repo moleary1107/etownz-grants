@@ -38,38 +38,6 @@ services:
       - postgres
       - redis
 
-  # Crawler Service
-  crawler:
-    build:
-      context: ./crawler
-      dockerfile: Dockerfile.dev
-    volumes:
-      - ./crawler:/app
-      - /app/node_modules
-    environment:
-      - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/etownz_grants
-      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-    depends_on:
-      - postgres
-      - rabbitmq
-
-  # AI Pipeline Service
-  ai-pipeline:
-    build:
-      context: ./ai-pipeline
-      dockerfile: Dockerfile.dev
-    volumes:
-      - ./ai-pipeline:/app
-      - /app/node_modules
-    environment:
-      - NODE_ENV=development
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - PINECONE_API_KEY=${PINECONE_API_KEY}
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-    depends_on:
-      - rabbitmq
 
   # MCP Documentation Server
   mcp-docs:
@@ -155,17 +123,6 @@ services:
     volumes:
       - redis_data:/data
 
-  # RabbitMQ Message Queue
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
 
   # Nginx Load Balancer
   nginx:
@@ -181,7 +138,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  rabbitmq_data:
 
 networks:
   default:
