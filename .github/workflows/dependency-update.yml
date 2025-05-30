@@ -1,0 +1,61 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Update root dependencies
+      run: |
+        npm update
+        npm audit fix --audit-level=moderate
+    
+    - name: Update frontend dependencies
+      working-directory: ./frontend
+      run: |
+        npm update
+        npm audit fix --audit-level=moderate
+    
+    - name: Update backend dependencies
+      working-directory: ./backend
+      run: |
+        npm update
+        npm audit fix --audit-level=moderate
+    
+    - name: Update MCP server dependencies
+      working-directory: ./mcp-servers/documentation
+      run: |
+        npm update
+        npm audit fix --audit-level=moderate
+    
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore: update dependencies'
+        title: 'Automated Dependency Updates'
+        body: |
+          This PR updates npm dependencies to their latest versions.
+          
+          Changes include:
+          - Updated npm packages to latest compatible versions
+          - Fixed security vulnerabilities with npm audit
+          
+          Please review the changes and run tests before merging.
+        branch: automated/dependency-updates
+        delete-branch: true
