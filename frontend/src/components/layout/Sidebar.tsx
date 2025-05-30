@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useState } from "react"
 import { 
   LayoutDashboard, 
   Search, 
@@ -12,7 +13,9 @@ import {
   BarChart3, 
   Clock,
   Globe,
-  LogOut
+  LogOut,
+  Menu,
+  X
 } from "lucide-react"
 import { Button } from "../ui/button"
 import { UserRole, hasPermission, User } from "../../lib/auth"
@@ -24,6 +27,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ user, onLogout }: SidebarProps) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
 
   const navigationItems = [
@@ -71,8 +75,8 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
     }
   ].filter(item => !item.permission || hasPermission(user, item.permission as keyof typeof import("../../lib/auth").ROLE_PERMISSIONS[keyof typeof import("../../lib/auth").ROLE_PERMISSIONS]))
 
-  return (
-    <div className="flex h-full w-64 flex-col bg-white border-r border-gray-200">
+  const SidebarContent = () => (
+    <>
       {/* Logo */}
       <div className="flex items-center px-6 py-4 border-b border-gray-200">
         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
@@ -116,6 +120,7 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
               )}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               <item.icon
                 className={cn(
@@ -139,6 +144,7 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
               ? "bg-blue-100 text-blue-700"
               : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
           )}
+          onClick={() => setIsMobileMenuOpen(false)}
         >
           <Settings className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
           Settings
@@ -147,12 +153,59 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
         <Button
           variant="ghost"
           className="w-full justify-start text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-          onClick={onLogout}
+          onClick={() => {
+            setIsMobileMenuOpen(false)
+            onLogout()
+          }}
         >
           <LogOut className="mr-3 h-5 w-5 text-gray-400" />
           Sign Out
         </Button>
       </div>
-    </div>
+    </>
+  )
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex h-full w-64 flex-col bg-white border-r border-gray-200">
+        <SidebarContent />
+      </div>
+
+      {/* Mobile Header */}
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <div className="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center">
+            <Globe className="w-4 h-4 text-white" />
+          </div>
+          <span className="text-lg font-bold text-gray-900">eTownz Grants</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2"
+        >
+          {isMobileMenuOpen ? (
+            <X className="h-5 w-5" />
+          ) : (
+            <Menu className="h-5 w-5" />
+          )}
+        </Button>
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <div className="relative flex w-64 flex-col bg-white">
+            <SidebarContent />
+          </div>
+        </div>
+      )}
+    </>
   )
 }

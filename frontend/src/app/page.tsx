@@ -17,50 +17,51 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       {/* Header */}
-      <header className="container mx-auto px-4 py-6">
+      <header className="container mx-auto px-4 py-4 sm:py-6">
         <nav className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <Globe className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-gray-900">eTownz Grants</span>
+            <span className="text-lg sm:text-xl font-bold text-gray-900">eTownz Grants</span>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             <Link href="/auth/login">
-              <Button variant="ghost">Sign In</Button>
+              <Button variant="ghost" size="sm" className="hidden sm:inline-flex">Sign In</Button>
+              <Button variant="ghost" size="sm" className="sm:hidden px-2">Sign In</Button>
             </Link>
             <Link href="/auth/register">
-              <Button>Get Started</Button>
+              <Button size="sm" className="text-sm px-3 sm:px-4">Get Started</Button>
             </Link>
           </div>
         </nav>
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20">
+      <section className="container mx-auto px-4 py-12 sm:py-20">
         <div className="text-center max-w-4xl mx-auto">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight">
             Discover & Apply for Grants in Ireland
-            <span className="text-blue-600"> 10x Faster</span>
+            <span className="text-blue-600 block sm:inline"> 10x Faster</span>
           </h1>
-          <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+          <p className="text-lg sm:text-xl text-gray-600 mb-6 sm:mb-8 leading-relaxed px-2">
             Stop wasting time searching through countless websites. Our AI-powered platform automatically discovers relevant grants, 
             tracks deadlines, and helps you submit winning applications.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/auth/register">
-              <Button size="lg" className="text-lg px-8 py-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center max-w-md sm:max-w-none mx-auto">
+            <Link href="/auth/register" className="w-full sm:w-auto">
+              <Button size="lg" className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4">
                 Start Free Trial
-                <ArrowRight className="ml-2 w-5 h-5" />
+                <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
             </Link>
-            <Link href="#how-it-works">
-              <Button variant="outline" size="lg" className="text-lg px-8 py-4">
+            <Link href="#how-it-works" className="w-full sm:w-auto">
+              <Button variant="outline" size="lg" className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4">
                 See How It Works
               </Button>
             </Link>
           </div>
-          <p className="text-sm text-gray-500 mt-4">No credit card required • 14-day free trial</p>
+          <p className="text-sm text-gray-500 mt-4 px-4">No credit card required • 14-day free trial</p>
         </div>
       </section>
 

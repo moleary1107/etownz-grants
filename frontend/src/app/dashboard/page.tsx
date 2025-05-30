@@ -139,28 +139,28 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex flex-col lg:flex-row h-screen bg-gray-50">
       <Sidebar user={user} onLogout={handleLogout} />
       
       <div className="flex-1 overflow-auto">
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">
+          <div className="mb-6 lg:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               Welcome back, {user.name.split(' ')[0]}
             </h1>
             <p className="text-gray-600 mt-2">{getWelcomeMessage()}</p>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 lg:mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Grants</CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Total Grants</CardTitle>
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.totalGrants}</div>
+                <div className="text-lg sm:text-2xl font-bold">{stats.totalGrants}</div>
                 <p className="text-xs text-muted-foreground">
                   Available opportunities
                 </p>
@@ -169,11 +169,11 @@ export default function DashboardPage() {
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Applications</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Active Applications</CardTitle>
+                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.activeApplications}</div>
+                <div className="text-lg sm:text-2xl font-bold">{stats.activeApplications}</div>
                 <p className="text-xs text-muted-foreground">
                   In progress
                 </p>
@@ -182,11 +182,11 @@ export default function DashboardPage() {
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Upcoming Deadlines</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Upcoming Deadlines</CardTitle>
+                <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-600">{stats.upcomingDeadlines}</div>
+                <div className="text-lg sm:text-2xl font-bold text-orange-600">{stats.upcomingDeadlines}</div>
                 <p className="text-xs text-muted-foreground">
                   Next 30 days
                 </p>
@@ -195,11 +195,11 @@ export default function DashboardPage() {
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Funding Secured</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Funding Secured</CardTitle>
+                <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-lg sm:text-2xl font-bold text-green-600">
                   €{stats.fundingSecured.toLocaleString()}
                 </div>
                 <p className="text-xs text-muted-foreground">
