@@ -20,11 +20,13 @@ import {
   Eye
 } from "lucide-react"
 import { User, hasPermission } from "../../../lib/auth"
+import { generateSlug } from "../../../lib/utils"
 
 interface Application {
   id: string
   grantTitle: string
   grantProvider: string
+  project_title?: string
   amount: number
   currency: string
   status: 'draft' | 'submitted' | 'under_review' | 'approved' | 'rejected'
@@ -392,7 +394,7 @@ export default function ApplicationsPage() {
                         variant="outline" 
                         size="sm" 
                         className="flex-1"
-                        onClick={() => router.push(`/dashboard/applications/${application.id}`)}
+                        onClick={() => router.push(`/dashboard/applications/${generateSlug(application.project_title || application.grantTitle)}`)}
                       >
                         <Eye className="h-4 w-4 mr-1" />
                         View
@@ -401,7 +403,7 @@ export default function ApplicationsPage() {
                       {canEditApplication(application) && (
                         <Button 
                           size="sm"
-                          onClick={() => router.push(`/dashboard/applications/${application.id}/edit`)}
+                          onClick={() => router.push(`/dashboard/applications/${generateSlug(application.project_title || application.grantTitle)}/edit`)}
                         >
                           <Edit className="h-4 w-4 mr-1" />
                           Edit

@@ -14,6 +14,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import { User as AuthUser, hasPermission } from "../../../../../lib/auth"
+import { generateSlug } from "../../../../../lib/utils"
 
 interface Application {
   id: string
@@ -57,7 +58,7 @@ export default function EditApplicationPage() {
   const [hasChanges, setHasChanges] = useState(false)
   const router = useRouter()
   const params = useParams()
-  const applicationId = params.id as string
+  const applicationSlug = params.slug as string
 
   useEffect(() => {
     // Check authentication
@@ -84,7 +85,7 @@ export default function EditApplicationPage() {
       console.error('Error parsing user data:', error)
       router.push('/auth/login')
     }
-  }, [router, applicationId])
+  }, [router, applicationSlug])
 
   const loadApplication = async () => {
     try {
@@ -93,7 +94,7 @@ export default function EditApplicationPage() {
       
       // Mock data for editing - in production this would be an API call
       const mockApplications: Record<string, Application> = {
-        '3': {
+        'sfi-discover-programme-application': {
           id: '3',
           grant_id: 'grant-sfi-discover-003',
           project_title: 'SFI Discover Programme Application',
@@ -151,7 +152,7 @@ export default function EditApplicationPage() {
         }
       }
 
-      const app = mockApplications[applicationId]
+      const app = mockApplications[applicationSlug]
       if (!app) {
         setError('Application not found')
         return
@@ -159,7 +160,7 @@ export default function EditApplicationPage() {
 
       // Only allow editing if it's a draft
       if (app.status !== 'draft') {
-        router.push(`/dashboard/applications/${applicationId}`)
+        router.push(`/dashboard/applications/${applicationSlug}`)
         return
       }
 

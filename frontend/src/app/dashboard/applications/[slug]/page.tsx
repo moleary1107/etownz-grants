@@ -23,6 +23,7 @@ import {
   TrendingUp
 } from "lucide-react"
 import { User as AuthUser, hasPermission } from "../../../../lib/auth"
+import { generateSlug } from "../../../../lib/utils"
 
 interface Application {
   id: string
@@ -79,7 +80,7 @@ export default function ApplicationDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const params = useParams()
-  const applicationId = params.id as string
+  const applicationSlug = params.slug as string
 
   useEffect(() => {
     // Check authentication
@@ -99,19 +100,19 @@ export default function ApplicationDetailPage() {
       console.error('Error parsing user data:', error)
       router.push('/auth/login')
     }
-  }, [router, applicationId])
+  }, [router, applicationSlug])
 
   const loadApplication = async () => {
     try {
       setIsLoading(true)
       setError(null)
       
-      // For now, use mock data based on ID
+      // For now, use mock data based on slug
       // In production, this would be an API call: 
-      // const response = await fetch(`/api/applications/${applicationId}`)
+      // const response = await fetch(`/api/applications/by-slug/${applicationSlug}`)
       
       const mockApplications: Record<string, Application> = {
-        '1': {
+        'ai-powered-environmental-monitoring-system': {
           id: '1',
           grant_id: 'grant-ei-rd-001',
           project_title: 'AI-Powered Environmental Monitoring System',
@@ -180,7 +181,7 @@ export default function ApplicationDetailPage() {
             sustainability_plan: 'The system will be maintained through a combination of user subscriptions and licensing to other organizations. A dedicated support team will be established using revenue from the first year of operations.'
           }
         },
-        '2': {
+        'community-digital-hub-initiative': {
           id: '2',
           grant_id: 'grant-dcc-community-002',
           project_title: 'Community Digital Hub Initiative',
@@ -246,7 +247,7 @@ export default function ApplicationDetailPage() {
         }
       }
 
-      const app = mockApplications[applicationId]
+      const app = mockApplications[applicationSlug]
       if (!app) {
         setError('Application not found')
         return
@@ -412,7 +413,7 @@ export default function ApplicationDetailPage() {
             
             <div className="flex space-x-3">
               {application.status === 'draft' && hasPermission(user, 'canSubmitApplications') && (
-                <Button onClick={() => router.push(`/dashboard/applications/${application.id}/edit`)}>
+                <Button onClick={() => router.push(`/dashboard/applications/${generateSlug(application.project_title)}/edit`)}>
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Application
                 </Button>
