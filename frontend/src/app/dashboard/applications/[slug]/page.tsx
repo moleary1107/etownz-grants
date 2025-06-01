@@ -244,6 +244,124 @@ export default function ApplicationDetailPage() {
             ],
             sustainability_plan: 'Long-term sustainability through a combination of ongoing grants, corporate sponsorships, and modest participant fees for advanced courses.'
           }
+        },
+        'eic-accelerator-breakthrough-innovation': {
+          id: '4',
+          grant_id: 'grant-eic-accel-004',
+          project_title: 'EIC Accelerator Breakthrough Innovation',
+          project_description: 'Revolutionary cleantech solution for carbon capture using novel materials and AI optimization.',
+          requested_amount: 1500000,
+          project_duration: 24,
+          status: 'under_review',
+          created_at: '2024-01-10T10:00:00Z',
+          updated_at: '2024-01-10T14:30:00Z',
+          submitted_at: '2024-01-10T14:30:00Z',
+          application_data: {
+            team_size: 12,
+            technical_approach: 'Breakthrough technology combining advanced materials science with AI-driven process optimization.',
+            expected_outcomes: [
+              'Market-ready carbon capture technology',
+              'Patent portfolio development',
+              'Strategic partnerships with major corporations',
+              'Commercial deployment pilot projects'
+            ],
+            budget_breakdown: {
+              personnel: 800000,
+              equipment: 400000,
+              operations: 200000,
+              other: 100000
+            },
+            timeline: [
+              {
+                phase: 'Technology Development',
+                duration: 8,
+                deliverables: ['Prototype development', 'Performance validation', 'Patent filing']
+              },
+              {
+                phase: 'Pilot Testing',
+                duration: 8,
+                deliverables: ['Field trials', 'Commercial partnerships', 'Scale-up planning']
+              },
+              {
+                phase: 'Market Entry',
+                duration: 8,
+                deliverables: ['Commercial launch', 'Customer acquisition', 'Growth planning']
+              }
+            ],
+            risk_assessment: [
+              {
+                risk: 'Technical complexity may lead to development delays',
+                impact: 'Extended timeline and increased costs',
+                mitigation: 'Experienced technical team and milestone-based development'
+              }
+            ],
+            success_metrics: [
+              'Technology performance targets achieved',
+              'Commercial partnerships secured',
+              'Patent protection established',
+              'Revenue generation initiated'
+            ],
+            sustainability_plan: 'Commercial revenue model with licensing and direct sales to ensure long-term sustainability.'
+          }
+        },
+        'local-enterprise-innovation-initiative': {
+          id: '5',
+          grant_id: 'grant-leo-innov-005',
+          project_title: 'Local Enterprise Innovation Initiative',
+          project_description: 'Supporting local businesses through innovation workshops and mentorship programs.',
+          requested_amount: 12000,
+          project_duration: 6,
+          status: 'rejected',
+          created_at: '2024-01-05T10:00:00Z',
+          updated_at: '2024-02-15T14:30:00Z',
+          submitted_at: '2024-01-05T14:30:00Z',
+          application_data: {
+            team_size: 3,
+            technical_approach: 'Community-based approach focusing on practical innovation support for local businesses.',
+            expected_outcomes: [
+              'Support 20+ local businesses',
+              'Deliver innovation workshops',
+              'Establish mentorship network',
+              'Create business development resources'
+            ],
+            budget_breakdown: {
+              personnel: 8000,
+              equipment: 2000,
+              operations: 1500,
+              other: 500
+            },
+            timeline: [
+              {
+                phase: 'Program Setup',
+                duration: 1,
+                deliverables: ['Program design', 'Partner recruitment', 'Resource development']
+              },
+              {
+                phase: 'Workshop Delivery',
+                duration: 4,
+                deliverables: ['Innovation workshops', 'Mentorship matching', 'Business support']
+              },
+              {
+                phase: 'Evaluation',
+                duration: 1,
+                deliverables: ['Impact assessment', 'Final report', 'Recommendations']
+              }
+            ],
+            risk_assessment: [
+              {
+                risk: 'Low business participation',
+                impact: 'Reduced program effectiveness',
+                mitigation: 'Strong marketing and incentive programs'
+              }
+            ],
+            success_metrics: [
+              'Minimum 20 businesses engaged',
+              'Workshop completion rate of 80%',
+              'Positive feedback scores',
+              'Measurable business improvements'
+            ],
+            sustainability_plan: 'Partnership model with local organizations for ongoing program continuation.'
+          }
         }
       }
 
