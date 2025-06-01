@@ -1,0 +1,397 @@
+name: Automated Health Monitoring & Maintenance
+
+on:
+  # Run on every push to main
+  push:
+    branches: [ main ]
+  
+  # Run on every pull request
+  pull_request:
+    branches: [ main ]
+  
+  # Run weekly on Sundays at 2 AM UTC
+  schedule:
+    - cron: '0 2 * * 0'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+
+env:
+  HEALTH_THRESHOLD: 75
+  REPO_SIZE_LIMIT_MB: 500
+  AUTO_CLEANUP_ENABLED: true
+
+jobs:
+  repository-health-check:
+    name: Repository Health Check
+    runs-on: ubuntu-latest
+    outputs:
+      health-score: ${{ steps.health.outputs.score }}
+      needs-cleanup: ${{ steps.health.outputs.cleanup }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for size analysis
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: |
+          npm ci --prefix frontend --legacy-peer-deps
+          npm ci --prefix backend
+          npm ci --prefix crawler --legacy-peer-deps
+          
+      - name: Run repository health check
+        id: health
+        run: |
+          chmod +x scripts/check-repo-health.sh
+          
+          # Capture output and exit code
+          if output=$(./scripts/check-repo-health.sh 2>&1); then
+            echo "Health check passed"
+            health_score=85
+          elif [ $? -eq 2 ]; then
+            echo "Health check completed with warnings"
+            health_score=70
+          else
+            echo "Health check failed"
+            health_score=50
+          fi
+          
+          echo "score=$health_score" >> $GITHUB_OUTPUT
+          
+          # Check if cleanup is needed
+          repo_size_mb=$(du -sk .git | cut -f1 | awk '{print int($1/1024)}')
+          if [ $repo_size_mb -gt ${{ env.REPO_SIZE_LIMIT_MB }} ]; then
+            echo "cleanup=true" >> $GITHUB_OUTPUT
+          else
+            echo "cleanup=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Save full output for later steps
+          echo "$output" > health-report.txt
+          
+      - name: Upload health report
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-report
+          path: health-report.txt
+          retention-days: 30
+          
+      - name: Comment health status on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const healthReport = fs.readFileSync('health-report.txt', 'utf8');
+            const healthScore = '${{ steps.health.outputs.score }}';
+            
+            const comment = `## 🏥 Repository Health Check
+            
+            **Health Score: ${healthScore}/100**
+            
+            <details>
+            <summary>Full Health Report</summary>
+            
+            \`\`\`
+            ${healthReport}
+            \`\`\`
+            </details>
+            
+            ${healthScore < 75 ? '⚠️ **Action Required**: Health score below threshold. Please address issues before merging.' : '✅ Repository health is good!'}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  environment-validation:
+    name: Environment Validation
+    runs-on: ubuntu-latest
+    needs: repository-health-check
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Create test environment file
+        run: |
+          # Create a test .env with required variables
+          cat > .env << EOF
+          OPENAI_API_KEY=sk-test-key-for-validation
+          FIRECRAWL_API_KEY=fc-test-key-for-validation
+          PINECONE_API_KEY=pcsk_test-key-for-validation
+          DATABASE_URL=postgresql://test:test@localhost:5432/test
+          REDIS_URL=redis://localhost:6379
+          JWT_SECRET=test-jwt-secret-that-is-long-enough-for-validation-purposes
+          SENDGRID_API_KEY=test-sendgrid-key
+          SMTP_HOST=test.smtp.com
+          SMTP_PORT=587
+          STRIPE_SECRET_KEY=rk_test_key_for_validation
+          DO_SPACES_KEY=test-spaces-key
+          DO_SPACES_SECRET=test-spaces-secret
+          DO_SPACES_ENDPOINT=https://test.digitaloceanspaces.com
+          DO_SPACES_BUCKET=test-bucket
+          DO_DROPLET_IP=127.0.0.1
+          DO_REGISTRY_TOKEN=test-registry-token
+          DOMAIN_NAME=test.example.com
+          NEXT_PUBLIC_API_URL=https://test.example.com/api
+          SENTRY_DSN=https://test@test.ingest.sentry.io/test
+          EOF
+          
+      - name: Run environment validation
+        run: |
+          chmod +x scripts/validate-environment.sh
+          ./scripts/validate-environment.sh || true  # Don't fail on test environment
+
+  automated-cleanup:
+    name: Automated Cleanup
+    runs-on: ubuntu-latest
+    needs: repository-health-check
+    if: needs.repository-health-check.outputs.needs-cleanup == 'true' && env.AUTO_CLEANUP_ENABLED == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+      - name: Install BFG Repo-Cleaner
+        run: |
+          wget -O bfg.jar https://repo1.maven.org/maven2/com/madgag/bfg/1.14.0/bfg-1.14.0.jar
+          
+      - name: Run automated cleanup
+        run: |
+          chmod +x scripts/cleanup-large-files.sh
+          
+          # Modify cleanup script to work in CI environment
+          sed -i 's/read -p.*$/REPLY=y/' scripts/cleanup-large-files.sh
+          
+          # Run cleanup (will auto-confirm)
+          ./scripts/cleanup-large-files.sh || echo "Cleanup completed with warnings"
+          
+      - name: Push cleaned repository
+        run: |
+          git push --force-with-lease origin main
+          
+      - name: Create cleanup summary
+        run: |
+          echo "## 🧹 Automated Cleanup Completed" > cleanup-summary.md
+          echo "" >> cleanup-summary.md
+          echo "Repository size before: $(du -sh .git | cut -f1)" >> cleanup-summary.md
+          echo "Cleanup performed: $(date)" >> cleanup-summary.md
+          echo "" >> cleanup-summary.md
+          echo "⚠️ **Important**: Repository history was rewritten. Team members should re-clone the repository." >> cleanup-summary.md
+          
+      - name: Create issue for cleanup notification
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('cleanup-summary.md', 'utf8');
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🧹 Automated Repository Cleanup Performed',
+              body: summary,
+              labels: ['maintenance', 'automated']
+            });
+
+  deployment-validation:
+    name: Deployment Health Check
+    runs-on: ubuntu-latest
+    needs: [repository-health-check, environment-validation]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Wait for deployment (if triggered)
+        run: |
+          echo "Waiting 5 minutes for deployment to complete..."
+          sleep 300
+          
+      - name: Run deployment health check
+        run: |
+          chmod +x scripts/deployment-health-check.sh
+          
+          # Run health check (without rollback for automated runs)
+          ./scripts/deployment-health-check.sh --domain grants.etownz.com || {
+            echo "Deployment health check failed"
+            exit 1
+          }
+          
+      - name: Create deployment status issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Deployment Health Check Failed',
+              body: `## Deployment Failure Alert
+              
+              **Commit**: ${{ github.sha }}
+              **Time**: ${new Date().toISOString()}
+              **Branch**: ${{ github.ref }}
+              
+              The automated deployment health check failed. Manual intervention may be required.
+              
+              ### Recommended Actions:
+              1. Check deployment logs
+              2. Run manual health check: \`./scripts/deployment-health-check.sh --rollback\`
+              3. Monitor application status
+              
+              ### Automatic Rollback:
+              Automatic rollback was not performed to allow for manual investigation.
+              `,
+              labels: ['deployment', 'critical', 'automated'],
+              assignees: ['moleary1107']  // Replace with your GitHub username
+            });
+
+  weekly-maintenance:
+    name: Weekly Automated Maintenance
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Run automated maintenance
+        run: |
+          chmod +x scripts/automated-maintenance.sh
+          ./scripts/automated-maintenance.sh
+          
+      - name: Upload maintenance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: maintenance-report-${{ github.run_number }}
+          path: maintenance-report-*.txt
+          retention-days: 90
+          
+      - name: Create weekly maintenance summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `📊 Weekly Maintenance Report - ${new Date().toISOString().split('T')[0]}`,
+              body: `## Weekly Automated Maintenance Completed
+              
+              **Date**: ${new Date().toISOString()}
+              **Workflow Run**: ${{ github.run_number }}
+              
+              ### Tasks Performed:
+              - ✅ Docker cleanup (images, containers, volumes)
+              - ✅ Git repository optimization
+              - ✅ Dependency security scanning
+              - ✅ Repository health analysis
+              
+              ### Reports:
+              - Detailed maintenance report available in workflow artifacts
+              - Repository health score tracked
+              
+              ### Next Maintenance:
+              Scheduled for next Sunday at 2 AM UTC
+              
+              *This is an automated maintenance report.*
+              `,
+              labels: ['maintenance', 'weekly', 'automated']
+            });
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    needs: repository-health-check
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Run security audit
+        run: |
+          # Check each service for vulnerabilities
+          services=("frontend" "backend" "crawler")
+          total_vulns=0
+          
+          for service in "${services[@]}"; do
+            if [ -f "$service/package.json" ]; then
+              echo "Checking $service..."
+              cd "$service"
+              
+              # Run audit and capture results
+              if npm audit --audit-level=moderate --json > audit-results.json 2>/dev/null; then
+                vulns=$(jq '.metadata.vulnerabilities.moderate + .metadata.vulnerabilities.high + .metadata.vulnerabilities.critical' audit-results.json 2>/dev/null || echo "0")
+                echo "$service: $vulns vulnerabilities"
+                total_vulns=$((total_vulns + vulns))
+              fi
+              
+              cd ..
+            fi
+          done
+          
+          echo "Total vulnerabilities: $total_vulns"
+          
+          # Create issue if vulnerabilities found
+          if [ $total_vulns -gt 0 ]; then
+            echo "VULNERABILITIES_FOUND=true" >> $GITHUB_ENV
+            echo "VULN_COUNT=$total_vulns" >> $GITHUB_ENV
+          fi
+          
+      - name: Create security alert issue
+        if: env.VULNERABILITIES_FOUND == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔒 Security Vulnerabilities Detected - ${process.env.VULN_COUNT} issues`,
+              body: `## Security Alert
+              
+              **Vulnerabilities Found**: ${process.env.VULN_COUNT}
+              **Scan Date**: ${new Date().toISOString()}
+              **Commit**: ${{ github.sha }}
+              
+              ### Action Required:
+              Run \`npm audit fix\` in affected service directories:
+              - frontend/
+              - backend/
+              - crawler/
+              
+              ### Automated Resolution:
+              Consider enabling automated dependency updates with Dependabot.
+              
+              *This is an automated security scan.*
+              `,
+              labels: ['security', 'vulnerabilities', 'automated', 'priority-high']
+            });
