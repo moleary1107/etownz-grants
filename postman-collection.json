@@ -1,0 +1,1110 @@
+{
+  "info": {
+    "name": "eTownz Grants API",
+    "description": "Complete API collection for eTownz Grants platform - supports both local development and production environments",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "{{baseUrl}}",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orgId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "grantId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-set base URL if not already set",
+          "if (!pm.environment.get('baseUrl')) {",
+          "    pm.environment.set('baseUrl', 'http://localhost:8000');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Check API health status"
+          },
+          "response": []
+        },
+        {
+          "name": "API Documentation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/docs",
+              "host": ["{{baseUrl}}"],
+              "path": ["docs"]
+            },
+            "description": "Access Swagger API documentation"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('authToken', response.token);",
+                  "    pm.environment.set('userId', response.user.id);",
+                  "    pm.environment.set('orgId', response.user.org_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test.user@example.com\",\n  \"password\": \"SecurePassword123!\",\n  \"first_name\": \"Test\",\n  \"last_name\": \"User\",\n  \"role\": \"admin\",\n  \"org_name\": \"Test Organization\",\n  \"org_description\": \"A test organization for API testing\",\n  \"org_website\": \"https://testorg.example.com\",\n  \"org_contact_email\": \"contact@testorg.example.com\",\n  \"org_contact_phone\": \"+1-555-0123\",\n  \"org_address\": \"123 Test Street, Test City, TC 12345\",\n  \"org_profile_data\": {\n    \"sector\": \"technology\",\n    \"size\": \"small\",\n    \"focus_areas\": [\"innovation\", \"sustainability\"]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register a new user and organization"
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('authToken', response.token);",
+                  "    pm.environment.set('userId', response.user.id);",
+                  "    pm.environment.set('orgId', response.user.org_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test.user@example.com\",\n  \"password\": \"SecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login with existing credentials"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Get current authenticated user profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('authToken', response.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Refresh authentication token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Grants",
+      "item": [
+        {
+          "name": "Get All Grants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/grants?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["grants"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "funder",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "categories",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "amount_min",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "amount_max",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "deadline_from",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "deadline_to",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sort_by",
+                  "value": "created_at",
+                  "disabled": true
+                },
+                {
+                  "key": "sort_order",
+                  "value": "DESC",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get paginated list of grants with optional filtering"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Grants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/grants?search=innovation&categories=technology,research&amount_min=10000&amount_max=500000",
+              "host": ["{{baseUrl}}"],
+              "path": ["grants"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "innovation"
+                },
+                {
+                  "key": "categories",
+                  "value": "technology,research"
+                },
+                {
+                  "key": "amount_min",
+                  "value": "10000"
+                },
+                {
+                  "key": "amount_max",
+                  "value": "500000"
+                }
+              ]
+            },
+            "description": "Search grants with filters"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Grant Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/grants/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["grants", "stats"]
+            },
+            "description": "Get grant statistics (total, active, expired, recent)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Discovered Grants",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/grants/discovered",
+              "host": ["{{baseUrl}}"],
+              "path": ["grants", "discovered"],
+              "query": [
+                {
+                  "key": "source_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get grants discovered by crawler"
+          },
+          "response": []
+        },
+        {
+          "name": "AI Grant Search",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"org_profile\": {\n    \"sector\": \"technology\",\n    \"size\": \"small\",\n    \"focus_areas\": [\"innovation\", \"sustainability\", \"AI\"],\n    \"location\": \"Ireland\",\n    \"previous_funding\": false,\n    \"annual_revenue\": 500000,\n    \"employee_count\": 15,\n    \"stage\": \"growth\"\n  },\n  \"limit\": 10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/grants/search/ai",
+              "host": ["{{baseUrl}}"],
+              "path": ["grants", "search", "ai"]
+            },
+            "description": "AI-powered grant matching based on organization profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Grant by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('grantId', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/grants/{{grantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["grants", "{{grantId}}"]
+            },
+            "description": "Get specific grant by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Check Grant Eligibility",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/grants/{{grantId}}/eligibility?org_id={{orgId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["grants", "{{grantId}}", "eligibility"],
+              "query": [
+                {
+                  "key": "org_id",
+                  "value": "{{orgId}}"
+                }
+              ]
+            },
+            "description": "Check eligibility match for a specific grant and organization"
+          },
+          "response": []
+        },
+        {
+          "name": "Process Discovered Grant",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/grants/discovered/{{grantId}}/process",
+              "host": ["{{baseUrl}}"],
+              "path": ["grants", "discovered", "{{grantId}}", "process"]
+            },
+            "description": "Process a discovered grant into the main grants table"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Organizations",
+      "item": [
+        {
+          "name": "Get Organizations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/organizations?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get paginated list of organizations"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Organization by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgId}}"]
+            },
+            "description": "Get specific organization by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Organization",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Organization Name\",\n  \"description\": \"Updated organization description\",\n  \"website\": \"https://updated-website.com\",\n  \"contact_email\": \"updated@example.com\",\n  \"contact_phone\": \"+1-555-9876\",\n  \"address\": \"456 Updated Street, New City, NC 54321\",\n  \"profile_data\": {\n    \"sector\": \"technology\",\n    \"size\": \"medium\",\n    \"focus_areas\": [\"AI\", \"machine learning\", \"sustainability\"],\n    \"annual_revenue\": 1000000,\n    \"employee_count\": 25\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgId}}"]
+            },
+            "description": "Update organization details"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Applications",
+      "item": [
+        {
+          "name": "Get Applications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/applications?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "grant_id",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get user's grant applications"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Application",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grant_id\": \"{{grantId}}\",\n  \"project_title\": \"Innovative AI Solution for Sustainability\",\n  \"project_description\": \"A comprehensive AI platform that helps organizations optimize their environmental impact through intelligent resource management and predictive analytics.\",\n  \"requested_amount\": 250000,\n  \"project_duration\": 24,\n  \"application_data\": {\n    \"team_size\": 8,\n    \"technical_approach\": \"Machine learning algorithms with IoT integration\",\n    \"expected_outcomes\": [\"30% reduction in energy consumption\", \"Real-time sustainability metrics\"],\n    \"budget_breakdown\": {\n      \"personnel\": 150000,\n      \"equipment\": 50000,\n      \"operations\": 30000,\n      \"other\": 20000\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications"]
+            },
+            "description": "Submit a new grant application"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Application by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/applications/:applicationId",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", ":applicationId"]
+            },
+            "description": "Get specific application details"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Application",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_title\": \"Updated AI Solution for Sustainability\",\n  \"project_description\": \"An enhanced AI platform with expanded capabilities...\",\n  \"requested_amount\": 275000,\n  \"status\": \"draft\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/applications/:applicationId",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", ":applicationId"]
+            },
+            "description": "Update application details"
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Application",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/applications/:applicationId/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["applications", ":applicationId", "submit"]
+            },
+            "description": "Submit application for review"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Documents",
+      "item": [
+        {
+          "name": "Get Documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/documents?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "application_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "document_type",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get user's documents"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Document",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "application_id",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "document_type",
+                  "value": "business_plan",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Company business plan document",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/documents/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents", "upload"]
+            },
+            "description": "Upload a document"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Document by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/documents/:documentId",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents", ":documentId"]
+            },
+            "description": "Get specific document details"
+          },
+          "response": []
+        },
+        {
+          "name": "Download Document",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/documents/:documentId/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents", ":documentId", "download"]
+            },
+            "description": "Download document file"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/documents/:documentId",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents", ":documentId"]
+            },
+            "description": "Delete a document"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Submissions",
+      "item": [
+        {
+          "name": "Get Submissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/submissions?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["submissions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get submission history"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Submission by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/submissions/:submissionId",
+              "host": ["{{baseUrl}}"],
+              "path": ["submissions", ":submissionId"]
+            },
+            "description": "Get specific submission details"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Submission Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"approved\",\n  \"feedback\": \"Application meets all requirements and shows strong potential for success.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/submissions/:submissionId/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["submissions", ":submissionId", "status"]
+            },
+            "description": "Update submission status (admin only)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Web Scraping",
+      "item": [
+        {
+          "name": "Get Crawl Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/scraping/jobs?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["scraping", "jobs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get paginated list of crawl jobs"
+          },
+          "response": []
+        },
+        {
+          "name": "Start Crawl Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source_url\": \"https://www.enterprise-ireland.com/en/funding-supports/\",\n  \"job_type\": \"full_crawl\",\n  \"configuration\": {\n    \"max_depth\": 3,\n    \"include_patterns\": [\"*funding*\", \"*grant*\", \"*scheme*\"],\n    \"exclude_patterns\": [\"*login*\", \"*admin*\"],\n    \"follow_external_links\": false,\n    \"capture_screenshots\": false,\n    \"extract_structured_data\": true,\n    \"process_documents\": true,\n    \"rate_limit_ms\": 1000\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/scraping/jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["scraping", "jobs"]
+            },
+            "description": "Start a new web crawling job"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Job Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/scraping/jobs/{{jobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["scraping", "jobs", "{{jobId}}"]
+            },
+            "description": "Get detailed information about a specific crawl job"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Scraped Pages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/scraping/pages?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["scraping", "pages"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get paginated list of scraped web pages"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Page Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/scraping/pages/{{pageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["scraping", "pages", "{{pageId}}"]
+            },
+            "description": "Get detailed information about a scraped page"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Scraped Documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/scraping/documents?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["scraping", "documents"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "file_type",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get paginated list of scraped documents"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Document Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/scraping/documents/{{documentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["scraping", "documents", "{{documentId}}"]
+            },
+            "description": "Get detailed information about a scraped document"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Scraping Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/scraping/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["scraping", "stats"]
+            },
+            "description": "Get overall scraping statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Cleanup Scraped Data",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"pages\",\n  \"ids\": [\"page-id-1\", \"page-id-2\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/scraping/cleanup",
+              "host": ["{{baseUrl}}"],
+              "path": ["scraping", "cleanup"]
+            },
+            "description": "Clean up scraped data (pages, documents, or jobs)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Usage Analytics",
+      "item": [
+        {
+          "name": "Get Usage Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/usage/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["usage", "stats"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month",
+                  "disabled": true
+                },
+                {
+                  "key": "start_date",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "end_date",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get platform usage statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Track User Action",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"grant_search\",\n  \"metadata\": {\n    \"search_term\": \"innovation\",\n    \"filters_used\": [\"amount_range\", \"categories\"],\n    \"results_count\": 15\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/usage/track",
+              "host": ["{{baseUrl}}"],
+              "path": ["usage", "track"]
+            },
+            "description": "Track user action for analytics"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "environment": [
+    {
+      "name": "Local Development",
+      "values": [
+        {
+          "key": "baseUrl",
+          "value": "http://localhost:8000",
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "name": "Production",
+      "values": [
+        {
+          "key": "baseUrl",
+          "value": "https://grants.etownz.com/api",
+          "enabled": true
+        }
+      ]
+    }
+  ]
+}

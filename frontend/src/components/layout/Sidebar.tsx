@@ -15,7 +15,9 @@ import {
   Globe,
   LogOut,
   Menu,
-  X
+  X,
+  Zap,
+  Plus
 } from "lucide-react"
 import { Button } from "../ui/button"
 import { UserRole, hasPermission, User } from "../../lib/auth"
@@ -48,6 +50,12 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       href: "/dashboard/applications",
       icon: FileText,
       permission: "canViewApplications"
+    },
+    {
+      name: "Web Scraping",
+      href: "/dashboard/scraping",
+      icon: Zap,
+      permission: "canAccessAnalytics"
     },
     {
       name: "Organizations",

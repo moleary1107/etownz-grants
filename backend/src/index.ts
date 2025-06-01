@@ -17,6 +17,7 @@ import documentsRoutes from './routes/documents';
 import usageRoutes from './routes/usage';
 import applicationsRoutes from './routes/applications';
 import webhooksRoutes from './routes/webhooks';
+import scrapingRoutes from './routes/scraping';
 
 // Import database service
 import { db } from './services/database';
@@ -106,6 +107,7 @@ app.use('/documents', documentsRoutes);
 app.use('/usage', usageRoutes);
 app.use('/applications', applicationsRoutes);
 app.use('/webhooks', webhooksRoutes);
+app.use('/scraping', scrapingRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -124,10 +126,10 @@ async function startServer() {
     // Test database connection
     const dbConnected = await db.testConnection();
     if (!dbConnected) {
-      logger.error('❌ Failed to connect to database');
-      process.exit(1);
+      logger.warn('⚠️ Failed to connect to database - server will start anyway');
+    } else {
+      logger.info('✅ Database connection established');
     }
-    logger.info('✅ Database connection established');
 
     // Start server
     app.listen(PORT, () => {
