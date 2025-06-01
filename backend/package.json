@@ -13,6 +13,7 @@
     "docs": "swagger-jsdoc -d swaggerDef.js -o ./docs/swagger.json src/routes/*.ts"
   },
   "dependencies": {
+    "@mendable/firecrawl-js": "^1.0.0",
     "@sendgrid/mail": "^8.1.0",
     "@sentry/node": "^7.120.3",
     "@sentry/profiling-node": "^1.3.5",

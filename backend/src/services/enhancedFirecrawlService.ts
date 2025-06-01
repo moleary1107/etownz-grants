@@ -422,7 +422,7 @@ export class EnhancedFirecrawlService {
       throw new Error(`Failed to scrape document: ${docResult.error}`);
     }
 
-    const docData = docResult.data as any;
+    const docData = (docResult as any).data || docResult;
     const title = docData.metadata?.title || this.extractTitleFromUrl(url);
     const content = docData.markdown || docData.content || '';
 
