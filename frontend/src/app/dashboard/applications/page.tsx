@@ -252,7 +252,7 @@ export default function ApplicationsPage() {
             </div>
             
             {hasPermission(user, 'canSubmitApplications') && (
-              <Button onClick={() => router.push('/dashboard/applications/new')}>
+              <Button onClick={() => router.push('/dashboard/applications/create')}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Application
               </Button>
@@ -437,7 +437,7 @@ export default function ApplicationsPage() {
                 }
               </p>
               {hasPermission(user, 'canSubmitApplications') && (
-                <Button onClick={() => router.push('/dashboard/applications/new')}>
+                <Button onClick={() => router.push('/dashboard/applications/create')}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create First Application
                 </Button>

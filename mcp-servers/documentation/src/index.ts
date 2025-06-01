@@ -13,8 +13,16 @@ const PROJECT_ROOT = process.env.PROJECT_ROOT || '/project';
 app.use(express.json());
 
 // Initialize services
-const docGenerator = new DocumentationGenerator(PROJECT_ROOT);
-const diagramGenerator = new DiagramGenerator(PROJECT_ROOT);
+const docGenerator = new DocumentationGenerator({
+  outputDir: `${PROJECT_ROOT}/docs`,
+  projectRoot: PROJECT_ROOT,
+  includeTypes: true,
+  includeTests: false
+});
+const diagramGenerator = new DiagramGenerator({
+  outputDir: `${PROJECT_ROOT}/docs/diagrams`,
+  format: 'mermaid'
+});
 const architectureAnalyzer = new ArchitectureAnalyzer(PROJECT_ROOT);
 
 // Health check
@@ -30,7 +38,7 @@ app.get('/health', (req, res) => {
 app.post('/generate/docs', async (req, res) => {
   try {
     logger.info('Starting manual documentation generation...');
-    await docGenerator.generateAll();
+    await docGenerator.generateProjectDocs();
     res.json({ message: 'Documentation generated successfully' });
   } catch (error) {
     logger.error('Documentation generation failed:', error);
@@ -42,7 +50,7 @@ app.post('/generate/docs', async (req, res) => {
 app.post('/generate/diagrams', async (req, res) => {
   try {
     logger.info('Starting manual diagram generation...');
-    await diagramGenerator.generateAll();
+    await diagramGenerator.generateAllDiagrams();
     res.json({ message: 'Diagrams generated successfully' });
   } catch (error) {
     logger.error('Diagram generation failed:', error);
@@ -65,7 +73,11 @@ app.post('/analyze/architecture', async (req, res) => {
 // Get current documentation status
 app.get('/status', async (req, res) => {
   try {
-    const status = await docGenerator.getStatus();
+    const status = { 
+      service: 'documentation',
+      lastGenerated: new Date().toISOString(),
+      status: 'active'
+    };
     res.json(status);
   } catch (error) {
     logger.error('Status check failed:', error);
@@ -74,17 +86,17 @@ app.get('/status', async (req, res) => {
 });
 
 // Setup file watcher for automatic documentation updates
-setupFileWatcher(PROJECT_ROOT, async (filePath: string) => {
-  logger.info(`File changed: ${filePath}`);
+setupFileWatcher([PROJECT_ROOT], async (filePath: string, event: string) => {
+  logger.info(`File ${event}: ${filePath}`);
   
   // Determine what to regenerate based on file type
   if (filePath.endsWith('.ts') || filePath.endsWith('.js')) {
-    await docGenerator.updateApiDocs();
-    await diagramGenerator.updateArchitectureDiagram();
+    await docGenerator.generateProjectDocs();
+    await diagramGenerator.generateArchitectureDiagram();
   } else if (filePath.endsWith('.json') && filePath.includes('package.json')) {
-    await docGenerator.updateDependencyDocs();
+    await docGenerator.generateProjectDocs();
   } else if (filePath.includes('docker') || filePath.includes('yml')) {
-    await diagramGenerator.updateDeploymentDiagram();
+    await diagramGenerator.generateAllDiagrams();
   }
 });
 
@@ -92,8 +104,8 @@ setupFileWatcher(PROJECT_ROOT, async (filePath: string) => {
 const docUpdateJob = new CronJob('0 */6 * * *', async () => {
   logger.info('Running scheduled documentation update...');
   try {
-    await docGenerator.generateAll();
-    await diagramGenerator.generateAll();
+    await docGenerator.generateProjectDocs();
+    await diagramGenerator.generateAllDiagrams();
   } catch (error) {
     logger.error('Scheduled documentation update failed:', error);
   }
@@ -106,8 +118,8 @@ docUpdateJob.start();
 setTimeout(async () => {
   logger.info('Running initial documentation generation...');
   try {
-    await docGenerator.generateAll();
-    await diagramGenerator.generateAll();
+    await docGenerator.generateProjectDocs();
+    await diagramGenerator.generateAllDiagrams();
   } catch (error) {
     logger.error('Initial documentation generation failed:', error);
   }

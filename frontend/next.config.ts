@@ -1,8 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
+  reactStrictMode: true,
   experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons']
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    optimizeCss: false, // Disable CSS optimization that might break Tailwind 4
   },
   images: {
     domains: ['images.unsplash.com', 'via.placeholder.com'],

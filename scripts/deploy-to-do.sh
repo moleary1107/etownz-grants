@@ -89,7 +89,7 @@ else
 fi
 
 # Define services to deploy
-SERVICES=(frontend backend mcp-docs mcp-fetch mcp-filesystem mcp-document-processor)
+SERVICES=(frontend backend crawler)
 if [ -n "$SERVICE" ]; then
     SERVICES=($SERVICE)
 fi

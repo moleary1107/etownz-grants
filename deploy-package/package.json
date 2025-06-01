@@ -1,0 +1,40 @@
+{
+  "name": "etownz-grants",
+  "version": "1.0.0",
+  "description": "eTownz Grants Management Platform",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "crawler",
+    "ai-pipeline",
+    "mcp-servers/*"
+  ],
+  "scripts": {
+    "dev": "docker-compose up -d",
+    "build": "npm run build --workspaces",
+    "test": "npm test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "clean": "docker-compose down && docker system prune -f",
+    "docs": "cd docs && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/etownz_grants.git"
+  },
+  "keywords": [
+    "grants",
+    "ireland",
+    "ai",
+    "automation",
+    "saas"
+  ],
+  "author": "eTownz",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0"
+  }
+}

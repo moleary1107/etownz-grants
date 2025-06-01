@@ -1,10 +1,12 @@
 services:
   # Frontend - Next.js
   frontend:
-    image: registry.digitalocean.com/etownz/frontend:latest
+    image: registry.digitalocean.com/etownz-grants-container/frontend:latest
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=https://grants.etownz.com/api
+      - NEXT_PUBLIC_SANITY_PROJECT_ID=hpmuagfn
+      - NEXT_PUBLIC_SANITY_DATASET=production
     ports:
       - "3001:3000"
     restart: unless-stopped
