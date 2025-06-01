@@ -2,6 +2,7 @@ import FirecrawlApp from '@mendable/firecrawl-js'
 import { GrantSource, DiscoveredGrant, CrawlSettings, CrawlJob, CrawlLog } from '../types/grants'
 import { GrantAnalysisService } from './grantAnalysisService'
 import { logger } from '../utils/logger'
+import { db } from './databaseService'
 
 export class FirecrawlService {
   private firecrawl: FirecrawlApp
@@ -15,23 +16,25 @@ export class FirecrawlService {
   }
 
   async crawlGrantSource(source: GrantSource): Promise<CrawlJob> {
-    const job: CrawlJob = {
-      id: this.generateJobId(),
-      sourceId: source.id,
+    const jobId = this.generateJobId()
+    
+    // Create job in database
+    const job = await this.createCrawlJob({
+      id: jobId,
+      source_id: source.id,
       status: 'running',
       progress: 0,
-      startedAt: new Date(),
+      started_at: new Date(),
       stats: {
         pagesProcessed: 0,
         grantsDiscovered: 0,
         grantsUpdated: 0,
         documentsProcessed: 0
-      },
-      logs: []
-    }
+      }
+    })
 
     try {
-      this.addLog(job, 'info', `Starting crawl for ${source.name}`, source.url)
+      await this.addLog(job.id, 'info', `Starting crawl for ${source.name}`, source.url)
 
       // Configure crawl options based on settings
       const crawlOptions = this.buildCrawlOptions(source.crawlSettings)
@@ -43,8 +46,8 @@ export class FirecrawlService {
         throw new Error(`Crawl failed: ${crawlResult.error}`)
       }
 
-      this.addLog(job, 'info', `Crawl completed. Processing ${crawlResult.data?.length || 0} pages`)
-      job.progress = 30
+      await this.addLog(job.id, 'info', `Crawl completed. Processing ${crawlResult.data?.length || 0} pages`)
+      await this.updateCrawlJobProgress(job.id, 30, job.stats)
 
       // Process each crawled page
       const discoveredGrants: DiscoveredGrant[] = []
@@ -66,14 +69,15 @@ export class FirecrawlService {
             job.stats.grantsDiscovered += grants.length
 
             if (grants.length > 0) {
-              this.addLog(job, 'info', `Found ${grants.length} grants`, (page as any).url)
+              await this.addLog(job.id, 'info', `Found ${grants.length} grants`, (page as any).url)
             }
 
           } catch (error) {
-            this.addLog(job, 'error', `Error processing page: ${error}`, (page as any).url)
+            await this.addLog(job.id, 'error', `Error processing page: ${error}`, (page as any).url)
           }
 
-          job.progress = 30 + (i / crawlResult.data.length) * 50
+          const newProgress = 30 + (i / crawlResult.data.length) * 50
+          await this.updateCrawlJobProgress(job.id, newProgress, job.stats)
         }
       }
 
@@ -83,19 +87,29 @@ export class FirecrawlService {
       }
 
       // Save discovered grants to database
-      await this.saveDiscoveredGrants(discoveredGrants, source)
+      await this.saveDiscoveredGrants(discoveredGrants, source, job)
       
-      job.status = 'completed'
-      job.completedAt = new Date()
-      job.progress = 100
+      // Update job as completed
+      await this.updateCrawlJob(job.id, {
+        status: 'completed',
+        completed_at: new Date(),
+        progress: 100,
+        stats: job.stats
+      })
       
-      this.addLog(job, 'info', `Crawl completed successfully. Discovered ${job.stats.grantsDiscovered} grants`)
+      await this.addLog(job.id, 'info', `Crawl completed successfully. Discovered ${job.stats.grantsDiscovered} grants`)
 
     } catch (error) {
-      job.status = 'failed'
-      job.completedAt = new Date()
-      job.error = error instanceof Error ? error.message : 'Unknown error'
-      this.addLog(job, 'error', `Crawl failed: ${job.error}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      
+      // Update job as failed
+      await this.updateCrawlJob(job.id, {
+        status: 'failed',
+        completed_at: new Date(),
+        error_message: errorMessage
+      })
+      
+      await this.addLog(job.id, 'error', `Crawl failed: ${errorMessage}`)
       logger.error('Crawl failed', { sourceId: source.id, error })
     }
 
@@ -119,7 +133,7 @@ export class FirecrawlService {
   }
 
   private async processDocuments(job: CrawlJob, source: GrantSource, grants: DiscoveredGrant[]) {
-    this.addLog(job, 'info', 'Processing documents (PDFs, DOCX)')
+    await this.addLog(job.id, 'info', 'Processing documents (PDFs, DOCX)')
     
     // Extract document URLs from discovered grants
     const documentUrls = grants.flatMap(grant => grant.documentUrls)
@@ -133,7 +147,7 @@ export class FirecrawlService {
         }
         job.stats.documentsProcessed++
       } catch (error) {
-        this.addLog(job, 'warning', `Failed to process document: ${error}`, docUrl)
+        await this.addLog(job.id, 'warning', `Failed to process document: ${error}`, docUrl)
       }
     }
   }
@@ -150,42 +164,85 @@ export class FirecrawlService {
         url,
         'pdf'
       )
-      this.addLog(job, 'info', `Extracted ${additionalGrants.length} grants from PDF`, url)
+      await this.addLog(job.id, 'info', `Extracted ${additionalGrants.length} grants from PDF`, url)
     }
   }
 
   private async processDocxDocument(url: string, job: CrawlJob) {
     // Similar to PDF processing but for DOCX files
-    this.addLog(job, 'info', 'Processing DOCX document', url)
+    await this.addLog(job.id, 'info', 'Processing DOCX document', url)
     // Implementation would depend on Firecrawl's DOCX support
   }
 
-  private async saveDiscoveredGrants(grants: DiscoveredGrant[], source: GrantSource) {
-    // TODO: Implement database saving logic
+  private async saveDiscoveredGrants(grants: DiscoveredGrant[], source: GrantSource, job: CrawlJob) {
     logger.info(`Saving ${grants.length} discovered grants for source ${source.name}`)
     
-    // This would integrate with your database service
-    // For now, just log the grants
     for (const grant of grants) {
-      logger.info('Discovered grant', {
-        title: grant.title,
-        provider: grant.provider,
-        amount: grant.amount,
-        deadline: grant.deadline,
-        source: source.name
-      })
+      try {
+        await db.query(`
+          INSERT INTO discovered_grants (
+            source_id, job_id, external_id, title, description, provider, url,
+            amount_text, amount_min, amount_max, currency, deadline, deadline_text,
+            categories, location_restrictions, document_urls, eligibility_text,
+            eligibility_criteria, confidence_score, processing_status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+          ON CONFLICT (source_id, external_id) 
+          DO UPDATE SET
+            title = EXCLUDED.title,
+            description = EXCLUDED.description,
+            deadline = EXCLUDED.deadline,
+            amount_min = EXCLUDED.amount_min,
+            amount_max = EXCLUDED.amount_max,
+            updated_at = NOW()
+        `, [
+          source.id,
+          job.id,
+          grant.externalId || grant.url || grant.title,
+          grant.title,
+          grant.description,
+          grant.provider,
+          grant.url,
+          grant.amountText,
+          grant.amount?.min,
+          grant.amount?.max,
+          grant.currency || 'EUR',
+          grant.deadline,
+          grant.deadlineText,
+          grant.categories || [],
+          grant.locationRestrictions || [],
+          grant.documentUrls || [],
+          grant.eligibilityText,
+          grant.eligibilityCriteria || {},
+          grant.confidenceScore || 0.5,
+          'pending'
+        ])
+        
+        logger.debug('Saved discovered grant', {
+          title: grant.title,
+          provider: grant.provider,
+          source: source.name
+        })
+      } catch (error) {
+        logger.error('Failed to save discovered grant', {
+          title: grant.title,
+          error,
+          source: source.name
+        })
+      }
     }
   }
 
-  private addLog(job: CrawlJob, level: 'info' | 'warning' | 'error', message: string, url?: string) {
-    const log: CrawlLog = {
-      timestamp: new Date(),
-      level,
-      message,
-      url
+  private async addLog(jobId: string, level: 'info' | 'warning' | 'error', message: string, url?: string) {
+    try {
+      await db.query(`
+        INSERT INTO crawl_logs (job_id, level, message, url)
+        VALUES ($1, $2, $3, $4)
+      `, [jobId, level, message, url])
+      
+      logger[level](message, { jobId, url })
+    } catch (error) {
+      logger.error('Failed to save crawl log', { jobId, level, message, error })
     }
-    job.logs.push(log)
-    logger[level](message, { jobId: job.id, url })
   }
 
   private generateJobId(): string {
@@ -200,7 +257,68 @@ export class FirecrawlService {
     return url.toLowerCase().includes('.docx') || url.toLowerCase().includes('.doc')
   }
 
-  // Method to test Firecrawl connection
+  // Database operations
+  private async createCrawlJob(jobData: any): Promise<CrawlJob> {
+    const result = await db.query(`
+      INSERT INTO crawl_jobs (id, source_id, status, progress, started_at, stats)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [
+      jobData.id,
+      jobData.source_id,
+      jobData.status,
+      jobData.progress,
+      jobData.started_at,
+      JSON.stringify(jobData.stats)
+    ])
+    
+    return result.rows[0]
+  }
+
+  private async updateCrawlJob(jobId: string, updates: any): Promise<void> {
+    const updateFields = []
+    const values = [jobId]
+    let paramIndex = 2
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (key === 'stats') {
+        updateFields.push(`${key} = $${paramIndex}`)
+        values.push(JSON.stringify(value))
+      } else {
+        updateFields.push(`${key} = $${paramIndex}`)
+        values.push(value)
+      }
+      paramIndex++
+    }
+
+    if (updateFields.length > 0) {
+      updateFields.push(`updated_at = NOW()`)
+      const query = `UPDATE crawl_jobs SET ${updateFields.join(', ')} WHERE id = $1`
+      await db.query(query, values)
+    }
+  }
+
+  private async updateCrawlJobProgress(jobId: string, progress: number, stats: any): Promise<void> {
+    await db.query(`
+      UPDATE crawl_jobs SET progress = $2, stats = $3, updated_at = NOW()
+      WHERE id = $1
+    `, [jobId, progress, JSON.stringify(stats)])
+  }
+
+  // Public methods for external access
+  async getCrawlJob(jobId: string): Promise<CrawlJob | null> {
+    const result = await db.query('SELECT * FROM crawl_jobs WHERE id = $1', [jobId])
+    return result.rows[0] || null
+  }
+
+  async getCrawlLogs(jobId: string): Promise<CrawlLog[]> {
+    const result = await db.query(
+      'SELECT * FROM crawl_logs WHERE job_id = $1 ORDER BY timestamp ASC',
+      [jobId]
+    )
+    return result.rows
+  }
+
   async testConnection(): Promise<boolean> {
     try {
       const result = await this.firecrawl.scrapeUrl('https://www.example.com', {
@@ -213,14 +331,15 @@ export class FirecrawlService {
     }
   }
 
-  // Method to get crawl job status
-  async getCrawlStatus(jobId: string): Promise<any> {
-    // This would typically query your database for job status
-    // For now, return a placeholder
-    return {
-      id: jobId,
-      status: 'completed',
-      progress: 100
-    }
+  async getGrantSources(): Promise<GrantSource[]> {
+    const result = await db.query(
+      'SELECT * FROM grant_sources WHERE is_active = true ORDER BY name'
+    )
+    return result.rows
+  }
+
+  async getGrantSourceById(id: string): Promise<GrantSource | null> {
+    const result = await db.query('SELECT * FROM grant_sources WHERE id = $1', [id])
+    return result.rows[0] || null
   }
 }

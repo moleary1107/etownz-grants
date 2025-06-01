@@ -16,6 +16,10 @@ import submissionsRoutes from './routes/submissions';
 import documentsRoutes from './routes/documents';
 import usageRoutes from './routes/usage';
 import applicationsRoutes from './routes/applications';
+import webhooksRoutes from './routes/webhooks';
+
+// Import database service
+import { db } from './services/database';
 
 dotenv.config();
 
@@ -101,6 +105,7 @@ app.use('/submissions', submissionsRoutes);
 app.use('/documents', documentsRoutes);
 app.use('/usage', usageRoutes);
 app.use('/applications', applicationsRoutes);
+app.use('/webhooks', webhooksRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -113,11 +118,29 @@ app.use('*', (req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  logger.info(`🚀 Server running on port ${PORT}`);
-  logger.info(`📚 API Documentation available at http://localhost:${PORT}/docs`);
-  logger.info(`🏥 Health check available at http://localhost:${PORT}/health`);
-});
+// Initialize database connection and start server
+async function startServer() {
+  try {
+    // Test database connection
+    const dbConnected = await db.testConnection();
+    if (!dbConnected) {
+      logger.error('❌ Failed to connect to database');
+      process.exit(1);
+    }
+    logger.info('✅ Database connection established');
+
+    // Start server
+    app.listen(PORT, () => {
+      logger.info(`🚀 Server running on port ${PORT}`);
+      logger.info(`📚 API Documentation available at http://localhost:${PORT}/docs`);
+      logger.info(`🏥 Health check available at http://localhost:${PORT}/health`);
+    });
+  } catch (error) {
+    logger.error('❌ Failed to start server', { error });
+    process.exit(1);
+  }
+}
+
+startServer();
 
 export default app;

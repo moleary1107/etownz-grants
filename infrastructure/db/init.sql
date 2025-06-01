@@ -182,6 +182,193 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+-- Grant sources for crawling
+CREATE TABLE grant_sources (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    url TEXT NOT NULL,
+    description TEXT,
+    source_type VARCHAR(50) DEFAULT 'website',
+    country VARCHAR(2) DEFAULT 'IE',
+    language VARCHAR(5) DEFAULT 'en',
+    crawl_frequency VARCHAR(20) DEFAULT 'daily',
+    last_crawled_at TIMESTAMP WITH TIME ZONE,
+    next_crawl_at TIMESTAMP WITH TIME ZONE,
+    is_active BOOLEAN DEFAULT true,
+    crawl_settings JSONB DEFAULT '{
+        "depth": 2,
+        "includePatterns": [],
+        "excludePatterns": [],
+        "followPdfs": true,
+        "followDocx": true,
+        "respectRobotsTxt": true
+    }',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Crawl jobs for tracking scraping progress
+CREATE TABLE crawl_jobs (
+    id VARCHAR(255) PRIMARY KEY,
+    source_id UUID REFERENCES grant_sources(id) ON DELETE CASCADE,
+    status VARCHAR(20) DEFAULT 'pending',
+    progress INTEGER DEFAULT 0,
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    error_message TEXT,
+    stats JSONB DEFAULT '{
+        "pagesProcessed": 0,
+        "grantsDiscovered": 0,
+        "grantsUpdated": 0,
+        "documentsProcessed": 0
+    }',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Crawl logs for detailed job tracking
+CREATE TABLE crawl_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    job_id VARCHAR(255) REFERENCES crawl_jobs(id) ON DELETE CASCADE,
+    level VARCHAR(10) NOT NULL,
+    message TEXT NOT NULL,
+    url TEXT,
+    metadata JSONB DEFAULT '{}',
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Discovered grants from crawling (before processing)
+CREATE TABLE discovered_grants (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    source_id UUID REFERENCES grant_sources(id) ON DELETE CASCADE,
+    job_id VARCHAR(255) REFERENCES crawl_jobs(id) ON DELETE CASCADE,
+    external_id VARCHAR(255),
+    title TEXT NOT NULL,
+    description TEXT,
+    provider VARCHAR(255),
+    url TEXT,
+    amount_text TEXT,
+    amount_min DECIMAL(12,2),
+    amount_max DECIMAL(12,2),
+    currency VARCHAR(3) DEFAULT 'EUR',
+    deadline TIMESTAMP WITH TIME ZONE,
+    deadline_text TEXT,
+    categories TEXT[],
+    location_restrictions TEXT[],
+    document_urls TEXT[],
+    eligibility_text TEXT,
+    eligibility_criteria JSONB DEFAULT '{}',
+    confidence_score DECIMAL(3,2) DEFAULT 0.5,
+    processing_status VARCHAR(20) DEFAULT 'pending',
+    processed_at TIMESTAMP WITH TIME ZONE,
+    grant_id UUID REFERENCES grants(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(source_id, external_id)
+);
+
+-- Grant eligibility matches for organizations
+CREATE TABLE grant_eligibility_matches (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    grant_id UUID REFERENCES grants(id) ON DELETE CASCADE,
+    org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+    match_score DECIMAL(3,2) NOT NULL,
+    matching_criteria JSONB DEFAULT '{}',
+    ai_analysis TEXT,
+    recommendation VARCHAR(20) DEFAULT 'consider',
+    is_notified BOOLEAN DEFAULT false,
+    notified_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(grant_id, org_id)
+);
+
+-- Webhook configurations
+CREATE TABLE webhook_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    url TEXT NOT NULL,
+    events TEXT[] DEFAULT ARRAY['new_grant_match', 'deadline_reminder'],
+    is_active BOOLEAN DEFAULT true,
+    secret_key VARCHAR(255),
+    last_triggered_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Webhook deliveries for tracking
+CREATE TABLE webhook_deliveries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    webhook_config_id UUID REFERENCES webhook_configs(id) ON DELETE CASCADE,
+    event_type VARCHAR(100) NOT NULL,
+    payload JSONB NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    response_status INTEGER,
+    response_body TEXT,
+    attempt_count INTEGER DEFAULT 0,
+    next_retry_at TIMESTAMP WITH TIME ZONE,
+    delivered_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Performance analytics
+CREATE TABLE analytics_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id),
+    event_type VARCHAR(100) NOT NULL,
+    event_data JSONB DEFAULT '{}',
+    session_id VARCHAR(255),
+    ip_address INET,
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Grant discovery metrics
+CREATE TABLE discovery_metrics (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    date DATE NOT NULL,
+    source_id UUID REFERENCES grant_sources(id),
+    org_id UUID REFERENCES organizations(id),
+    metric_type VARCHAR(50) NOT NULL,
+    metric_value DECIMAL(10,2) NOT NULL,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(date, source_id, org_id, metric_type)
+);
+
+-- Additional indexes for crawler tables
+CREATE INDEX idx_grant_sources_active ON grant_sources(is_active);
+CREATE INDEX idx_grant_sources_next_crawl ON grant_sources(next_crawl_at);
+CREATE INDEX idx_crawl_jobs_status ON crawl_jobs(status);
+CREATE INDEX idx_crawl_jobs_started_at ON crawl_jobs(started_at);
+CREATE INDEX idx_crawl_logs_job_id ON crawl_logs(job_id);
+CREATE INDEX idx_crawl_logs_level ON crawl_logs(level);
+CREATE INDEX idx_discovered_grants_status ON discovered_grants(processing_status);
+CREATE INDEX idx_discovered_grants_confidence ON discovered_grants(confidence_score);
+CREATE INDEX idx_eligibility_matches_score ON grant_eligibility_matches(match_score);
+CREATE INDEX idx_eligibility_matches_notified ON grant_eligibility_matches(is_notified);
+CREATE INDEX idx_webhook_deliveries_status ON webhook_deliveries(status);
+CREATE INDEX idx_webhook_deliveries_next_retry ON webhook_deliveries(next_retry_at);
+CREATE INDEX idx_analytics_events_type ON analytics_events(event_type);
+CREATE INDEX idx_analytics_events_date ON analytics_events(created_at);
+CREATE INDEX idx_discovery_metrics_date ON discovery_metrics(date);
+
+-- Insert sample grant sources
+INSERT INTO grant_sources (name, url, description, source_type, country) VALUES 
+('LocalGov.ie Grants', 'https://www.localgov.ie/grants-and-funding', 'Irish local government grants and funding opportunities', 'website', 'IE'),
+('Enterprise Ireland', 'https://www.enterprise-ireland.com/en/funding-supports/', 'Enterprise Ireland funding supports for businesses', 'website', 'IE'),
+('Science Foundation Ireland', 'https://www.sfi.ie/funding/', 'Research and innovation funding from SFI', 'website', 'IE'),
+('Citizens Information', 'https://www.citizensinformation.ie/en/money-and-tax/financial-support/', 'Government financial support schemes', 'website', 'IE');
+
+-- Apply triggers to new tables
+CREATE TRIGGER update_grant_sources_updated_at BEFORE UPDATE ON grant_sources FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_crawl_jobs_updated_at BEFORE UPDATE ON crawl_jobs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_discovered_grants_updated_at BEFORE UPDATE ON discovered_grants FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_grant_eligibility_matches_updated_at BEFORE UPDATE ON grant_eligibility_matches FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_webhook_configs_updated_at BEFORE UPDATE ON webhook_configs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Apply trigger to all tables with updated_at column
 CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

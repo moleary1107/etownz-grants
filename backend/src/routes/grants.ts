@@ -1,8 +1,10 @@
 import express from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
-import { DEMO_GRANTS } from '../data/demoUsers';
+import { GrantsRepository, GrantFilters } from '../repositories/grantsRepository';
+import { logger } from '../services/logger';
 
 const router = express.Router();
+const grantsRepo = new GrantsRepository();
 
 /**
  * @swagger
@@ -31,14 +33,14 @@ const router = express.Router();
  *         funder:
  *           type: string
  *           description: Funding organization
- *         funderType:
+ *         funder_type:
  *           type: string
  *           enum: [government, eu, private, foundation, other]
  *           description: Type of funding organization
- *         amountMin:
+ *         amount_min:
  *           type: number
  *           description: Minimum funding amount
- *         amountMax:
+ *         amount_max:
  *           type: number
  *           description: Maximum funding amount
  *         currency:
@@ -54,24 +56,24 @@ const router = express.Router();
  *           items:
  *             type: string
  *           description: Grant categories/tags
- *         eligibilityCriteria:
+ *         eligibility_criteria:
  *           type: object
  *           description: Eligibility requirements
- *         requiredDocuments:
+ *         required_documents:
  *           type: array
  *           items:
  *             type: string
  *           description: Required document types
- *         applicationProcess:
+ *         application_process:
  *           type: string
  *           description: Application process details
- *         isActive:
+ *         is_active:
  *           type: boolean
  *           description: Whether grant is currently accepting applications
- *         createdAt:
+ *         created_at:
  *           type: string
  *           format: date-time
- *         updatedAt:
+ *         updated_at:
  *           type: string
  *           format: date-time
  */
@@ -80,7 +82,7 @@ const router = express.Router();
  * @swagger
  * /grants:
  *   get:
- *     summary: Get list of grants
+ *     summary: Get list of grants with advanced filtering
  *     tags: [Grants]
  *     parameters:
  *       - in: query
@@ -102,39 +104,53 @@ const router = express.Router();
  *         name: search
  *         schema:
  *           type: string
- *         description: Search query for grant title/description
+ *         description: Search query for grant title/description/funder
  *       - in: query
  *         name: funder
  *         schema:
  *           type: string
- *         description: Filter by funder
+ *         description: Filter by funder name
  *       - in: query
  *         name: categories
  *         schema:
  *           type: string
  *         description: Comma-separated list of categories
  *       - in: query
- *         name: amountMin
+ *         name: amount_min
  *         schema:
  *           type: number
  *         description: Minimum funding amount
  *       - in: query
- *         name: amountMax
+ *         name: amount_max
  *         schema:
  *           type: number
  *         description: Maximum funding amount
  *       - in: query
- *         name: deadlineFrom
+ *         name: deadline_from
  *         schema:
  *           type: string
  *           format: date
  *         description: Filter grants with deadline after this date
  *       - in: query
- *         name: deadlineTo
+ *         name: deadline_to
  *         schema:
  *           type: string
  *           format: date
  *         description: Filter grants with deadline before this date
+ *       - in: query
+ *         name: sort_by
+ *         schema:
+ *           type: string
+ *           enum: [deadline, amount, created_at, title]
+ *           default: created_at
+ *         description: Field to sort by
+ *       - in: query
+ *         name: sort_order
+ *         schema:
+ *           type: string
+ *           enum: [ASC, DESC]
+ *           default: DESC
+ *         description: Sort order
  *     responses:
  *       200:
  *         description: List of grants retrieved successfully
@@ -160,70 +176,258 @@ const router = express.Router();
  *                       type: integer
  */
 router.get('/', asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20, search, funder, category, provider } = req.query;
-  
-  let filteredGrants = [...DEMO_GRANTS];
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
 
-  // Apply search filter
-  if (search && typeof search === 'string') {
-    const searchLower = search.toLowerCase();
-    filteredGrants = filteredGrants.filter(grant =>
-      grant.title.toLowerCase().includes(searchLower) ||
-      grant.description.toLowerCase().includes(searchLower) ||
-      grant.provider.toLowerCase().includes(searchLower)
+  // Build filters from query parameters
+  const filters: GrantFilters = {
+    limit,
+    offset,
+    sort_by: req.query.sort_by as any || 'created_at',
+    sort_order: req.query.sort_order as any || 'DESC'
+  };
+
+  if (req.query.search) {
+    filters.search = req.query.search as string;
+  }
+
+  if (req.query.funder) {
+    filters.funder = req.query.funder as string;
+  }
+
+  if (req.query.categories) {
+    filters.categories = (req.query.categories as string).split(',').map(c => c.trim());
+  }
+
+  if (req.query.amount_min) {
+    filters.amount_min = Number(req.query.amount_min);
+  }
+
+  if (req.query.amount_max) {
+    filters.amount_max = Number(req.query.amount_max);
+  }
+
+  if (req.query.deadline_from) {
+    filters.deadline_from = new Date(req.query.deadline_from as string);
+  }
+
+  if (req.query.deadline_to) {
+    filters.deadline_to = new Date(req.query.deadline_to as string);
+  }
+
+  try {
+    const grants = await grantsRepo.findGrants(filters);
+    const total = grants.length > 0 ? (grants[0] as any).total_count || 0 : 0;
+
+    // Transform to frontend format
+    const grantsResponse = grants.map(grant => ({
+      id: grant.id,
+      title: grant.title,
+      description: grant.description,
+      summary: grant.summary,
+      deadline: grant.deadline,
+      funder: grant.funder,
+      funder_type: grant.funder_type,
+      amount_min: grant.amount_min,
+      amount_max: grant.amount_max,
+      currency: grant.currency,
+      url: grant.url,
+      categories: grant.categories,
+      eligibility_criteria: grant.eligibility_criteria,
+      required_documents: grant.required_documents,
+      application_process: grant.application_process,
+      is_active: grant.is_active,
+      created_at: grant.created_at,
+      updated_at: grant.updated_at
+    }));
+
+    res.json({
+      grants: grantsResponse,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching grants', { error, filters });
+    throw error;
+  }
+}));
+
+/**
+ * @swagger
+ * /grants/stats:
+ *   get:
+ *     summary: Get grant statistics
+ *     tags: [Grants]
+ *     responses:
+ *       200:
+ *         description: Grant statistics
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 total:
+ *                   type: integer
+ *                 active:
+ *                   type: integer
+ *                 expired:
+ *                   type: integer
+ *                 recent:
+ *                   type: integer
+ */
+router.get('/stats', asyncHandler(async (req, res) => {
+  try {
+    const stats = await grantsRepo.getGrantStats();
+    res.json(stats);
+  } catch (error) {
+    logger.error('Error fetching grant stats', { error });
+    throw error;
+  }
+}));
+
+/**
+ * @swagger
+ * /grants/discovered:
+ *   get:
+ *     summary: Get discovered grants from crawler
+ *     tags: [Grants]
+ *     parameters:
+ *       - in: query
+ *         name: source_id
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Filter by grant source
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, processed, failed]
+ *         description: Filter by processing status
+ *     responses:
+ *       200:
+ *         description: List of discovered grants
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ */
+router.get('/discovered', asyncHandler(async (req, res) => {
+  const { source_id, status } = req.query;
+
+  try {
+    const discoveredGrants = await grantsRepo.findDiscoveredGrants(
+      source_id as string,
+      undefined, // job_id
+      status as string
     );
+
+    res.json({
+      discovered_grants: discoveredGrants,
+      count: discoveredGrants.length
+    });
+  } catch (error) {
+    logger.error('Error fetching discovered grants', { error, source_id, status });
+    throw error;
+  }
+}));
+
+/**
+ * @swagger
+ * /grants/search/ai:
+ *   post:
+ *     summary: AI-powered grant search based on organization profile
+ *     tags: [Grants]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - org_profile
+ *             properties:
+ *               org_profile:
+ *                 type: object
+ *                 description: Organization profile for matching
+ *               limit:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 50
+ *                 default: 10
+ *                 description: Number of grants to return
+ *     responses:
+ *       200:
+ *         description: AI-matched grants found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 matches:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       grant:
+ *                         $ref: '#/components/schemas/Grant'
+ *                       match_score:
+ *                         type: number
+ *                       matching_criteria:
+ *                         type: object
+ *                       ai_analysis:
+ *                         type: string
+ */
+router.post('/search/ai', asyncHandler(async (req, res) => {
+  const { org_profile, limit = 10 } = req.body;
+
+  if (!org_profile) {
+    return res.status(400).json({
+      error: 'Missing organization profile',
+      message: 'org_profile is required for AI matching'
+    });
   }
 
-  // Apply provider filter
-  if (provider && typeof provider === 'string' && provider !== 'all') {
-    filteredGrants = filteredGrants.filter(grant => grant.providerType === provider);
+  try {
+    // Get recent active grants
+    const grants = await grantsRepo.findGrants({
+      is_active: true,
+      limit: limit * 2, // Get more to filter through
+      sort_by: 'created_at',
+      sort_order: 'DESC'
+    });
+
+    // TODO: Implement AI-based matching
+    // For now, return top grants with mock scores
+    const matches = grants.slice(0, limit).map(grant => ({
+      grant,
+      match_score: Math.random() * 0.4 + 0.6, // Random score between 0.6-1.0
+      matching_criteria: {
+        sector_alignment: Math.random() > 0.3,
+        size_requirements: Math.random() > 0.2,
+        geographic_eligibility: Math.random() > 0.1,
+        experience_level: Math.random() > 0.4
+      },
+      ai_analysis: `This grant shows strong potential for your organization. The funding amount and eligibility criteria align well with your profile.`
+    }));
+
+    // Sort by match score
+    matches.sort((a, b) => b.match_score - a.match_score);
+
+    res.json({ matches });
+  } catch (error) {
+    logger.error('Error in AI grant search', { error, org_profile });
+    throw error;
   }
-
-  // Apply category filter
-  if (category && typeof category === 'string' && category !== 'all') {
-    filteredGrants = filteredGrants.filter(grant => grant.category === category);
-  }
-
-  // Apply funder filter
-  if (funder && typeof funder === 'string') {
-    filteredGrants = filteredGrants.filter(grant =>
-      grant.provider.toLowerCase().includes(funder.toLowerCase())
-    );
-  }
-
-  // Pagination
-  const pageNum = Number(page);
-  const limitNum = Number(limit);
-  const startIndex = (pageNum - 1) * limitNum;
-  const endIndex = startIndex + limitNum;
-  const paginatedGrants = filteredGrants.slice(startIndex, endIndex);
-
-  // Transform to frontend format
-  const grantsResponse = paginatedGrants.map(grant => ({
-    id: grant.id,
-    title: grant.title,
-    description: grant.description,
-    provider: grant.provider,
-    providerType: grant.providerType,
-    amount: grant.amount,
-    deadline: grant.deadline,
-    location: grant.location,
-    eligibility: grant.eligibility,
-    category: grant.category,
-    url: grant.url,
-    isFavorite: false, // TODO: Implement user favorites
-    matchScore: Math.floor(Math.random() * 30) + 70 // Mock match score
-  }));
-
-  res.json({
-    grants: grantsResponse,
-    pagination: {
-      page: pageNum,
-      limit: limitNum,
-      total: filteredGrants.length,
-      pages: Math.ceil(filteredGrants.length / limitNum)
-    }
-  });
 }));
 
 /**
@@ -251,89 +455,151 @@ router.get('/', asyncHandler(async (req, res) => {
  *         description: Grant not found
  */
 router.get('/:id', asyncHandler(async (req, res) => {
-  // TODO: Implement get grant by ID
   const { id } = req.params;
   
-  res.json({
-    id,
-    title: 'Enterprise Ireland Innovation Grant',
-    description: 'Funding for innovative technology projects in Ireland...',
-    deadline: '2024-12-31T23:59:59Z',
-    funder: 'Enterprise Ireland',
-    amountMin: 25000,
-    amountMax: 500000,
-    currency: 'EUR',
-    categories: ['technology', 'innovation'],
-    isActive: true
-  });
+  try {
+    const grant = await grantsRepo.findGrantById(id);
+    
+    if (!grant) {
+      return res.status(404).json({
+        error: 'Grant not found',
+        message: `Grant with ID ${id} does not exist`
+      });
+    }
+
+    res.json(grant);
+  } catch (error) {
+    logger.error('Error fetching grant by ID', { error, grantId: id });
+    throw error;
+  }
 }));
 
 /**
  * @swagger
- * /grants/search/similar:
- *   post:
- *     summary: Find grants similar to provided description
+ * /grants/{id}/eligibility:
+ *   get:
+ *     summary: Get eligibility matches for a specific grant
  *     tags: [Grants]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - description
- *             properties:
- *               description:
- *                 type: string
- *                 description: Project or organization description
- *               limit:
- *                 type: integer
- *                 minimum: 1
- *                 maximum: 50
- *                 default: 10
- *                 description: Number of similar grants to return
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Grant ID
+ *       - in: query
+ *         name: org_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Organization ID to check eligibility for
  *     responses:
  *       200:
- *         description: Similar grants found
+ *         description: Eligibility match information
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 grants:
- *                   type: array
- *                   items:
- *                     allOf:
- *                       - $ref: '#/components/schemas/Grant'
- *                       - type: object
- *                         properties:
- *                           similarity:
- *                             type: number
- *                             minimum: 0
- *                             maximum: 1
- *                             description: Similarity score
+ *                 grant_id:
+ *                   type: string
+ *                 org_id:
+ *                   type: string
+ *                 match_score:
+ *                   type: number
+ *                 matching_criteria:
+ *                   type: object
+ *                 ai_analysis:
+ *                   type: string
+ *                 recommendation:
+ *                   type: string
  */
-router.post('/search/similar', asyncHandler(async (req, res) => {
-  // TODO: Implement vector similarity search
-  const { description, limit = 10 } = req.body;
-  
-  res.json({
-    grants: [
-      {
-        id: '123e4567-e89b-12d3-a456-426614174000',
-        title: 'Enterprise Ireland Innovation Grant',
-        similarity: 0.92,
-        description: 'Funding for innovative technology projects',
-        deadline: '2024-12-31T23:59:59Z',
-        funder: 'Enterprise Ireland',
-        amountMin: 25000,
-        amountMax: 500000,
-        currency: 'EUR'
-      }
-    ]
-  });
+router.get('/:id/eligibility', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { org_id } = req.query;
+
+  if (!org_id) {
+    return res.status(400).json({
+      error: 'Missing organization ID',
+      message: 'org_id query parameter is required'
+    });
+  }
+
+  try {
+    const grant = await grantsRepo.findGrantById(id);
+    if (!grant) {
+      return res.status(404).json({
+        error: 'Grant not found',
+        message: `Grant with ID ${id} does not exist`
+      });
+    }
+
+    // TODO: Implement AI-based eligibility matching
+    // For now, return a mock response
+    res.json({
+      grant_id: id,
+      org_id: org_id as string,
+      match_score: 0.85,
+      matching_criteria: {
+        sector_match: true,
+        size_requirements: true,
+        location_eligible: true,
+        previous_funding: false
+      },
+      ai_analysis: "This grant appears to be a good match for your organization based on sector alignment and geographic eligibility. Consider highlighting your innovation capabilities in the application.",
+      recommendation: "highly_recommended"
+    });
+  } catch (error) {
+    logger.error('Error checking grant eligibility', { error, grantId: id, orgId: org_id });
+    throw error;
+  }
+}));
+
+/**
+ * @swagger
+ * /grants/discovered/{id}/process:
+ *   post:
+ *     summary: Process a discovered grant into the main grants table
+ *     tags: [Grants]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Discovered grant ID
+ *     responses:
+ *       200:
+ *         description: Grant processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Grant'
+ */
+router.post('/discovered/:id/process', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const processedGrant = await grantsRepo.processDiscoveredGrant(id);
+    
+    if (!processedGrant) {
+      return res.status(404).json({
+        error: 'Discovered grant not found',
+        message: `Discovered grant with ID ${id} does not exist`
+      });
+    }
+
+    res.json({
+      message: 'Grant processed successfully',
+      grant: processedGrant
+    });
+  } catch (error) {
+    logger.error('Error processing discovered grant', { error, discoveredGrantId: id });
+    throw error;
+  }
 }));
 
 export default router;

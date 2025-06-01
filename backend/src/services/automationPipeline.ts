@@ -1,6 +1,5 @@
-import cron from 'node-cron';
+import { CronJob } from 'cron';
 import { logger } from './logger';
-import { DEMO_GRANTS } from '../data/demoUsers';
 
 interface AutomationConfig {
   grantDiscovery: {
@@ -29,6 +28,7 @@ interface AutomationConfig {
 class AutomationPipeline {
   private config: AutomationConfig;
   private isRunning: boolean = false;
+  private cronJobs: CronJob[] = [];
 
   constructor() {
     this.config = {
@@ -73,32 +73,52 @@ class AutomationPipeline {
 
     // Schedule grant discovery
     if (this.config.grantDiscovery.enabled) {
-      cron.schedule(this.config.grantDiscovery.schedule, () => {
-        this.runGrantDiscovery();
-      });
+      const grantDiscoveryJob = new CronJob(
+        this.config.grantDiscovery.schedule,
+        () => this.runGrantDiscovery(),
+        null,
+        true,
+        'Europe/Dublin'
+      );
+      this.cronJobs.push(grantDiscoveryJob);
       logger.info(`Grant discovery scheduled: ${this.config.grantDiscovery.schedule}`);
     }
 
     // Schedule deadline monitoring
     if (this.config.userNotifications.enabled) {
-      cron.schedule('0 9 * * *', () => { // 9 AM daily
-        this.checkDeadlines();
-      });
+      const deadlineJob = new CronJob(
+        '0 9 * * *', // 9 AM daily
+        () => this.checkDeadlines(),
+        null,
+        true,
+        'Europe/Dublin'
+      );
+      this.cronJobs.push(deadlineJob);
       logger.info('Deadline monitoring scheduled: 9 AM daily');
     }
 
     // Schedule success pattern analysis
     if (this.config.learningSystem.enabled) {
-      cron.schedule('0 2 * * 0', () => { // 2 AM every Sunday
-        this.analyzeSuccessPatterns();
-      });
+      const analysisJob = new CronJob(
+        '0 2 * * 0', // 2 AM every Sunday
+        () => this.analyzeSuccessPatterns(),
+        null,
+        true,
+        'Europe/Dublin'
+      );
+      this.cronJobs.push(analysisJob);
       logger.info('Success pattern analysis scheduled: 2 AM every Sunday');
     }
 
     // Schedule document cleanup
-    cron.schedule('0 3 * * 0', () => { // 3 AM every Sunday
-      this.cleanupOldDocuments();
-    });
+    const cleanupJob = new CronJob(
+      '0 3 * * 0', // 3 AM every Sunday
+      () => this.cleanupOldDocuments(),
+      null,
+      true,
+      'Europe/Dublin'
+    );
+    this.cronJobs.push(cleanupJob);
     logger.info('Document cleanup scheduled: 3 AM every Sunday');
   }
 
@@ -108,8 +128,9 @@ class AutomationPipeline {
       return;
     }
 
-    // Note: node-cron doesn't provide a direct way to stop all tasks
-    // In a production environment, you'd track task references
+    // Stop all cron jobs
+    this.cronJobs.forEach(job => job.stop());
+    this.cronJobs = [];
     this.isRunning = false;
     logger.info('Automation pipeline stopped');
   }
@@ -118,284 +139,106 @@ class AutomationPipeline {
     try {
       logger.info('🔍 Starting automated grant discovery');
 
-      const discoveredGrants = [];
+      const discoveredGrants: any[] = [];
 
       for (const source of this.config.grantDiscovery.sources) {
         try {
           logger.info(`Scanning: ${source}`);
           
-          // In a real implementation, this would use the MCP fetch server
-          const grants = await this.scrapeGrantSource(source);
-          discoveredGrants.push(...grants);
+          // TODO: Integrate with crawler service
+          // const grants = await this.scrapeGrantSource(source);
+          // discoveredGrants.push(...grants);
           
-          logger.info(`Found ${grants.length} grants from ${source}`);
+          logger.info(`Scanning completed for ${source}`);
         } catch (error) {
           logger.error(`Failed to scan ${source}:`, error);
         }
       }
 
-      // Process discovered grants
-      for (const grant of discoveredGrants) {
-        await this.processDiscoveredGrant(grant);
-      }
+      // TODO: Process discovered grants
+      // for (const grant of discoveredGrants) {
+      //   await this.processDiscoveredGrant(grant);
+      // }
 
-      // Send notifications for high-match grants
-      await this.sendMatchNotifications(discoveredGrants);
+      // TODO: Send notifications for high-match grants
+      // await this.sendMatchNotifications(discoveredGrants);
 
-      logger.info(`✅ Grant discovery completed. Processed ${discoveredGrants.length} grants`);
+      logger.info(`✅ Grant discovery completed`);
     } catch (error) {
       logger.error('Grant discovery failed:', error);
     }
   }
 
-  private async scrapeGrantSource(sourceUrl: string): Promise<any[]> {
-    // Mock implementation - in reality this would use the MCP fetch server
-    // to scrape actual grant websites and convert them to structured data
-    
-    const mockGrants = [
-      {
-        title: `AI Innovation Grant - ${new Date().toLocaleDateString()}`,
-        provider: 'Enterprise Ireland',
-        url: `${sourceUrl}/grants/ai-innovation`,
-        deadline: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000), // 45 days from now
-        amount: { min: 50000, max: 200000, currency: 'EUR' },
-        category: 'Innovation',
-        eligibility: ['SME', 'Startup'],
-        discovered: true
-      }
-    ];
-
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return mockGrants;
-  }
-
-  private async processDiscoveredGrant(grant: any): Promise<void> {
-    try {
-      // 1. AI Structure Analysis
-      if (this.config.documentProcessing.aiStructuring) {
-        grant.aiAnalysis = await this.performAIAnalysis(grant);
-      }
-
-      // 2. Match Score Calculation
-      grant.matchScores = await this.calculateMatchScores(grant);
-
-      // 3. Store in database
-      await this.storeGrant(grant);
-
-      // 4. Generate alerts for high-match grants
-      const highMatchUsers = grant.matchScores.filter((match: any) => 
-        match.score >= this.config.userNotifications.matchThreshold
-      );
-
-      if (highMatchUsers.length > 0) {
-        await this.queueNotifications(grant, highMatchUsers);
-      }
-
-    } catch (error) {
-      logger.error(`Failed to process grant ${grant.title}:`, error);
-    }
-  }
-
-  private async performAIAnalysis(grant: any): Promise<any> {
-    // Mock AI analysis - in reality this would use OpenAI
-    return {
-      difficulty: 'medium',
-      keyTerms: ['innovation', 'technology', 'research'],
-      successFactors: ['strong technical team', 'clear commercialization plan'],
-      requiredDocuments: ['business plan', 'technical proposal', 'budget'],
-      estimatedEffort: '40-60 hours',
-      competitionLevel: 'high'
-    };
-  }
-
-  private async calculateMatchScores(grant: any): Promise<any[]> {
-    // Mock match scoring - in reality this would analyze user/org profiles
-    const mockUsers = [
-      { userId: 'user-2', organizationId: 'org-1', score: 85 },
-      { userId: 'user-4', organizationId: 'org-3', score: 78 },
-      { userId: 'user-5', organizationId: 'org-4', score: 72 }
-    ];
-
-    return mockUsers;
-  }
-
-  private async storeGrant(grant: any): Promise<void> {
-    // Mock storage - in reality this would save to PostgreSQL
-    logger.info(`Storing grant: ${grant.title}`);
-  }
-
-  private async queueNotifications(grant: any, users: any[]): Promise<void> {
-    for (const user of users) {
-      logger.info(`Queuing notification for user ${user.userId}: ${grant.title} (${user.score}% match)`);
-      
-      // In reality, this would queue emails/in-app notifications
-      await this.sendNotification({
-        userId: user.userId,
-        type: 'new_grant_match',
-        title: `New High-Match Grant: ${grant.title}`,
-        message: `We found a ${user.score}% match grant that might interest you: ${grant.title}`,
-        data: { grantId: grant.id, matchScore: user.score }
-      });
-    }
-  }
-
   private async checkDeadlines(): Promise<void> {
     try {
-      logger.info('🔔 Checking upcoming grant deadlines');
+      logger.info('⏰ Checking grant deadlines');
 
-      const today = new Date();
-      const upcomingDeadlines = [];
+      // TODO: Query database for grants with approaching deadlines
+      // const upcomingDeadlines = await this.getUpcomingDeadlines();
 
-      // Check all active grants for approaching deadlines
-      for (const grant of DEMO_GRANTS) {
-        const daysUntilDeadline = Math.ceil(
-          (grant.deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-        );
+      // TODO: Send deadline notifications
+      // for (const deadline of upcomingDeadlines) {
+      //   await this.sendDeadlineNotification(deadline);
+      // }
 
-        if (this.config.userNotifications.deadlineWarnings.includes(daysUntilDeadline)) {
-          upcomingDeadlines.push({
-            grant,
-            daysLeft: daysUntilDeadline
-          });
-        }
-      }
-
-      // Send deadline notifications
-      for (const deadline of upcomingDeadlines) {
-        await this.sendDeadlineNotifications(deadline);
-      }
-
-      logger.info(`✅ Deadline check completed. Found ${upcomingDeadlines.length} upcoming deadlines`);
+      logger.info('✅ Deadline check completed');
     } catch (error) {
-      logger.error('Deadline checking failed:', error);
+      logger.error('Deadline check failed:', error);
     }
-  }
-
-  private async sendDeadlineNotifications(deadline: any): Promise<void> {
-    const { grant, daysLeft } = deadline;
-    
-    logger.info(`Sending deadline notification: ${grant.title} - ${daysLeft} days left`);
-
-    // In reality, this would send notifications to all users with active applications
-    // or those who have shown interest in this type of grant
-    await this.sendNotification({
-      userId: 'all', // broadcast
-      type: 'deadline_reminder',
-      title: `Grant Deadline Approaching: ${grant.title}`,
-      message: `Only ${daysLeft} days left to apply for ${grant.title}. Don't miss out!`,
-      urgency: daysLeft <= 3 ? 'high' : 'medium',
-      data: { grantId: grant.id, deadline: grant.deadline, daysLeft }
-    });
   }
 
   private async analyzeSuccessPatterns(): Promise<void> {
     try {
       logger.info('📊 Analyzing success patterns');
 
-      // Mock analysis - in reality this would:
-      // 1. Gather all successful applications from the past period
-      // 2. Use AI to identify common patterns
-      // 3. Update recommendation algorithms
-      // 4. Generate insights for users
+      // TODO: Implement ML analysis of successful applications
+      // const patterns = await this.analyzeApplicationSuccess();
+      // await this.updateMatchingAlgorithm(patterns);
 
-      const patterns = [
-        {
-          pattern: 'Early submission increases success rate by 23%',
-          evidence: 'Analysis of 150 successful applications',
-          recommendation: 'Submit applications at least 2 weeks before deadline'
-        },
-        {
-          pattern: 'Applications with 3+ team members have 34% higher success rate',
-          evidence: 'Analysis of team composition in successful grants',
-          recommendation: 'Ensure diverse, experienced team composition'
-        },
-        {
-          pattern: 'Detailed budget breakdowns improve success by 18%',
-          evidence: 'Comparison of budget detail levels',
-          recommendation: 'Provide comprehensive, justified budget breakdowns'
-        }
-      ];
-
-      // Store patterns for future reference
-      for (const pattern of patterns) {
-        await this.storeSuccessPattern(pattern);
-      }
-
-      logger.info(`✅ Success pattern analysis completed. Identified ${patterns.length} patterns`);
+      logger.info('✅ Success pattern analysis completed');
     } catch (error) {
       logger.error('Success pattern analysis failed:', error);
     }
-  }
-
-  private async storeSuccessPattern(pattern: any): Promise<void> {
-    logger.info(`Storing success pattern: ${pattern.pattern}`);
-    // Mock storage - in reality this would save to a knowledge base
   }
 
   private async cleanupOldDocuments(): Promise<void> {
     try {
       logger.info('🧹 Cleaning up old documents');
 
-      // Mock cleanup - in reality this would:
-      // 1. Remove processed documents older than X days
-      // 2. Archive completed applications
-      // 3. Clean up temporary files
-      // 4. Optimize database
+      // TODO: Remove documents older than retention period
+      // const deleted = await this.removeOldDocuments();
+      // logger.info(`Deleted ${deleted} old documents`);
 
-      const mockStats = {
-        documentsProcessed: 47,
-        temporaryFilesRemoved: 23,
-        archivedApplications: 12,
-        spaceSaved: '2.3 GB'
-      };
-
-      logger.info(`✅ Cleanup completed: ${JSON.stringify(mockStats)}`);
+      logger.info('✅ Document cleanup completed');
     } catch (error) {
       logger.error('Document cleanup failed:', error);
     }
   }
 
-  private async sendNotification(notification: any): Promise<void> {
-    // Mock notification sending - in reality this would:
-    // 1. Queue notifications in Redis
-    // 2. Send emails via SendGrid
-    // 3. Send in-app notifications via WebSocket
-    // 4. Send SMS for urgent notifications (optional)
-    
-    logger.info(`📧 Notification sent: ${notification.title} to ${notification.userId}`);
-  }
-
-  public getStatus(): any {
-    return {
-      isRunning: this.isRunning,
-      config: this.config,
-      lastRun: {
-        grantDiscovery: 'Today 06:00',
-        deadlineCheck: 'Today 09:00',
-        successAnalysis: 'Sunday 02:00',
-        cleanup: 'Sunday 03:00'
-      },
-      statistics: {
-        grantsDiscovered: 156,
-        notificationsSent: 89,
-        patternsIdentified: 23,
-        documentsProcessed: 234
-      }
-    };
-  }
-
+  // Configuration methods
   public updateConfig(newConfig: Partial<AutomationConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    logger.info('Automation configuration updated');
+    logger.info('Automation pipeline configuration updated');
+    
+    // Restart if running to apply new config
+    if (this.isRunning) {
+      this.stop();
+      this.start();
+    }
+  }
+
+  public getConfig(): AutomationConfig {
+    return { ...this.config };
+  }
+
+  public getStatus(): { isRunning: boolean; activeJobs: number } {
+    return {
+      isRunning: this.isRunning,
+      activeJobs: this.cronJobs.filter(job => job.running).length
+    };
   }
 }
 
-// Singleton instance
+// Export singleton instance
 export const automationPipeline = new AutomationPipeline();
-
-// Auto-start in production
-if (process.env.NODE_ENV === 'production') {
-  automationPipeline.start();
-}
+export default AutomationPipeline;
