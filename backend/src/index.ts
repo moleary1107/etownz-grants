@@ -24,8 +24,7 @@ import scrapingRoutes from './routes/scraping';
 import aiRoutes from './routes/ai';
 import monitoringRoutes from './routes/monitoring';
 import predictiveRoutes from './routes/predictive';
-import billingRoutes from './routes/billing';
-import paymentsRoutes from './routes/payments';
+import stripeRoutes from './routes/stripe';
 
 // Import database service
 import { db } from './services/database';
@@ -155,8 +154,7 @@ app.use('/scraping', scrapingRoutes);
 app.use('/ai', aiRoutes);
 app.use('/monitoring', monitoringRoutes);
 app.use('/predictive', predictiveRoutes);
-app.use('/billing', billingRoutes);
-app.use('/payments', paymentsRoutes);
+app.use('/stripe', stripeRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
