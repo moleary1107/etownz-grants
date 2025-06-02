@@ -1,7 +1,10 @@
+// Load environment variables first
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 import { errorHandler } from './middleware/errorHandler';
@@ -18,11 +21,12 @@ import usageRoutes from './routes/usage';
 import applicationsRoutes from './routes/applications';
 import webhooksRoutes from './routes/webhooks';
 import scrapingRoutes from './routes/scraping';
+import aiRoutes from './routes/ai';
+import monitoringRoutes from './routes/monitoring';
+import predictiveRoutes from './routes/predictive';
 
 // Import database service
 import { db } from './services/database';
-
-dotenv.config();
 
 // TODO: Add Sentry integration in production
 
@@ -34,14 +38,52 @@ const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'eTownz Grants Management API',
-      version: '1.0.0',
-      description: 'API for managing grant applications in Ireland',
+      title: 'eTownz Grants AI-Powered Management API',
+      version: '2.0.0',
+      description: 'AI-powered API for intelligent grant discovery, matching, and application management in Ireland. Features semantic search, automated grant analysis, and smart recommendations.',
       contact: {
         name: 'eTownz Support',
         email: 'support@etownz.com'
+      },
+      license: {
+        name: 'MIT',
+        url: 'https://opensource.org/licenses/MIT'
       }
     },
+    tags: [
+      {
+        name: 'AI',
+        description: 'AI-powered grant matching, semantic search, and intelligent analysis'
+      },
+      {
+        name: 'Grants',
+        description: 'Grant discovery, search, and management'
+      },
+      {
+        name: 'Scraping',
+        description: 'Web scraping and data extraction for grant discovery'
+      },
+      {
+        name: 'Authentication',
+        description: 'User authentication and authorization'
+      },
+      {
+        name: 'Organizations',
+        description: 'Organization management and profiles'
+      },
+      {
+        name: 'Applications',
+        description: 'Grant applications and submissions'
+      },
+      {
+        name: 'Monitoring',
+        description: 'AI-powered grant monitoring, alerts, and automated tracking'
+      },
+      {
+        name: 'Predictive Analytics',
+        description: 'Machine learning-powered predictive analytics, success probability, and budget optimization'
+      }
+    ],
     servers: [
       {
         url: process.env.NODE_ENV === 'production' 
@@ -108,6 +150,9 @@ app.use('/usage', usageRoutes);
 app.use('/applications', applicationsRoutes);
 app.use('/webhooks', webhooksRoutes);
 app.use('/scraping', scrapingRoutes);
+app.use('/ai', aiRoutes);
+app.use('/monitoring', monitoringRoutes);
+app.use('/predictive', predictiveRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

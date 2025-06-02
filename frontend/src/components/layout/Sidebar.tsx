@@ -17,7 +17,8 @@ import {
   Menu,
   X,
   Zap,
-  Plus
+  Plus,
+  Bell
 } from "lucide-react"
 import { Button } from "../ui/button"
 import { UserRole, hasPermission, User } from "../../lib/auth"
@@ -50,6 +51,12 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       href: "/dashboard/applications",
       icon: FileText,
       permission: "canViewApplications"
+    },
+    {
+      name: "Monitoring & Alerts",
+      href: "/dashboard/monitoring",
+      icon: Bell,
+      permission: null // Available to all
     },
     {
       name: "Web Scraping",

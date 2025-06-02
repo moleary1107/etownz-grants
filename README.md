@@ -9,6 +9,9 @@ A comprehensive SaaS platform for automating the grant application lifecycle in 
 - **Document Management**: Upload and manage organizational documents
 - **Deadline Tracking**: Automated reminders and timeline management
 - **Submission Tracking**: Monitor application status and outcomes
+- **🤖 100% Autonomous Operations**: Self-healing, self-monitoring, and self-maintaining infrastructure
+- **🛡️ Advanced Security**: Role-based access control with comprehensive permission testing
+- **📊 Real-time Monitoring**: Live dashboard with automated health checks and alerts
 
 ## 🏗️ Architecture
 
@@ -36,12 +39,18 @@ docker-compose up -d
 
 ## 📡 Service URLs
 
-- **Frontend**: http://localhost:3001
-- **Backend API**: http://localhost:8000
-- **API Documentation**: http://localhost:8000/docs
+### **Development (Local)**
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001
 - **Crawler Service**: http://localhost:8001  
 - **AI Pipeline**: http://localhost:8002
 - **MCP Documentation**: http://localhost:9000
+
+### **Production**
+- **Frontend**: https://grants.etownz.com
+- **Backend API**: https://grants.etownz.com/api
+- **Real-time Monitoring**: http://165.227.149.136:9090
+- **Health Check**: https://grants.etownz.com/api/health
 
 ## 📁 Project Structure
 
@@ -72,9 +81,12 @@ docker-compose up -d
 
 ## 📚 Documentation
 
+- [Complete Automation & Operations Guide](./AUTOMATION_OPERATIONS_GUIDE.md) - **Comprehensive autonomous system documentation**
+- [Manual Testing Guide - Roles & Permissions](./MANUAL_TESTING_ROLES_PERMISSIONS_GUIDE.md) - **Security & authorization testing**
+- [Deployment Guide](./DEPLOYMENT_GUIDE.md) - **Production deployment procedures**
+- [Full Automation System](./FULL_AUTOMATION_SYSTEM.md) - **"Set & Forget" autonomous operation**
 - [API Documentation](./docs/api/)
 - [Development Guide](./docs/development.md)
-- [Deployment Guide](./docs/deployment.md)
 
 ## 🤝 Contributing
 

@@ -13,28 +13,24 @@ import {
   Clock,
   ExternalLink,
   BookmarkPlus,
-  Star
+  Star,
+  Zap,
+  Loader2,
+  AlertCircle
 } from "lucide-react"
 import { User } from "../../../lib/auth"
+import { grantsService, aiService, Grant as APIGrant, OrganizationProfile } from "../../../lib/api"
 
-interface Grant {
-  id: string
-  title: string
-  description: string
-  provider: string
-  providerType: 'government' | 'council' | 'eu' | 'foundation'
-  amount: {
-    min: number
-    max: number
-    currency: string
-  }
-  deadline: Date
-  location: string
-  eligibility: string[]
-  category: string
-  url: string
-  isFavorite: boolean
-  matchScore: number
+// Use the API Grant type and extend it with UI-specific properties
+interface Grant extends APIGrant {
+  // UI-specific properties
+  isFavorite?: boolean
+  matchScore?: number
+  provider?: string
+  providerType?: 'government' | 'council' | 'eu' | 'foundation'
+  location?: string
+  eligibility?: string[]
+  category?: string
 }
 
 export default function GrantsPage() {
@@ -45,6 +41,10 @@ export default function GrantsPage() {
   const [selectedProvider, setSelectedProvider] = useState("all")
   const [sortBy, setSortBy] = useState("deadline")
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [aiSearchMode, setAiSearchMode] = useState(false)
+  const [aiProcessing, setAiProcessing] = useState(false)
+  const [processingTime, setProcessingTime] = useState<number | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -67,93 +67,112 @@ export default function GrantsPage() {
     }
   }, [router])
 
-  const loadGrants = async () => {
+  const loadGrants = async (useAI: boolean = false) => {
     try {
-      // Mock grants data - replace with actual API call
-      const mockGrants: Grant[] = [
-        {
-          id: '1',
-          title: 'Enterprise Ireland R&D Fund',
-          description: 'Funding for research and development projects that have clear commercial potential and involve a level of technical innovation.',
-          provider: 'Enterprise Ireland',
-          providerType: 'government',
-          amount: { min: 25000, max: 250000, currency: 'EUR' },
-          deadline: new Date('2024-03-15'),
-          location: 'Ireland',
-          eligibility: ['SME', 'Startup', 'Research Institution'],
-          category: 'Research & Development',
-          url: 'https://www.enterprise-ireland.com/en/research-innovation/companies/',
-          isFavorite: false,
-          matchScore: 85
-        },
-        {
-          id: '2',
-          title: 'Dublin City Council Community Grant',
-          description: 'Supporting community groups and organizations in Dublin with funding for local initiatives and projects.',
-          provider: 'Dublin City Council',
-          providerType: 'council',
-          amount: { min: 500, max: 15000, currency: 'EUR' },
-          deadline: new Date('2024-02-28'),
-          location: 'Dublin',
-          eligibility: ['Community Group', 'Non-Profit', 'Social Enterprise'],
-          category: 'Community Development',
-          url: 'https://www.dublincity.ie/residential/community/community-grants',
-          isFavorite: true,
-          matchScore: 92
-        },
-        {
-          id: '3',
-          title: 'SFI Discover Programme',
-          description: 'Science Foundation Ireland programme supporting public engagement with STEM research and education.',
-          provider: 'Science Foundation Ireland',
-          providerType: 'government',
-          amount: { min: 1000, max: 50000, currency: 'EUR' },
-          deadline: new Date('2024-04-30'),
-          location: 'Ireland',
-          eligibility: ['Research Institution', 'University', 'Non-Profit'],
-          category: 'Education & STEM',
-          url: 'https://www.sfi.ie/funding/sfi-discover/',
-          isFavorite: false,
-          matchScore: 78
-        },
-        {
-          id: '4',
-          title: 'Horizon Europe - EIC Accelerator',
-          description: 'European Innovation Council support for high-risk, high-impact innovation with significant market potential.',
-          provider: 'European Commission',
-          providerType: 'eu',
-          amount: { min: 500000, max: 2500000, currency: 'EUR' },
-          deadline: new Date('2024-06-05'),
-          location: 'EU',
-          eligibility: ['SME', 'Startup'],
-          category: 'Innovation',
-          url: 'https://eic.ec.europa.eu/eic-funding-opportunities/eic-accelerator_en',
-          isFavorite: false,
-          matchScore: 70
-        },
-        {
-          id: '5',
-          title: 'Ireland Funds Young Entrepreneur Grant',
-          description: 'Supporting young entrepreneurs in Ireland with seed funding for innovative business ideas.',
-          provider: 'The Ireland Funds',
-          providerType: 'foundation',
-          amount: { min: 5000, max: 25000, currency: 'EUR' },
-          deadline: new Date('2024-05-15'),
-          location: 'Ireland',
-          eligibility: ['Entrepreneur', 'Startup', 'Young Professional'],
-          category: 'Entrepreneurship',
-          url: 'https://irelandfunds.org/',
-          isFavorite: false,
-          matchScore: 88
+      setIsLoading(true)
+      setError(null)
+      
+      if (useAI && user) {
+        // Use AI-powered grant matching
+        setAiProcessing(true)
+        
+        // Create organization profile from user data
+        const orgProfile: OrganizationProfile = {
+          id: user.id,
+          name: user.name,
+          description: `Organization for ${user.name}`,
+          sector: 'technology', // Default - could be from user profile
+          size: 'small',
+          location: 'ireland'
         }
-      ]
 
-      setGrants(mockGrants)
+        const startTime = Date.now()
+        const response = await aiService.matchGrants(orgProfile, {
+          categories: selectedCategory !== 'all' ? [selectedCategory] : undefined
+        }, 20)
+        
+        setProcessingTime(Date.now() - startTime)
+        
+        // Transform AI results to Grant interface
+        const aiGrants: Grant[] = response.matches.map(match => ({
+          ...match.grant,
+          provider: match.grant.funder || 'Unknown',
+          providerType: getProviderType(match.grant.funder_type),
+          location: 'Ireland', // Default
+          eligibility: extractEligibility(match.grant.eligibility_criteria),
+          category: match.grant.categories?.[0] || 'General',
+          isFavorite: false,
+          matchScore: Math.round(match.matchScore),
+          amount: {
+            min: match.grant.amount_min || 0,
+            max: match.grant.amount_max || 0,
+            currency: match.grant.currency || 'EUR'
+          }
+        }))
+
+        setGrants(aiGrants)
+        setAiSearchMode(true)
+      } else {
+        // Use traditional grants API
+        const filters = {
+          search: searchTerm || undefined,
+          categories: selectedCategory !== 'all' ? [selectedCategory] : undefined,
+          sort_by: sortBy as any,
+          limit: 50
+        }
+
+        const response = await grantsService.getGrants(filters)
+        
+        // Transform API results to Grant interface
+        const apiGrants: Grant[] = response.grants.map(grant => ({
+          ...grant,
+          provider: grant.funder || 'Unknown',
+          providerType: getProviderType(grant.funder_type),
+          location: 'Ireland', // Default
+          eligibility: extractEligibility(grant.eligibility_criteria),
+          category: grant.categories?.[0] || 'General',
+          isFavorite: false,
+          matchScore: undefined,
+          amount: {
+            min: grant.amount_min || 0,
+            max: grant.amount_max || 0,
+            currency: grant.currency || 'EUR'
+          }
+        }))
+
+        setGrants(apiGrants)
+        setAiSearchMode(false)
+      }
     } catch (error) {
       console.error('Error loading grants:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load grants')
     } finally {
       setIsLoading(false)
+      setAiProcessing(false)
     }
+  }
+
+  // Helper function to determine provider type
+  const getProviderType = (funderType?: string): 'government' | 'council' | 'eu' | 'foundation' => {
+    if (!funderType) return 'government'
+    const type = funderType.toLowerCase()
+    if (type.includes('eu') || type.includes('european')) return 'eu'
+    if (type.includes('council') || type.includes('city')) return 'council'
+    if (type.includes('foundation') || type.includes('private')) return 'foundation'
+    return 'government'
+  }
+
+  // Helper function to extract eligibility criteria
+  const extractEligibility = (criteria?: Record<string, any>): string[] => {
+    if (!criteria) return []
+    const eligibilityList: string[] = []
+    
+    if (criteria.sector) eligibilityList.push(criteria.sector)
+    if (criteria.stage) eligibilityList.push(criteria.stage)
+    if (criteria.size) eligibilityList.push(criteria.size)
+    if (criteria.location) eligibilityList.push(criteria.location)
+    
+    return eligibilityList.length > 0 ? eligibilityList : ['General']
   }
 
   const handleLogout = () => {
@@ -172,11 +191,30 @@ export default function GrantsPage() {
     )
   }
 
-  const formatAmount = (amount: Grant['amount']) => {
-    if (amount.min === amount.max) {
-      return `${amount.currency === 'EUR' ? '€' : '$'}${amount.min.toLocaleString()}`
+  const formatAmount = (grant: Grant) => {
+    if (!grant.amount || (!grant.amount.min && !grant.amount.max)) {
+      return 'Amount not specified'
     }
-    return `${amount.currency === 'EUR' ? '€' : '$'}${amount.min.toLocaleString()} - ${amount.currency === 'EUR' ? '€' : '$'}${amount.max.toLocaleString()}`
+    
+    const currency = grant.amount.currency === 'EUR' ? '€' : '$'
+    
+    if (grant.amount.min === grant.amount.max) {
+      return `${currency}${grant.amount.min.toLocaleString()}`
+    }
+    
+    if (grant.amount.min && grant.amount.max) {
+      return `${currency}${grant.amount.min.toLocaleString()} - ${currency}${grant.amount.max.toLocaleString()}`
+    }
+    
+    if (grant.amount.min) {
+      return `From ${currency}${grant.amount.min.toLocaleString()}`
+    }
+    
+    if (grant.amount.max) {
+      return `Up to ${currency}${grant.amount.max.toLocaleString()}`
+    }
+    
+    return 'Amount not specified'
   }
 
   const getProviderColor = (type: Grant['providerType']) => {
@@ -189,17 +227,86 @@ export default function GrantsPage() {
     }
   }
 
-  const getDaysUntilDeadline = (deadline: Date) => {
+  const getDaysUntilDeadline = (deadline?: Date) => {
+    if (!deadline) return 0
     const today = new Date()
     const diffTime = deadline.getTime() - today.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     return diffDays
   }
 
+  // Add semantic search functionality
+  const performSemanticSearch = async () => {
+    if (!searchTerm.trim()) {
+      loadGrants(false)
+      return
+    }
+
+    try {
+      setAiProcessing(true)
+      setError(null)
+      
+      const startTime = Date.now()
+      const response = await aiService.semanticSearch(
+        searchTerm,
+        user?.id,
+        {
+          categories: selectedCategory !== 'all' ? [selectedCategory] : undefined
+        },
+        20
+      )
+      
+      setProcessingTime(Date.now() - startTime)
+      
+      // Transform semantic search results to Grant interface
+      const semanticGrants: Grant[] = response.results.map((result, index) => ({
+        id: result.id,
+        title: result.title,
+        description: result.content,
+        summary: result.content.substring(0, 200) + '...',
+        provider: result.metadata?.funder || 'Unknown',
+        providerType: getProviderType(result.metadata?.funder_type),
+        location: result.metadata?.location || 'Ireland',
+        eligibility: extractEligibility(result.metadata?.eligibility_criteria),
+        category: result.metadata?.categories?.[0] || 'General',
+        url: result.metadata?.url || '#',
+        isFavorite: false,
+        matchScore: Math.round(result.similarity * 100),
+        amount: {
+          min: result.metadata?.amount_min || 0,
+          max: result.metadata?.amount_max || 0,
+          currency: result.metadata?.currency || 'EUR'
+        },
+        deadline: result.metadata?.deadline ? new Date(result.metadata.deadline) : undefined,
+        funder: result.metadata?.funder,
+        categories: result.metadata?.categories,
+        eligibility_criteria: result.metadata?.eligibility_criteria,
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
+      }))
+
+      setGrants(semanticGrants)
+      setAiSearchMode(true)
+    } catch (error) {
+      console.error('Semantic search error:', error)
+      setError(error instanceof Error ? error.message : 'Semantic search failed')
+    } finally {
+      setAiProcessing(false)
+    }
+  }
+
   const filteredGrants = grants.filter(grant => {
+    // Skip client-side filtering for AI search results if using semantic search
+    if (aiSearchMode && !searchTerm) {
+      const matchesCategory = selectedCategory === 'all' || grant.category === selectedCategory
+      const matchesProvider = selectedProvider === 'all' || grant.providerType === selectedProvider
+      return matchesCategory && matchesProvider
+    }
+    
     const matchesSearch = grant.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         grant.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         grant.provider.toLowerCase().includes(searchTerm.toLowerCase())
+                         (grant.description && grant.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (grant.provider && grant.provider.toLowerCase().includes(searchTerm.toLowerCase()))
     
     const matchesCategory = selectedCategory === 'all' || grant.category === selectedCategory
     const matchesProvider = selectedProvider === 'all' || grant.providerType === selectedProvider
@@ -208,11 +315,16 @@ export default function GrantsPage() {
   }).sort((a, b) => {
     switch (sortBy) {
       case 'deadline':
+        if (!a.deadline || !b.deadline) return 0
         return a.deadline.getTime() - b.deadline.getTime()
       case 'amount':
-        return b.amount.max - a.amount.max
+        const aMax = a.amount?.max || 0
+        const bMax = b.amount?.max || 0
+        return bMax - aMax
       case 'match':
-        return b.matchScore - a.matchScore
+        const aMatch = a.matchScore || 0
+        const bMatch = b.matchScore || 0
+        return bMatch - aMatch
       default:
         return 0
     }
@@ -234,12 +346,36 @@ export default function GrantsPage() {
         <div className="p-8">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Grant Discovery
-            </h1>
-            <p className="text-gray-600">
-              Discover funding opportunities tailored to your organization
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  Grant Discovery
+                  {aiSearchMode && (
+                    <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <Zap className="w-3 h-3 mr-1" />
+                      AI-Powered
+                    </span>
+                  )}
+                </h1>
+                <p className="text-gray-600">
+                  {aiSearchMode 
+                    ? 'AI-powered grant matching and semantic search results'
+                    : 'Discover funding opportunities tailored to your organization'
+                  }
+                </p>
+                {processingTime && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Processed in {processingTime}ms
+                  </p>
+                )}
+              </div>
+              {error && (
+                <div className="flex items-center text-red-600 bg-red-50 px-3 py-2 rounded-md">
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  <span className="text-sm">{error}</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Search and Filters */}
@@ -283,7 +419,58 @@ export default function GrantsPage() {
               </select>
             </div>
             
-            <div className="flex items-center justify-between mt-4">
+            {/* AI Search Controls */}
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+              <div className="flex items-center space-x-3">
+                <Button
+                  onClick={() => loadGrants(true)}
+                  disabled={aiProcessing || !user}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  {aiProcessing ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Zap className="w-4 h-4 mr-2" />
+                  )}
+                  AI Match
+                </Button>
+                
+                <Button
+                  onClick={performSemanticSearch}
+                  disabled={aiProcessing || !searchTerm.trim()}
+                  variant="outline"
+                  size="sm"
+                >
+                  {aiProcessing ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Search className="w-4 h-4 mr-2" />
+                  )}
+                  Semantic Search
+                </Button>
+                
+                <Button
+                  onClick={() => loadGrants(false)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-600"
+                >
+                  Clear AI
+                </Button>
+              </div>
+              
+              <div className="text-sm text-gray-600">
+                {filteredGrants.length} grants found
+                {aiSearchMode && (
+                  <span className="ml-2 text-blue-600 font-medium">
+                    (AI-powered)
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between mt-3">
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-600">Sort by:</span>
                 <select
@@ -293,13 +480,16 @@ export default function GrantsPage() {
                 >
                   <option value="deadline">Deadline</option>
                   <option value="amount">Funding Amount</option>
-                  <option value="match">Match Score</option>
+                  {aiSearchMode && <option value="match">Match Score</option>}
                 </select>
               </div>
               
-              <div className="text-sm text-gray-600">
-                {filteredGrants.length} grants found
-              </div>
+              {aiProcessing && (
+                <div className="flex items-center text-blue-600 text-sm">
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing with AI...
+                </div>
+              )}
             </div>
           </div>
 
@@ -318,10 +508,18 @@ export default function GrantsPage() {
                           <span className={`px-2 py-1 text-xs rounded-full ${getProviderColor(grant.providerType)}`}>
                             {grant.providerType}
                           </span>
-                          <div className="flex items-center space-x-1">
-                            <Star className="h-3 w-3 text-yellow-500" />
-                            <span className="text-xs text-gray-600">{grant.matchScore}% match</span>
-                          </div>
+                          {grant.matchScore !== undefined && (
+                            <div className="flex items-center space-x-1">
+                              <Star className="h-3 w-3 text-yellow-500" />
+                              <span className="text-xs text-gray-600">{grant.matchScore}% match</span>
+                            </div>
+                          )}
+                          {aiSearchMode && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                              <Zap className="w-3 h-3 inline mr-1" />
+                              AI
+                            </span>
+                          )}
                         </div>
                         <CardTitle className="text-lg leading-tight">{grant.title}</CardTitle>
                         <CardDescription className="text-sm text-gray-600 mt-1">
@@ -351,7 +549,7 @@ export default function GrantsPage() {
                         <div className="flex items-center space-x-2">
                           <DollarSign className="h-4 w-4 text-green-600" />
                           <span className="text-sm font-medium text-green-600">
-                            {formatAmount(grant.amount)}
+                            {formatAmount(grant)}
                           </span>
                         </div>
                         <div className="flex items-center space-x-2">

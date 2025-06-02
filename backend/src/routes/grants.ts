@@ -1,10 +1,12 @@
 import express from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { GrantsRepository, GrantFilters } from '../repositories/grantsRepository';
+import { GrantsService } from '../services/grantsService';
 import { logger } from '../services/logger';
 
 const router = express.Router();
 const grantsRepo = new GrantsRepository();
+const grantsService = new GrantsService();
 
 /**
  * @swagger
@@ -388,42 +390,60 @@ router.get('/discovered', asyncHandler(async (req, res) => {
  *                         type: string
  */
 router.post('/search/ai', asyncHandler(async (req, res) => {
-  const { org_profile, limit = 10 } = req.body;
+  const { org_profile, limit = 10, filters = {} } = req.body;
 
-  if (!org_profile) {
+  if (!org_profile || !org_profile.id || !org_profile.name) {
     return res.status(400).json({
       error: 'Missing organization profile',
-      message: 'org_profile is required for AI matching'
+      message: 'org_profile with id and name is required for AI matching'
     });
   }
 
   try {
-    // Get recent active grants
-    const grants = await grantsRepo.findGrants({
-      is_active: true,
-      limit: limit * 2, // Get more to filter through
-      sort_by: 'created_at',
-      sort_order: 'DESC'
+    logger.info('AI-powered grant search request', {
+      orgId: org_profile.id,
+      orgName: org_profile.name,
+      limit
     });
 
-    // TODO: Implement AI-based matching
-    // For now, return top grants with mock scores
-    const matches = grants.slice(0, limit).map(grant => ({
-      grant,
-      match_score: Math.random() * 0.4 + 0.6, // Random score between 0.6-1.0
+    // Use the AI-powered grants service for matching
+    const matches = await grantsService.findMatchingGrants(
+      org_profile,
+      filters,
+      limit
+    );
+
+    // Transform to the expected response format
+    const response = matches.map(match => ({
+      grant: match.grant,
+      match_score: match.matchScore / 100, // Convert to 0-1 scale for backwards compatibility
       matching_criteria: {
-        sector_alignment: Math.random() > 0.3,
-        size_requirements: Math.random() > 0.2,
-        geographic_eligibility: Math.random() > 0.1,
-        experience_level: Math.random() > 0.4
+        sector_alignment: match.analysisResult.eligibilityStatus === 'ELIGIBLE',
+        size_requirements: match.analysisResult.overallCompatibility > 70,
+        geographic_eligibility: match.analysisResult.matchingCriteria.length > 0,
+        experience_level: match.analysisResult.confidence > 75
       },
-      ai_analysis: `This grant shows strong potential for your organization. The funding amount and eligibility criteria align well with your profile.`
+      ai_analysis: match.reasoning,
+      semantic_similarity: match.semanticSimilarity,
+      recommendations: match.recommendations
     }));
 
-    // Sort by match score
-    matches.sort((a, b) => b.match_score - a.match_score);
+    logger.info('AI grant search completed', {
+      orgId: org_profile.id,
+      matchesFound: response.length,
+      avgScore: response.length > 0 
+        ? response.reduce((sum, m) => sum + m.match_score, 0) / response.length 
+        : 0
+    });
 
-    res.json({ matches });
+    res.json({ 
+      matches: response,
+      metadata: {
+        ai_powered: true,
+        processing_time: new Date().toISOString(),
+        total_matches: response.length
+      }
+    });
   } catch (error) {
     logger.error('Error in AI grant search', { error, org_profile });
     throw error;

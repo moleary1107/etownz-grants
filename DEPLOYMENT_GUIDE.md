@@ -10,8 +10,10 @@ This guide covers the complete deployment process for the eTownz Grants applicat
 4. [CI/CD Pipeline](#cicd-pipeline)
 5. [Architecture-Specific Builds](#architecture-specific-builds)
 6. [PWA Deployment](#pwa-deployment)
-7. [Troubleshooting](#troubleshooting)
-8. [Monitoring](#monitoring)
+7. [Automation System](#automation-system)
+8. [Security Testing](#security-testing)
+9. [Troubleshooting](#troubleshooting)
+10. [Monitoring](#monitoring)
 
 ## Prerequisites
 
@@ -87,6 +89,8 @@ Deploy all services to production:
 ```bash
 ./scripts/deploy-to-do.sh
 ```
+
+**Note**: The deployment now includes automated health validation and self-healing capabilities. The system will automatically verify deployment success and initiate rollback procedures if issues are detected.
 
 ### Service-Specific Deployment
 
@@ -280,7 +284,65 @@ docker compose -f docker-compose.prod.yml logs -f frontend
 ### Application Monitoring
 - **Sentry**: Error tracking and performance monitoring
 - **Logs**: Application logs via Docker
-- **Uptime**: External monitoring service recommended
+- **Real-time Dashboard**: http://165.227.149.136:9090
+- **Automated Health Checks**: Every 15 minutes
+- **GitHub Actions Monitoring**: Automated workflow validation
+
+## Automation System
+
+### Complete Autonomous Operation
+The platform now includes a **100% autonomous infrastructure** that operates without human intervention:
+
+- **Self-Healing**: Automatic service restarts on failure (3-strike policy)
+- **Health Monitoring**: Continuous monitoring every 15 minutes
+- **Automated Maintenance**: Weekly system maintenance and cleanup
+- **Security Monitoring**: Intrusion detection and vulnerability fixes
+- **Repository Management**: Automatic cleanup and optimization
+- **Deployment Validation**: Post-deployment health verification
+
+### Key Automation Features
+```bash
+# GitHub Actions (Automated)
+- Repository health monitoring
+- Security vulnerability fixes
+- Deployment validation
+- Weekly maintenance reports
+
+# Production Server (Automated)
+- Health checks every 15 minutes
+- Service restarts on failure
+- Daily backups
+- Security monitoring every 4 hours
+- Weekly maintenance
+```
+
+### Monitoring Dashboard
+- **URL**: http://165.227.149.136:9090
+- **Features**: Real-time system health, resource usage, activity logs
+- **Auto-refresh**: Every 30 seconds
+- **Uptime**: 24/7 autonomous operation
+
+**📚 For complete automation documentation, see: [AUTOMATION_OPERATIONS_GUIDE.md](./AUTOMATION_OPERATIONS_GUIDE.md)**
+
+## Security Testing
+
+### Role-Based Access Control (RBAC)
+The platform implements comprehensive user roles and permissions:
+
+- **Super Admin**: Full system access
+- **Organization Admin**: Organization-wide management
+- **Grant Writer**: Application creation and editing
+- **Viewer**: Read-only access
+
+### Security Validation
+Regular security testing should include:
+- Authentication system validation
+- Permission enforcement testing
+- API security verification
+- Token manipulation resistance
+- Cross-organization data isolation
+
+**📚 For complete security testing procedures, see: [MANUAL_TESTING_ROLES_PERMISSIONS_GUIDE.md](./MANUAL_TESTING_ROLES_PERMISSIONS_GUIDE.md)**
 
 ## Performance Optimizations
 
@@ -341,5 +403,15 @@ For deployment issues:
 
 ---
 
+---
+
+## Related Documentation
+
+- **[Complete Automation & Operations Guide](./AUTOMATION_OPERATIONS_GUIDE.md)**: Comprehensive autonomous system documentation
+- **[Manual Testing Guide - Roles & Permissions](./MANUAL_TESTING_ROLES_PERMISSIONS_GUIDE.md)**: Security and authorization testing procedures
+- **[Full Automation System](./FULL_AUTOMATION_SYSTEM.md)**: "Set & Forget" autonomous operation overview
+
+---
+
 Last updated: $(date)
-Version: 2.0
+Version: 3.0 - Enhanced with Automation & Security
