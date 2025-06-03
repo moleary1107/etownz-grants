@@ -25,6 +25,8 @@ import aiRoutes from './routes/ai';
 import monitoringRoutes from './routes/monitoring';
 import predictiveRoutes from './routes/predictive';
 import stripeRoutes from './routes/stripe';
+import exportRoutes from './routes/export';
+import newsletterRoutes from './routes/newsletter';
 
 // Import database service
 import { db } from './services/database';
@@ -155,6 +157,8 @@ app.use('/ai', aiRoutes);
 app.use('/monitoring', monitoringRoutes);
 app.use('/predictive', predictiveRoutes);
 app.use('/stripe', stripeRoutes);
+app.use('/export', exportRoutes);
+app.use('/newsletter', newsletterRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

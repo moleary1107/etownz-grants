@@ -22,6 +22,27 @@ export interface Grant {
   crawled_at?: Date
   created_at?: Date
   updated_at?: Date
+  // Enhanced fields for better matching
+  coverage_percentage?: number // 70%, 100%, etc.
+  drawdown_dates?: Date[] // Payment schedule
+  completion_deadline?: Date // When project must be done
+  payment_schedule?: string
+  required_documents_detailed?: {
+    safety_statement?: boolean
+    charitable_status?: boolean
+    signed_letters?: string[]
+    insurance_docs?: boolean
+    tax_clearance?: boolean
+    bank_statements?: boolean
+    other?: string[]
+  }
+  submission_method?: 'platform' | 'email' | 'post' | 'online'
+  submission_instructions?: string
+  full_document_url?: string // Link to downloadable PDF
+  total_fund_budget?: number
+  location_specific?: string[] // Specific counties/regions
+  is_rolling_deadline?: boolean
+  application_tips?: string
 }
 
 export interface DiscoveredGrant {
@@ -66,6 +87,11 @@ export interface GrantFilters {
   offset?: number
   sort_by?: 'deadline' | 'amount' | 'created_at' | 'title'
   sort_order?: 'ASC' | 'DESC'
+  // Enhanced filters
+  coverage_min?: number
+  submission_method?: string
+  has_rolling_deadline?: boolean
+  location_specific?: string[]
 }
 
 export interface EligibilityMatch {
@@ -142,6 +168,34 @@ export class GrantsRepository extends BaseRepository {
     if (filters.amount_max) {
       query += ` AND (g.amount_max <= $${paramIndex} OR g.amount_min <= $${paramIndex})`
       params.push(filters.amount_max)
+      paramIndex++
+    }
+
+    // Add coverage percentage filter
+    if (filters.coverage_min) {
+      query += ` AND g.coverage_percentage >= $${paramIndex}`
+      params.push(filters.coverage_min)
+      paramIndex++
+    }
+
+    // Add submission method filter
+    if (filters.submission_method) {
+      query += ` AND g.submission_method = $${paramIndex}`
+      params.push(filters.submission_method)
+      paramIndex++
+    }
+
+    // Add rolling deadline filter
+    if (filters.has_rolling_deadline !== undefined) {
+      query += ` AND g.is_rolling_deadline = $${paramIndex}`
+      params.push(filters.has_rolling_deadline)
+      paramIndex++
+    }
+
+    // Add location specific filter
+    if (filters.location_specific && filters.location_specific.length > 0) {
+      query += ` AND g.location_specific && $${paramIndex}`
+      params.push(filters.location_specific)
       paramIndex++
     }
 

@@ -8,6 +8,7 @@ export interface AuthenticatedRequest extends Request {
     email: string
     role: string
     organizationId?: string
+    is_admin?: boolean
   }
 }
 
@@ -31,7 +32,8 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
       id: decoded.id,
       email: decoded.email,
       role: decoded.role,
-      organizationId: decoded.organizationId
+      organizationId: decoded.organizationId,
+      is_admin: decoded.is_admin || decoded.role === 'admin'
     }
     next()
   } catch (error) {
