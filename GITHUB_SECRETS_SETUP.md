@@ -46,6 +46,6 @@ Once these secrets are configured, every push to the `main` branch will:
 If you need to deploy manually:
 ```bash
 ssh root@165.227.149.136
-cd /root
+cd /root/etownz-grants
 ./deploy.sh
 ```

@@ -43,6 +43,7 @@ jobs:
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /root
-            chmod +x deploy.sh || true
-            ./deploy.sh || bash deploy.sh
+            cd /root/etownz-grants
+            git pull origin main
+            chmod +x deploy.sh
+            ./deploy.sh
