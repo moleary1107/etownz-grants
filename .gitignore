@@ -85,6 +85,9 @@ docs/_build/
 *.pem
 *.key
 config/secrets.json
+credentials/
+*-service-account.json
+*client_secret*.json
 # Large files that cause git push timeouts
 *.tar
 *.tar.gz
