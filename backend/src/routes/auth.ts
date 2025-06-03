@@ -2,7 +2,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { asyncHandler } from '../middleware/errorHandler';
-import { UsersRepository } from '../repositories/usersRepository';
+import { UsersRepository, User, Organization } from '../repositories/usersRepository';
 import { logger } from '../services/logger';
 import { DEMO_USERS, DEMO_ORGANIZATIONS } from '../data/demoUsers';
 
@@ -297,7 +297,7 @@ router.post('/login', asyncHandler(async (req, res) => {
     const user = await usersRepo.findUserByEmail(email);
     logger.info('Database user lookup result', { email, found: !!user });
     
-    let userWithOrg = null;
+    let userWithOrg: (User & { organization: Organization | null }) | null = null;
     
     if (user) {
       logger.info('Fetching user organization data', { email, userId: user.id });
@@ -343,6 +343,7 @@ router.post('/login', asyncHandler(async (req, res) => {
           is_active: demoUser.verified,
           last_login: demoUser.lastLogin,
           created_at: new Date('2024-01-01'),
+          updated_at: new Date('2024-01-01'),
           organization: demoOrg ? {
             id: demoOrg.id,
             name: demoOrg.name,
@@ -350,7 +351,8 @@ router.post('/login', asyncHandler(async (req, res) => {
             website: demoOrg.website,
             contact_email: demoUser.email,
             contact_phone: '',
-            address: {}
+            address: {},
+            profile_data: {}
           } : null
         };
         
@@ -366,8 +368,8 @@ router.post('/login', asyncHandler(async (req, res) => {
     }
 
     // For database users, verify password hash
-    if (user) {
-      const passwordHash = userWithOrg.organization?.profile_data?.password_hash;
+    if (user && userWithOrg) {
+      const passwordHash = userWithOrg.organization?.profile_data?.password_hash as string | undefined;
       
       if (!passwordHash || !verifyPassword(password, passwordHash)) {
         return res.status(401).json({ 
@@ -378,7 +380,7 @@ router.post('/login', asyncHandler(async (req, res) => {
     }
     // For demo users, password was already verified above
 
-    if (!userWithOrg.is_active) {
+    if (userWithOrg && !userWithOrg.is_active) {
       return res.status(401).json({ 
         error: 'Account disabled',
         message: 'Your account has been disabled. Please contact support.' 
@@ -386,39 +388,39 @@ router.post('/login', asyncHandler(async (req, res) => {
     }
 
     // Update last login (only for database users)
-    if (user) {
+    if (user && userWithOrg) {
       await usersRepo.updateLastLogin(userWithOrg.id);
     }
 
     // Generate token
-    const token = generateToken(userWithOrg);
+    const token = generateToken(userWithOrg!);
 
     // Return user and organization data
     const userResponse = {
-      id: userWithOrg.id,
-      email: userWithOrg.email,
-      first_name: userWithOrg.first_name,
-      last_name: userWithOrg.last_name,
-      role: userWithOrg.role,
-      org_id: userWithOrg.org_id,
-      is_active: userWithOrg.is_active,
+      id: userWithOrg!.id,
+      email: userWithOrg!.email,
+      first_name: userWithOrg!.first_name,
+      last_name: userWithOrg!.last_name,
+      role: userWithOrg!.role,
+      org_id: userWithOrg!.org_id,
+      is_active: userWithOrg!.is_active,
       last_login: new Date(),
-      created_at: userWithOrg.created_at
+      created_at: userWithOrg!.created_at
     };
 
-    const organizationResponse = userWithOrg.organization ? {
-      id: userWithOrg.organization.id,
-      name: userWithOrg.organization.name,
-      description: userWithOrg.organization.description,
-      website: userWithOrg.organization.website,
-      contact_email: userWithOrg.organization.contact_email,
-      contact_phone: userWithOrg.organization.contact_phone,
-      address: userWithOrg.organization.address
+    const organizationResponse = userWithOrg!.organization ? {
+      id: userWithOrg!.organization.id,
+      name: userWithOrg!.organization.name,
+      description: userWithOrg!.organization.description,
+      website: userWithOrg!.organization.website,
+      contact_email: userWithOrg!.organization.contact_email,
+      contact_phone: userWithOrg!.organization.contact_phone,
+      address: userWithOrg!.organization.address
     } : null;
 
     logger.info('User logged in successfully', { 
-      userId: userWithOrg.id, 
-      email: userWithOrg.email 
+      userId: userWithOrg!.id, 
+      email: userWithOrg!.email 
     });
 
     res.json({

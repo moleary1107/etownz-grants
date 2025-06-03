@@ -13,7 +13,6 @@ export class DatabaseService {
       connectionString: connectionString,
       ssl: isProduction ? {
         rejectUnauthorized: false,
-        require: true,
         // For DigitalOcean managed databases
         ca: process.env.DATABASE_CA_CERT
       } : false,
