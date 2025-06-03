@@ -448,6 +448,118 @@ router.post('/login', asyncHandler(async (req, res) => {
 
 /**
  * @swagger
+ * /auth/demo-login:
+ *   post:
+ *     summary: Demo-only authentication (bypasses database)
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Authentication successful
+ *       401:
+ *         description: Invalid credentials
+ */
+router.post('/demo-login', asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ 
+      error: 'Missing credentials',
+      message: 'Email and password are required' 
+    });
+  }
+
+  try {
+    // Demo passwords mapping
+    const demoPasswords: Record<string, string> = {
+      'admin@etownz.com': 'admin123',
+      'john@techstart.ie': 'techstart123',
+      'mary@dublincc.ie': 'community123',
+      'david@corkresearch.ie': 'research123',
+      'emma@greenearth.ie': 'green123',
+      'viewer@example.com': 'viewer123'
+    };
+
+    // Check if email exists and password matches
+    if (!demoPasswords[email] || password !== demoPasswords[email]) {
+      return res.status(401).json({ 
+        error: 'Invalid credentials',
+        message: 'Invalid email or password' 
+      });
+    }
+
+    // Find demo user
+    const demoUser = DEMO_USERS.find(u => u.email === email);
+    if (!demoUser) {
+      return res.status(401).json({ 
+        error: 'Invalid credentials',
+        message: 'Demo user not found' 
+      });
+    }
+
+    // Find demo organization
+    const demoOrg = DEMO_ORGANIZATIONS.find(org => org.id === demoUser.organizationId);
+
+    // Create user response
+    const userResponse = {
+      id: demoUser.id,
+      email: demoUser.email,
+      first_name: demoUser.name.split(' ')[0],
+      last_name: demoUser.name.split(' ').slice(1).join(' '),
+      role: demoUser.role,
+      org_id: demoUser.organizationId || '',
+      is_active: demoUser.verified,
+      last_login: new Date(),
+      created_at: new Date('2024-01-01')
+    };
+
+    const organizationResponse = demoOrg ? {
+      id: demoOrg.id,
+      name: demoOrg.name,
+      description: demoOrg.description,
+      website: demoOrg.website,
+      contact_email: demoUser.email,
+      contact_phone: '',
+      address: {}
+    } : null;
+
+    // Generate token
+    const token = generateToken(userResponse);
+
+    logger.info('Demo login successful', { email, role: demoUser.role });
+
+    res.json({
+      message: 'Demo login successful',
+      user: userResponse,
+      organization: organizationResponse,
+      token
+    });
+
+  } catch (error) {
+    logger.error('Demo login failed', { error, email });
+    return res.status(500).json({
+      error: 'Demo login failed',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}));
+
+/**
+ * @swagger
  * /auth/logout:
  *   post:
  *     summary: Logout user
