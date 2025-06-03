@@ -16,7 +16,7 @@ Your DigitalOcean API token with read/write access to:
 ### `SERVER_IP`
 The IP address of your production server:
 ```
-164.92.73.42
+165.227.149.136
 ```
 
 ### `SERVER_SSH_KEY`
@@ -27,7 +27,7 @@ ssh-keygen -t ed25519 -C "github-actions@etownz"
 
 Then add the public key to your server:
 ```bash
-ssh-copy-id -i ~/.ssh/id_ed25519.pub root@164.92.73.42
+ssh-copy-id -i ~/.ssh/id_ed25519.pub root@165.227.149.136
 ```
 
 ## Deployment Process
@@ -45,7 +45,7 @@ Once these secrets are configured, every push to the `main` branch will:
 
 If you need to deploy manually:
 ```bash
-ssh root@164.92.73.42
+ssh root@165.227.149.136
 cd /root
 ./deploy.sh
 ```

@@ -14,6 +14,7 @@ services:
   # Backend API
   backend:
     image: registry.digitalocean.com/etownz-grants-container/backend:latest
+    command: node dist/index.js
     environment:
       - NODE_ENV=production
       - NODE_TLS_REJECT_UNAUTHORIZED=0
@@ -43,59 +44,6 @@ services:
     depends_on:
       - postgres
       - redis
-    restart: unless-stopped
-
-  # MCP Documentation Server
-  mcp-docs:
-    image: registry.digitalocean.com/etownz/mcp-docs:latest
-    environment:
-      - NODE_ENV=production
-      - PROJECT_ROOT=/project
-    volumes:
-      - ./:/project
-    ports:
-      - "9000:9000"
-    restart: unless-stopped
-
-  # MCP Fetch Server
-  mcp-fetch:
-    image: registry.digitalocean.com/etownz/mcp-fetch:latest
-    environment:
-      - NODE_ENV=production
-    ports:
-      - "9001:9001"
-    restart: unless-stopped
-
-  # MCP Filesystem Server
-  mcp-filesystem:
-    image: registry.digitalocean.com/etownz/mcp-filesystem:latest
-    environment:
-      - NODE_ENV=production
-    volumes:
-      - ./uploads:/app/uploads
-      - ./documents:/app/documents
-      - ./templates:/app/templates
-    ports:
-      - "9002:9002"
-    restart: unless-stopped
-
-  # MCP Document Processor
-  mcp-document-processor:
-    image: registry.digitalocean.com/etownz/mcp-document-processor:latest
-    environment:
-      - NODE_ENV=production
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - GOOGLE_SERVICE_ACCOUNT_KEY=${GOOGLE_SERVICE_ACCOUNT_KEY}
-    volumes:
-      - ./uploads:/app/uploads
-      - ./documents:/app/documents
-      - ./templates:/app/templates
-    ports:
-      - "9003:9003"
-    depends_on:
-      - mcp-filesystem
     restart: unless-stopped
 
   # PostgreSQL Database
