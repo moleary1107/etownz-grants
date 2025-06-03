@@ -401,6 +401,7 @@ router.post('/login', asyncHandler(async (req, res) => {
       email: userWithOrg!.email,
       first_name: userWithOrg!.first_name,
       last_name: userWithOrg!.last_name,
+      name: userWithOrg!.name || `${userWithOrg!.first_name} ${userWithOrg!.last_name}`,
       role: userWithOrg!.role,
       org_id: userWithOrg!.org_id,
       is_active: userWithOrg!.is_active,

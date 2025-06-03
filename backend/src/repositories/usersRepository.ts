@@ -6,6 +6,7 @@ export interface User {
   email: string
   first_name?: string
   last_name?: string
+  name?: string
   role?: string
   auth_provider?: string
   auth_provider_id?: string
