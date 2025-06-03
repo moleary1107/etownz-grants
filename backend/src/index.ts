@@ -27,7 +27,6 @@ import predictiveRoutes from './routes/predictive';
 import stripeRoutes from './routes/stripe';
 import exportRoutes from './routes/export';
 import newsletterRoutes from './routes/newsletter';
-import debugRoutes from './routes/debug';
 
 // Import database service
 import { db } from './services/database';
@@ -136,12 +135,31 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 }));
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
+app.get('/health', async (req, res) => {
+  try {
+    // Test database connection
+    const dbResult = await db.query('SELECT NOW() as current_time');
+    
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      database: {
+        status: 'connected',
+        serverTime: dbResult.rows[0].current_time
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: 'error', 
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      database: {
+        status: 'error',
+        error: error instanceof Error ? error.message : String(error)
+      }
+    });
+  }
 });
 
 // API Routes
@@ -160,7 +178,6 @@ app.use('/predictive', predictiveRoutes);
 app.use('/stripe', stripeRoutes);
 app.use('/export', exportRoutes);
 app.use('/newsletter', newsletterRoutes);
-app.use('/debug', debugRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
