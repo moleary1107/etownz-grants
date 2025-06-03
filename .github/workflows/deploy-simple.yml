@@ -48,3 +48,4 @@ jobs:
             git pull origin main
             chmod +x deploy.sh
             ./deploy.sh
+            echo "Deployment completed successfully!"
