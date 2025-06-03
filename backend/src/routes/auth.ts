@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { asyncHandler } from '../middleware/errorHandler';
 import { UsersRepository } from '../repositories/usersRepository';
 import { logger } from '../services/logger';
+import { DEMO_USERS, DEMO_ORGANIZATIONS } from '../data/demoUsers';
 
 const router = express.Router();
 const usersRepo = new UsersRepository();
@@ -287,10 +288,63 @@ router.post('/login', asyncHandler(async (req, res) => {
   }
 
   try {
-    // Find user with organization data
-    const userWithOrg = await usersRepo.findUserWithOrganization(
-      (await usersRepo.findUserByEmail(email))?.id || ''
-    );
+    // First try to find user in database
+    const user = await usersRepo.findUserByEmail(email);
+    let userWithOrg = null;
+    
+    if (user) {
+      userWithOrg = await usersRepo.findUserWithOrganization(user.id);
+    }
+
+    // Fallback to demo users if not found in database
+    if (!userWithOrg) {
+      const demoUser = DEMO_USERS.find(u => u.email === email);
+      if (demoUser) {
+        // Check demo password
+        const demoPasswords: Record<string, string> = {
+          'admin@etownz.com': 'admin123',
+          'john@techstart.ie': 'techstart123',
+          'mary@dublincc.ie': 'community123',
+          'david@corkresearch.ie': 'research123',
+          'emma@greenearth.ie': 'green123',
+          'viewer@example.com': 'viewer123'
+        };
+        
+        if (password !== demoPasswords[email]) {
+          return res.status(401).json({ 
+            error: 'Invalid credentials',
+            message: 'Invalid email or password' 
+          });
+        }
+        
+        // Find demo organization
+        const demoOrg = DEMO_ORGANIZATIONS.find(org => org.id === demoUser.organizationId);
+        
+        // Create demo user response
+        userWithOrg = {
+          id: demoUser.id,
+          org_id: demoUser.organizationId || '',
+          email: demoUser.email,
+          first_name: demoUser.name.split(' ')[0],
+          last_name: demoUser.name.split(' ').slice(1).join(' '),
+          role: demoUser.role,
+          is_active: demoUser.verified,
+          last_login: demoUser.lastLogin,
+          created_at: new Date('2024-01-01'),
+          organization: demoOrg ? {
+            id: demoOrg.id,
+            name: demoOrg.name,
+            description: demoOrg.description,
+            website: demoOrg.website,
+            contact_email: demoUser.email,
+            contact_phone: '',
+            address: {}
+          } : null
+        };
+        
+        logger.info('Demo user login successful', { email, role: demoUser.role });
+      }
+    }
 
     if (!userWithOrg) {
       return res.status(401).json({ 
@@ -299,15 +353,18 @@ router.post('/login', asyncHandler(async (req, res) => {
       });
     }
 
-    // Get password hash from organization profile data
-    const passwordHash = userWithOrg.organization?.profile_data?.password_hash;
-    
-    if (!passwordHash || !verifyPassword(password, passwordHash)) {
-      return res.status(401).json({ 
-        error: 'Invalid credentials',
-        message: 'Invalid email or password' 
-      });
+    // For database users, verify password hash
+    if (user) {
+      const passwordHash = userWithOrg.organization?.profile_data?.password_hash;
+      
+      if (!passwordHash || !verifyPassword(password, passwordHash)) {
+        return res.status(401).json({ 
+          error: 'Invalid credentials',
+          message: 'Invalid email or password' 
+        });
+      }
     }
+    // For demo users, password was already verified above
 
     if (!userWithOrg.is_active) {
       return res.status(401).json({ 
@@ -316,8 +373,10 @@ router.post('/login', asyncHandler(async (req, res) => {
       });
     }
 
-    // Update last login
-    await usersRepo.updateLastLogin(userWithOrg.id);
+    // Update last login (only for database users)
+    if (user) {
+      await usersRepo.updateLastLogin(userWithOrg.id);
+    }
 
     // Generate token
     const token = generateToken(userWithOrg);

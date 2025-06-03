@@ -13,7 +13,8 @@
     "test:openai": "jest --testPathPattern=openai",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "docs": "swagger-jsdoc -d swaggerDef.js -o ./docs/swagger.json src/routes/*.ts"
+    "docs": "swagger-jsdoc -d swaggerDef.js -o ./docs/swagger.json src/routes/*.ts",
+    "seed:demo": "ts-node src/scripts/seed-demo-users.ts"
   },
   "dependencies": {
     "@mendable/firecrawl-js": "^1.0.0",
