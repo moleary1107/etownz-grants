@@ -6,11 +6,15 @@ import {
   CallToolRequestSchema,
   CallToolResult,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ListPromptsRequestSchema,
+  ReadResourceRequestSchema,
+  GetPromptRequestSchema,
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import pdf from 'pdf-parse';
+// Removed: import pdf from 'pdf-parse'; // Lazy load to avoid initialization issues
 import mammoth from 'mammoth';
 // import { JSDOM } from 'jsdom'; // Not needed for this demo
 import OpenAI from 'openai';
@@ -33,6 +37,8 @@ class DocumentProcessorServer {
       {
         capabilities: {
           tools: {},
+          resources: {},
+          prompts: {},
         },
       }
     );
@@ -44,6 +50,8 @@ class DocumentProcessorServer {
     this.templatesPath = path.join(__dirname, '../templates');
     
     this.setupToolHandlers();
+    this.setupResourceHandlers();
+    this.setupPromptHandlers();
     
     // Error handling
     this.server.onerror = (error) => console.error('[MCP Error]', error);
@@ -263,6 +271,10 @@ class DocumentProcessorServer {
     try {
       // Read and parse PDF
       const pdfBuffer = await fs.readFile(filePath);
+      
+      // Dynamically import pdf-parse to avoid initialization issues
+      const pdfParse = await import('pdf-parse');
+      const pdf = pdfParse.default;
       const pdfData = await pdf(pdfBuffer);
       
       // Extract basic information
@@ -856,6 +868,138 @@ class DocumentProcessorServer {
     } catch (error) {
       throw new Error(`Failed to simulate user voice: ${error}`);
     }
+  }
+
+  private setupResourceHandlers() {
+    // Handle resource listing
+    this.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+      resources: [
+        {
+          uri: 'document://templates',
+          name: 'Document Templates',
+          description: 'Available document templates for processing',
+          mimeType: 'application/json',
+        },
+        {
+          uri: 'document://processed',
+          name: 'Processed Documents',
+          description: 'Recently processed documents',
+          mimeType: 'application/json',
+        },
+      ],
+    }));
+
+    // Handle resource reading
+    this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+      const { uri } = request.params;
+      
+      switch (uri) {
+        case 'document://templates':
+          return {
+            contents: [
+              {
+                uri,
+                mimeType: 'application/json',
+                text: JSON.stringify({
+                  available_templates: ['default', 'grant-analysis', 'application-form'],
+                  description: 'Templates for document processing and HTML generation'
+                }, null, 2),
+              },
+            ],
+          };
+        case 'document://processed':
+          return {
+            contents: [
+              {
+                uri,
+                mimeType: 'application/json',
+                text: JSON.stringify({
+                  message: 'No processed documents available in this session',
+                  timestamp: new Date().toISOString()
+                }, null, 2),
+              },
+            ],
+          };
+        default:
+          throw new Error(`Unknown resource: ${uri}`);
+      }
+    });
+  }
+
+  private setupPromptHandlers() {
+    // Handle prompt listing
+    this.server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+      prompts: [
+        {
+          name: 'analyze_grant_document',
+          description: 'Analyze a grant document and extract key information',
+          arguments: [
+            {
+              name: 'document_type',
+              description: 'Type of document (pdf, docx, html)',
+              required: true,
+            },
+            {
+              name: 'analysis_focus',
+              description: 'What to focus on (requirements, eligibility, deadlines)',
+              required: false,
+            },
+          ],
+        },
+        {
+          name: 'extract_application_guidance',
+          description: 'Extract application guidance and tips from a grant document',
+          arguments: [
+            {
+              name: 'organization_type',
+              description: 'Type of organization applying',
+              required: false,
+            },
+          ],
+        },
+      ],
+    }));
+
+    // Handle prompt requests
+    this.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+      const { name, arguments: args } = request.params;
+      
+      switch (name) {
+        case 'analyze_grant_document':
+          const docType = args?.document_type || 'unknown';
+          const focus = args?.analysis_focus || 'general analysis';
+          return {
+            description: `Analyze ${docType} grant document focusing on ${focus}`,
+            messages: [
+              {
+                role: 'user',
+                content: {
+                  type: 'text',
+                  text: `Please analyze this grant document with focus on ${focus}. Extract key requirements, eligibility criteria, deadlines, and funding information. Provide structured output suitable for grant application assistance.`,
+                },
+              },
+            ],
+          };
+
+        case 'extract_application_guidance':
+          const orgType = args?.organization_type || 'any organization';
+          return {
+            description: `Extract application guidance for ${orgType}`,
+            messages: [
+              {
+                role: 'user',
+                content: {
+                  type: 'text',
+                  text: `Extract specific application guidance and tips from this grant document. Focus on practical advice for ${orgType} preparing an application. Include submission requirements, common pitfalls to avoid, and success factors.`,
+                },
+              },
+            ],
+          };
+
+        default:
+          throw new Error(`Unknown prompt: ${name}`);
+      }
+    });
   }
 
   async run() {
