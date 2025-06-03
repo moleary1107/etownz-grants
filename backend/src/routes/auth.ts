@@ -280,7 +280,10 @@ router.post('/register', asyncHandler(async (req, res) => {
 router.post('/login', asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
+  logger.info('Login attempt', { email });
+
   if (!email || !password) {
+    logger.warn('Login failed - missing credentials', { email });
     return res.status(400).json({ 
       error: 'Missing credentials',
       message: 'Email and password are required' 
@@ -288,17 +291,26 @@ router.post('/login', asyncHandler(async (req, res) => {
   }
 
   try {
+    logger.info('Starting authentication process', { email });
     // First try to find user in database
+    logger.info('Looking up user in database', { email });
     const user = await usersRepo.findUserByEmail(email);
+    logger.info('Database user lookup result', { email, found: !!user });
+    
     let userWithOrg = null;
     
     if (user) {
+      logger.info('Fetching user organization data', { email, userId: user.id });
       userWithOrg = await usersRepo.findUserWithOrganization(user.id);
+      logger.info('User organization lookup result', { email, found: !!userWithOrg });
     }
 
     // Fallback to demo users if not found in database
     if (!userWithOrg) {
+      logger.info('User not found in database, checking demo users', { email });
       const demoUser = DEMO_USERS.find(u => u.email === email);
+      logger.info('Demo user lookup result', { email, found: !!demoUser });
+      
       if (demoUser) {
         // Check demo password
         const demoPasswords: Record<string, string> = {
@@ -416,7 +428,20 @@ router.post('/login', asyncHandler(async (req, res) => {
       token
     });
   } catch (error) {
-    logger.error('Login failed', { error, email });
+    logger.error('Login failed with error', { 
+      error: error instanceof Error ? error.message : String(error), 
+      stack: error instanceof Error ? error.stack : undefined,
+      email 
+    });
+    
+    // Return a more specific error message
+    if (error instanceof Error && error.message.includes('self-signed certificate')) {
+      return res.status(500).json({
+        error: 'self-signed certificate in certificate chain',
+        details: 'Database connection SSL error'
+      });
+    }
+    
     throw error;
   }
 }));
