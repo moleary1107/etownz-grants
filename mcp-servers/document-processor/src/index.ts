@@ -14,6 +14,8 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 // Removed: import pdf from 'pdf-parse'; // Lazy load to avoid initialization issues
 import mammoth from 'mammoth';
 // import { JSDOM } from 'jsdom'; // Not needed for this demo
@@ -47,6 +49,9 @@ class DocumentProcessorServer {
       apiKey: process.env.OPENAI_API_KEY || 'dummy-key',
     });
 
+    // ES module equivalent of __dirname
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
     this.templatesPath = path.join(__dirname, '../templates');
     
     this.setupToolHandlers();
