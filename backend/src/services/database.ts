@@ -6,9 +6,17 @@ export class DatabaseService {
   private static instance: DatabaseService
 
   constructor() {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const connectionString = process.env.DATABASE_URL;
+    
     this.pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      connectionString: connectionString,
+      ssl: isProduction ? {
+        rejectUnauthorized: false,
+        require: true,
+        // For DigitalOcean managed databases
+        ca: process.env.DATABASE_CA_CERT
+      } : false,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
@@ -28,9 +36,10 @@ export class DatabaseService {
 
   async query(text: string, params?: any[]): Promise<QueryResult> {
     const start = Date.now()
-    const client = await this.pool.connect()
+    let client;
     
     try {
+      client = await this.pool.connect()
       const result = await client.query(text, params)
       const duration = Date.now() - start
       logger.debug('Executed query', { text, duration, rows: result.rowCount })
@@ -39,7 +48,9 @@ export class DatabaseService {
       logger.error('Database query error', { text, params, error })
       throw error
     } finally {
-      client.release()
+      if (client) {
+        client.release()
+      }
     }
   }
 

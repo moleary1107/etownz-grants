@@ -13,9 +13,10 @@ services:
 
   # Backend API
   backend:
-    image: registry.digitalocean.com/etownz/backend:latest
+    image: registry.digitalocean.com/etownz-grants-container/backend:latest
     environment:
       - NODE_ENV=production
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
       - JWT_SECRET=${JWT_SECRET}

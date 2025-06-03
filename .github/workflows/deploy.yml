@@ -1,0 +1,48 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+      
+      - name: Build backend image
+        run: |
+          docker build -t registry.digitalocean.com/etownz-grants-container/backend:latest ./backend
+      
+      - name: Build frontend image
+        run: |
+          docker build -t registry.digitalocean.com/etownz-grants-container/frontend:latest ./frontend
+      
+      - name: Build crawler image
+        run: |
+          docker build -t registry.digitalocean.com/etownz-grants-container/crawler:latest ./crawler
+      
+      - name: Login to DigitalOcean Container Registry
+        run: doctl registry login
+      
+      - name: Push images
+        run: |
+          docker push registry.digitalocean.com/etownz-grants-container/backend:latest
+          docker push registry.digitalocean.com/etownz-grants-container/frontend:latest
+          docker push registry.digitalocean.com/etownz-grants-container/crawler:latest
+      
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v0.1.5
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /root
+            chmod +x deploy.sh || true
+            ./deploy.sh || bash deploy.sh
