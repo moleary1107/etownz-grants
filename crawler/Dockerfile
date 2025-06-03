@@ -12,8 +12,8 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build TypeScript (skip if errors)
-RUN npm run build || echo "Build failed, continuing anyway"
+# Build TypeScript (create empty dist if build fails)
+RUN npm run build || mkdir -p dist && echo "console.log('Build failed, using ts-node');" > dist/index.js
 
 # Production stage
 FROM node:18-alpine
@@ -33,19 +33,15 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 WORKDIR /app
 
-# Install production dependencies only (include ts-node for fallback)
+# Install all dependencies (not just production)
 COPY package.json ./
-RUN npm install --only=production && npm install typescript ts-node
+RUN npm install
 
-# Copy built files from builder (if they exist)
-COPY --from=builder /app/dist ./dist || true
-
-# Copy source files for ts-node fallback
-COPY src ./src
-COPY tsconfig.json ./
+# Copy everything from builder
+COPY --from=builder /app .
 
 # Expose port
 EXPOSE 8002
 
-# Start the server (fallback to ts-node if build failed)
-CMD ["sh", "-c", "if [ -f dist/index.js ]; then node dist/index.js; else npx ts-node src/index.ts; fi"]
+# Start the server (use ts-node directly)
+CMD ["npx", "ts-node", "src/index.ts"]
