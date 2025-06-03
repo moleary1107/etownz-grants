@@ -27,8 +27,9 @@ RUN npm install --only=production
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
-# Copy migrations
+# Copy migrations to both locations
 COPY src/migrations ./src/migrations
+COPY src/migrations ./dist/migrations
 
 # Expose port
 EXPOSE 8000
