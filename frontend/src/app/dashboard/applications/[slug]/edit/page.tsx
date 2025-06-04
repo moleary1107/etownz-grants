@@ -29,10 +29,31 @@ interface Application {
     technical_approach: string
     expected_outcomes: string[]
     budget_breakdown: {
-      personnel: number
-      equipment: number
-      operations: number
-      other: number
+      budget_type: 'total' | 'yearly'
+      personnel: {
+        salaries: number
+        benefits: number
+        contractors: number
+      }
+      equipment: {
+        hardware: number
+        software: number
+        facilities: number
+      }
+      operations: {
+        travel: number
+        training: number
+        utilities: number
+        materials: number
+      }
+      indirect_costs: {
+        administrative: number
+        overhead: number
+      }
+      other: {
+        description: string
+        amount: number
+      }[]
     }
     timeline: Array<{
       phase: string
@@ -112,10 +133,28 @@ export default function EditApplicationPage() {
               'Create reusable educational resources'
             ],
             budget_breakdown: {
-              personnel: 15000,
-              equipment: 6000,
-              operations: 3000,
-              other: 1000
+              budget_type: 'total',
+              personnel: {
+                salaries: 12000,
+                benefits: 2000,
+                contractors: 1000
+              },
+              equipment: {
+                hardware: 3000,
+                software: 2000,
+                facilities: 1000
+              },
+              operations: {
+                travel: 1500,
+                training: 800,
+                utilities: 500,
+                materials: 200
+              },
+              indirect_costs: {
+                administrative: 800,
+                overhead: 200
+              },
+              other: []
             },
             timeline: [
               {
@@ -186,7 +225,7 @@ export default function EditApplicationPage() {
       setIsSaving(true)
       
       // In production, this would be an API call to save the application
-      // await fetch(`/api/applications/${applicationId}`, {
+      // await fetch(`/api/applications/${application.id}`, {
       //   method: 'PUT',
       //   headers: { 'Content-Type': 'application/json' },
       //   body: JSON.stringify(application)
@@ -197,7 +236,7 @@ export default function EditApplicationPage() {
       
       setHasChanges(false)
       // Show success message or redirect
-      router.push(`/dashboard/applications/${applicationId}`)
+      router.push(`/dashboard/applications/${application.id}`)
     } catch (error) {
       console.error('Error saving application:', error)
       setError('Failed to save application')
@@ -229,19 +268,27 @@ export default function EditApplicationPage() {
     setHasChanges(true)
   }
 
-  const updateBudgetBreakdown = (category: string, value: number) => {
+  const updateBudgetBreakdown = (path: string, value: any) => {
     if (!application) return
     
-    setApplication(prev => ({
-      ...prev!,
-      application_data: {
-        ...prev!.application_data,
-        budget_breakdown: {
-          ...prev!.application_data.budget_breakdown,
-          [category]: value
+    setApplication(prev => {
+      const newApplication = { ...prev! }
+      const pathArray = path.split('.')
+      let current: any = newApplication.application_data.budget_breakdown
+      
+      // Navigate to the parent of the target property
+      for (let i = 0; i < pathArray.length - 1; i++) {
+        if (!current[pathArray[i]]) {
+          current[pathArray[i]] = {}
         }
+        current = current[pathArray[i]]
       }
-    }))
+      
+      // Set the final value
+      current[pathArray[pathArray.length - 1]] = value
+      
+      return newApplication
+    })
     setHasChanges(true)
   }
 
@@ -287,7 +334,17 @@ export default function EditApplicationPage() {
     )
   }
 
-  const totalBudget = Object.values(application.application_data.budget_breakdown).reduce((a, b) => a + b, 0)
+  const calculateTotalBudget = () => {
+    const budget = application.application_data.budget_breakdown
+    const personnelTotal = budget.personnel.salaries + budget.personnel.benefits + budget.personnel.contractors
+    const equipmentTotal = budget.equipment.hardware + budget.equipment.software + budget.equipment.facilities
+    const operationsTotal = budget.operations.travel + budget.operations.training + budget.operations.utilities + budget.operations.materials
+    const indirectTotal = budget.indirect_costs.administrative + budget.indirect_costs.overhead
+    const otherTotal = budget.other.reduce((sum, item) => sum + item.amount, 0)
+    return personnelTotal + equipmentTotal + operationsTotal + indirectTotal + otherTotal
+  }
+  
+  const totalBudget = calculateTotalBudget()
   const budgetMismatch = totalBudget !== application.requested_amount
 
   return (
@@ -301,7 +358,7 @@ export default function EditApplicationPage() {
             <div className="flex items-center space-x-4">
               <Button 
                 variant="outline" 
-                onClick={() => router.push(`/dashboard/applications/${applicationId}`)}
+                onClick={() => router.push(`/dashboard/applications/${application?.id}`)}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
@@ -319,7 +376,7 @@ export default function EditApplicationPage() {
             <div className="flex space-x-3">
               <Button 
                 variant="outline"
-                onClick={() => router.push(`/dashboard/applications/${applicationId}`)}
+                onClick={() => router.push(`/dashboard/applications/${application?.id}`)}
               >
                 <Eye className="h-4 w-4 mr-2" />
                 Preview
@@ -433,30 +490,239 @@ export default function EditApplicationPage() {
             {/* Budget Breakdown */}
             <Card>
               <CardHeader>
-                <CardTitle>Budget Breakdown</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Budget Breakdown
+                </CardTitle>
+                <div className="flex items-center gap-4">
+                  <label className="text-sm font-medium">Budget Type:</label>
+                  <select
+                    className="p-2 border rounded"
+                    value={application.application_data.budget_breakdown.budget_type}
+                    onChange={(e) => updateBudgetBreakdown('budget_type', e.target.value)}
+                  >
+                    <option value="total">Total Project Budget</option>
+                    <option value="yearly">Annual Budget</option>
+                  </select>
+                </div>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  {Object.entries(application.application_data.budget_breakdown).map(([category, amount]) => (
-                    <div key={category}>
-                      <label className="block text-sm font-medium text-gray-700 mb-2 capitalize">
-                        {category} (€)
-                      </label>
+              <CardContent className="space-y-6">
+                {/* Personnel Costs */}
+                <div className="border rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4">Personnel Costs</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Salaries</label>
                       <Input
                         type="number"
-                        value={amount}
-                        onChange={(e) => updateBudgetBreakdown(category, parseInt(e.target.value) || 0)}
+                        value={application.application_data.budget_breakdown.personnel.salaries}
+                        onChange={(e) => updateBudgetBreakdown('personnel.salaries', parseFloat(e.target.value) || 0)}
                         placeholder="0"
                       />
                     </div>
-                  ))}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Benefits</label>
+                      <Input
+                        type="number"
+                        value={application.application_data.budget_breakdown.personnel.benefits}
+                        onChange={(e) => updateBudgetBreakdown('personnel.benefits', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Contractors</label>
+                      <Input
+                        type="number"
+                        value={application.application_data.budget_breakdown.personnel.contractors}
+                        onChange={(e) => updateBudgetBreakdown('personnel.contractors', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-right text-sm text-gray-600">
+                    Subtotal: €{(application.application_data.budget_breakdown.personnel.salaries + application.application_data.budget_breakdown.personnel.benefits + application.application_data.budget_breakdown.personnel.contractors).toLocaleString()}
+                  </div>
                 </div>
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+
+                {/* Equipment Costs */}
+                <div className="border rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4">Equipment & Infrastructure</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Hardware</label>
+                      <Input
+                        type="number"
+                        value={application.application_data.budget_breakdown.equipment.hardware}
+                        onChange={(e) => updateBudgetBreakdown('equipment.hardware', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Software</label>
+                      <Input
+                        type="number"
+                        value={application.application_data.budget_breakdown.equipment.software}
+                        onChange={(e) => updateBudgetBreakdown('equipment.software', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Facilities</label>
+                      <Input
+                        type="number"
+                        value={application.application_data.budget_breakdown.equipment.facilities}
+                        onChange={(e) => updateBudgetBreakdown('equipment.facilities', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-right text-sm text-gray-600">
+                    Subtotal: €{(application.application_data.budget_breakdown.equipment.hardware + application.application_data.budget_breakdown.equipment.software + application.application_data.budget_breakdown.equipment.facilities).toLocaleString()}
+                  </div>
+                </div>
+
+                {/* Operations Costs */}
+                <div className="border rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4">Operations</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Travel</label>
+                      <Input
+                        type="number"
+                        value={application.application_data.budget_breakdown.operations.travel}
+                        onChange={(e) => updateBudgetBreakdown('operations.travel', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Training</label>
+                      <Input
+                        type="number"
+                        value={application.application_data.budget_breakdown.operations.training}
+                        onChange={(e) => updateBudgetBreakdown('operations.training', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Utilities</label>
+                      <Input
+                        type="number"
+                        value={application.application_data.budget_breakdown.operations.utilities}
+                        onChange={(e) => updateBudgetBreakdown('operations.utilities', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Materials</label>
+                      <Input
+                        type="number"
+                        value={application.application_data.budget_breakdown.operations.materials}
+                        onChange={(e) => updateBudgetBreakdown('operations.materials', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-right text-sm text-gray-600">
+                    Subtotal: €{(application.application_data.budget_breakdown.operations.travel + application.application_data.budget_breakdown.operations.training + application.application_data.budget_breakdown.operations.utilities + application.application_data.budget_breakdown.operations.materials).toLocaleString()}
+                  </div>
+                </div>
+
+                {/* Indirect Costs */}
+                <div className="border rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4">Indirect Costs</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Administrative</label>
+                      <Input
+                        type="number"
+                        value={application.application_data.budget_breakdown.indirect_costs.administrative}
+                        onChange={(e) => updateBudgetBreakdown('indirect_costs.administrative', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Overhead</label>
+                      <Input
+                        type="number"
+                        value={application.application_data.budget_breakdown.indirect_costs.overhead}
+                        onChange={(e) => updateBudgetBreakdown('indirect_costs.overhead', parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-right text-sm text-gray-600">
+                    Subtotal: €{(application.application_data.budget_breakdown.indirect_costs.administrative + application.application_data.budget_breakdown.indirect_costs.overhead).toLocaleString()}
+                  </div>
+                </div>
+
+                {/* Other Costs */}
+                <div className="border rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4">Other Expenses</h3>
+                  {application.application_data.budget_breakdown.other.map((item, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <Input
+                        value={item.description}
+                        onChange={(e) => {
+                          const newOther = [...application.application_data.budget_breakdown.other]
+                          newOther[index] = { ...newOther[index], description: e.target.value }
+                          updateBudgetBreakdown('other', newOther)
+                        }}
+                        placeholder="Description"
+                        className="flex-1"
+                      />
+                      <Input
+                        type="number"
+                        value={item.amount}
+                        onChange={(e) => {
+                          const newOther = [...application.application_data.budget_breakdown.other]
+                          newOther[index] = { ...newOther[index], amount: parseFloat(e.target.value) || 0 }
+                          updateBudgetBreakdown('other', newOther)
+                        }}
+                        placeholder="Amount"
+                        className="w-32"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          const newOther = application.application_data.budget_breakdown.other.filter((_, i) => i !== index)
+                          updateBudgetBreakdown('other', newOther)
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const newOther = [...application.application_data.budget_breakdown.other, { description: '', amount: 0 }]
+                      updateBudgetBreakdown('other', newOther)
+                    }}
+                  >
+                    Add Other Expense
+                  </Button>
+                  <div className="mt-2 text-right text-sm text-gray-600">
+                    Subtotal: €{application.application_data.budget_breakdown.other.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}
+                  </div>
+                </div>
+
+                {/* Total and Validation */}
+                <div className="border rounded-lg p-4 bg-gray-50">
                   <div className="flex justify-between items-center">
-                    <span className="font-medium">Total Budget:</span>
-                    <span className={`font-bold ${budgetMismatch ? 'text-red-600' : 'text-green-600'}`}>
-                      €{totalBudget.toLocaleString()}
-                    </span>
+                    <h3 className="text-lg font-semibold">Total Budget</h3>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold">€{totalBudget.toLocaleString()}</p>
+                      <p className="text-sm text-gray-600">
+                        Grant Amount: €{application.requested_amount.toLocaleString()}
+                      </p>
+                      {budgetMismatch && (
+                        <p className="text-red-500 text-sm">
+                          Difference: €{Math.abs(totalBudget - application.requested_amount).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>

@@ -364,7 +364,7 @@ export default function DeadlinesPage() {
                 <select
                   value={filterPeriod}
                   onChange={(e) => setFilterPeriod(e.target.value as any)}
-                  className="flex h-10 w-48 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-10 w-48 rounded-md border border-gray-300 bg-white text-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="all">All Deadlines</option>
                   <option value="7_days">Next 7 Days</option>
@@ -539,7 +539,7 @@ export default function DeadlinesPage() {
                             </div>
                             {app.assignedTo && (
                               <div className="flex items-center text-sm text-gray-600">
-                                <User className="w-4 h-4 mr-2" />
+                                <Building className="w-4 h-4 mr-2" />
                                 {app.assignedTo}
                               </div>
                             )}

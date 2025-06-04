@@ -8,7 +8,6 @@ import { Input } from "../../../components/ui/input"
 import { Sidebar } from "../../../components/layout/Sidebar"
 import { 
   Search, 
-  DollarSign, 
   MapPin,
   Clock,
   ExternalLink,
@@ -20,6 +19,8 @@ import {
 } from "lucide-react"
 import { User } from "../../../lib/auth"
 import { grantsService, aiService, Grant as APIGrant, OrganizationProfile } from "../../../lib/api"
+import { useSearchHistory, useGrantAnalyses, AISearchResult } from "../../../lib/store/aiStore"
+import { GrantCardSkeleton } from "../../../components/ui/loading-skeleton"
 
 // Use the API Grant type and extend it with UI-specific properties
 interface Grant extends APIGrant {
@@ -46,6 +47,17 @@ export default function GrantsPage() {
   const [aiProcessing, setAiProcessing] = useState(false)
   const [processingTime, setProcessingTime] = useState<number | null>(null)
   const router = useRouter()
+  
+  // AI Store hooks
+  const {
+    searchHistory,
+    currentSearch,
+    addSearchResult,
+    setCurrentSearch,
+    getSearchByQuery
+  } = useSearchHistory()
+  
+  const { addGrantAnalysis, getGrantAnalysis } = useGrantAnalyses()
 
   useEffect(() => {
     // Check authentication
@@ -73,6 +85,16 @@ export default function GrantsPage() {
       setError(null)
       
       if (useAI && user) {
+        // Check if we have cached results for this query
+        const cachedSearch = getSearchByQuery(`ai_match_${selectedCategory}`)
+        if (cachedSearch && Date.now() - new Date(cachedSearch.metadata.timestamp).getTime() < 300000) { // 5 min cache
+          setGrants(transformAIResults(cachedSearch.results))
+          setProcessingTime(cachedSearch.metadata.processingTime)
+          setAiSearchMode(true)
+          setCurrentSearch(cachedSearch)
+          return
+        }
+        
         // Use AI-powered grant matching
         setAiProcessing(true)
         
@@ -91,25 +113,28 @@ export default function GrantsPage() {
           categories: selectedCategory !== 'all' ? [selectedCategory] : undefined
         }, 20)
         
-        setProcessingTime(Date.now() - startTime)
+        const processingTimeMs = Date.now() - startTime
+        setProcessingTime(processingTimeMs)
+        
+        // Store search result in AI store
+        const searchResult: AISearchResult = {
+          id: `ai_match_${Date.now()}`,
+          query: `ai_match_${selectedCategory}`,
+          type: 'match',
+          results: response.matches,
+          metadata: {
+            processingTime: processingTimeMs,
+            timestamp: new Date().toISOString(),
+            model: response.aiModel || 'gpt-4o-mini',
+            confidence: response.metadata?.confidence
+          },
+          organizationProfile: orgProfile,
+          filters: { categories: selectedCategory !== 'all' ? [selectedCategory] : undefined }
+        }
+        addSearchResult(searchResult)
         
         // Transform AI results to Grant interface
-        const aiGrants: Grant[] = response.matches.map(match => ({
-          ...match.grant,
-          provider: match.grant.funder || 'Unknown',
-          providerType: getProviderType(match.grant.funder_type),
-          location: 'Ireland', // Default
-          eligibility: extractEligibility(match.grant.eligibility_criteria),
-          category: match.grant.categories?.[0] || 'General',
-          isFavorite: false,
-          matchScore: Math.round(match.matchScore),
-          amount: {
-            min: match.grant.amount_min || 0,
-            max: match.grant.amount_max || 0,
-            currency: match.grant.currency || 'EUR'
-          }
-        }))
-
+        const aiGrants = transformAIResults(response.matches)
         setGrants(aiGrants)
         setAiSearchMode(true)
       } else {
@@ -133,6 +158,7 @@ export default function GrantsPage() {
           category: grant.categories?.[0] || 'General',
           isFavorite: false,
           matchScore: undefined,
+          deadline: grant.deadline ? new Date(grant.deadline) : undefined,
           amount: {
             min: grant.amount_min || 0,
             max: grant.amount_max || 0,
@@ -150,6 +176,25 @@ export default function GrantsPage() {
       setIsLoading(false)
       setAiProcessing(false)
     }
+  }
+  
+  const transformAIResults = (matches: any[]): Grant[] => {
+    return matches.map(match => ({
+      ...match.grant,
+      provider: match.grant.funder || 'Unknown',
+      providerType: getProviderType(match.grant.funder_type),
+      location: 'Ireland', // Default
+      eligibility: extractEligibility(match.grant.eligibility_criteria),
+      category: match.grant.categories?.[0] || 'General',
+      isFavorite: false,
+      matchScore: Math.round(match.matchScore),
+      deadline: match.grant.deadline ? new Date(match.grant.deadline) : undefined,
+      amount: {
+        min: match.grant.amount_min || 0,
+        max: match.grant.amount_max || 0,
+        currency: match.grant.currency || 'EUR'
+      }
+    }))
   }
 
   // Helper function to determine provider type
@@ -243,6 +288,16 @@ export default function GrantsPage() {
     }
 
     try {
+      // Check if we have cached results for this exact query
+      const cachedSearch = getSearchByQuery(searchTerm)
+      if (cachedSearch && Date.now() - new Date(cachedSearch.metadata.timestamp).getTime() < 600000) { // 10 min cache
+        setGrants(transformSemanticResults(cachedSearch.results))
+        setProcessingTime(cachedSearch.metadata.processingTime)
+        setAiSearchMode(true)
+        setCurrentSearch(cachedSearch)
+        return
+      }
+      
       setAiProcessing(true)
       setError(null)
       
@@ -256,36 +311,28 @@ export default function GrantsPage() {
         20
       )
       
-      setProcessingTime(Date.now() - startTime)
+      const processingTimeMs = Date.now() - startTime
+      setProcessingTime(processingTimeMs)
+      
+      // Store search result in AI store
+      const searchResult: AISearchResult = {
+        id: `semantic_${Date.now()}`,
+        query: searchTerm,
+        type: 'semantic',
+        results: response.results,
+        metadata: {
+          processingTime: processingTimeMs,
+          timestamp: new Date().toISOString(),
+          model: 'text-embedding-3-small'
+        },
+        filters: {
+          categories: selectedCategory !== 'all' ? [selectedCategory] : undefined
+        }
+      }
+      addSearchResult(searchResult)
       
       // Transform semantic search results to Grant interface
-      const semanticGrants: Grant[] = response.results.map((result, index) => ({
-        id: result.id,
-        title: result.title,
-        description: result.content,
-        summary: result.content.substring(0, 200) + '...',
-        provider: result.metadata?.funder || 'Unknown',
-        providerType: getProviderType(result.metadata?.funder_type),
-        location: result.metadata?.location || 'Ireland',
-        eligibility: extractEligibility(result.metadata?.eligibility_criteria),
-        category: result.metadata?.categories?.[0] || 'General',
-        url: result.metadata?.url || '#',
-        isFavorite: false,
-        matchScore: Math.round(result.similarity * 100),
-        amount: {
-          min: result.metadata?.amount_min || 0,
-          max: result.metadata?.amount_max || 0,
-          currency: result.metadata?.currency || 'EUR'
-        },
-        deadline: result.metadata?.deadline ? new Date(result.metadata.deadline) : undefined,
-        funder: result.metadata?.funder,
-        categories: result.metadata?.categories,
-        eligibility_criteria: result.metadata?.eligibility_criteria,
-        is_active: true,
-        created_at: new Date(),
-        updated_at: new Date()
-      }))
-
+      const semanticGrants = transformSemanticResults(response.results)
       setGrants(semanticGrants)
       setAiSearchMode(true)
     } catch (error) {
@@ -294,6 +341,35 @@ export default function GrantsPage() {
     } finally {
       setAiProcessing(false)
     }
+  }
+  
+  const transformSemanticResults = (results: any[]): Grant[] => {
+    return results.map((result, index) => ({
+      id: result.id,
+      title: result.title,
+      description: result.content,
+      summary: result.content.substring(0, 200) + '...',
+      provider: result.metadata?.funder || 'Unknown',
+      providerType: getProviderType(result.metadata?.funder_type),
+      location: result.metadata?.location || 'Ireland',
+      eligibility: extractEligibility(result.metadata?.eligibility_criteria),
+      category: result.metadata?.categories?.[0] || 'General',
+      url: result.metadata?.url || '#',
+      isFavorite: false,
+      matchScore: Math.round(result.similarity * 100),
+      amount: {
+        min: result.metadata?.amount_min || 0,
+        max: result.metadata?.amount_max || 0,
+        currency: result.metadata?.currency || 'EUR'
+      },
+      deadline: result.metadata?.deadline ? new Date(result.metadata.deadline) : undefined,
+      funder: result.metadata?.funder,
+      categories: result.metadata?.categories,
+      eligibility_criteria: result.metadata?.eligibility_criteria,
+      is_active: true,
+      created_at: new Date(),
+      updated_at: new Date()
+    }))
   }
 
   const filteredGrants = grants.filter(grant => {
@@ -396,7 +472,7 @@ export default function GrantsPage() {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-10 w-full rounded-md border border-gray-300 bg-white text-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Categories</option>
                 <option value="Research & Development">Research & Development</option>
@@ -409,7 +485,7 @@ export default function GrantsPage() {
               <select
                 value={selectedProvider}
                 onChange={(e) => setSelectedProvider(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-10 w-full rounded-md border border-gray-300 bg-white text-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Providers</option>
                 <option value="government">Government</option>
@@ -476,7 +552,7 @@ export default function GrantsPage() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="text-sm border border-gray-300 rounded px-2 py-1"
+                  className="text-sm border border-gray-300 bg-white text-gray-900 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="deadline">Deadline</option>
                   <option value="amount">Funding Amount</option>
@@ -494,7 +570,14 @@ export default function GrantsPage() {
           </div>
 
           {/* Grants Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {isLoading ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <GrantCardSkeleton key={index} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredGrants.map((grant) => {
               const daysLeft = getDaysUntilDeadline(grant.deadline)
               const isUrgent = daysLeft <= 7
@@ -547,7 +630,6 @@ export default function GrantsPage() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
-                          <DollarSign className="h-4 w-4 text-green-600" />
                           <span className="text-sm font-medium text-green-600">
                             {formatAmount(grant)}
                           </span>
@@ -583,7 +665,11 @@ export default function GrantsPage() {
                     </div>
                     
                     <div className="flex space-x-2 mt-4">
-                      <Button className="flex-1" size="sm">
+                      <Button 
+                        className="flex-1" 
+                        size="sm"
+                        onClick={() => router.push(`/dashboard/applications/create?grantId=${grant.id}`)}
+                      >
                         Apply Now
                       </Button>
                       <Button variant="outline" size="sm" asChild>
@@ -596,7 +682,8 @@ export default function GrantsPage() {
                 </Card>
               )
             })}
-          </div>
+            </div>
+          )}
 
           {filteredGrants.length === 0 && !isLoading && (
             <div className="text-center py-12">

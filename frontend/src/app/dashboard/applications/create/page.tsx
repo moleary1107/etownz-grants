@@ -1,85 +1,140 @@
-'use client';
+"use client"
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect, useCallback, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card"
+import { Button } from "../../../../components/ui/button"
+import { Input } from "../../../../components/ui/input"
+import { Textarea } from "../../../../components/ui/textarea"
+import { Badge } from "../../../../components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../components/ui/tabs"
+import { Sidebar } from "../../../../components/layout/Sidebar"
+import { ApplicationChecklist } from "../../../../components/applications/ApplicationChecklist"
 import { 
   ArrowLeft, 
   Save, 
   Send, 
-  Upload, 
-  X, 
-  Plus, 
-  AlertCircle, 
   CheckCircle, 
   DollarSign,
   Calendar,
-  Building,
   FileText,
-  Users,
-  Target
-} from 'lucide-react';
+  Target,
+  Bot,
+  Loader2,
+  Zap,
+  Eye,
+  Download
+} from "lucide-react"
+import { User } from "../../../../lib/auth"
+import { useApplications } from "../../../../lib/store/aiStore"
+import { grantsService } from "../../../../lib/api"
 
 interface Grant {
-  id: string;
-  title: string;
-  description: string;
-  funder: string;
-  amount_min: number;
-  amount_max: number;
-  currency: string;
-  deadline: string;
-  categories: string[];
-  eligibility_criteria: any;
-  required_documents: string[];
-  application_process: string;
-  url: string;
-  is_active: boolean;
+  id: string
+  title: string
+  description: string
+  funder: string
+  amount_min: number
+  amount_max: number
+  currency: string
+  deadline: string
+  categories: string[]
+  eligibility_criteria: Record<string, unknown>
+  required_documents: string[]
+  application_process: string
+  url: string
+  is_active: boolean
+}
+
+interface ChecklistItem {
+  id: string
+  category: string
+  item: string
+  priority: 'high' | 'medium' | 'low'
+  mandatory: boolean
+  estimated_time: string
+  dependencies: string[]
+  description: string
+  completed?: boolean
+  aiGenerated?: boolean
 }
 
 interface ApplicationData {
-  grant_id: string;
-  project_title: string;
-  project_description: string;
-  requested_amount: number;
-  project_duration: number;
+  grant_id: string
+  project_title: string
+  project_description: string
+  requested_amount: number
+  project_duration: number
   application_data: {
-    team_size: number;
-    technical_approach: string;
-    expected_outcomes: string[];
+    team_size: number
+    technical_approach: string
+    expected_outcomes: string[]
     budget_breakdown: {
-      personnel: number;
-      equipment: number;
-      operations: number;
-      other: number;
-    };
+      budget_type: 'total' | 'yearly'
+      personnel: {
+        salaries: number
+        benefits: number
+        contractors: number
+      }
+      equipment: {
+        hardware: number
+        software: number
+        facilities: number
+      }
+      operations: {
+        travel: number
+        training: number
+        utilities: number
+        materials: number
+      }
+      indirect_costs: {
+        administrative: number
+        overhead: number
+      }
+      other: {
+        description: string
+        amount: number
+      }[]
+    }
     timeline: {
-      phase: string;
-      duration: number;
-      deliverables: string[];
-    }[];
+      phase: string
+      duration: number
+      deliverables: string[]
+    }[]
     risk_assessment: {
-      risk: string;
-      impact: string;
-      mitigation: string;
-    }[];
-    success_metrics: string[];
-    sustainability_plan: string;
-  };
+      risk: string
+      impact: string
+      mitigation: string
+    }[]
+    success_metrics: string[]
+    sustainability_plan: string
+  }
 }
 
-export default function CreateApplication() {
-  const router = useRouter();
-  const [selectedGrant, setSelectedGrant] = useState<Grant | null>(null);
-  const [availableGrants, setAvailableGrants] = useState<Grant[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [step, setStep] = useState(1);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+function CreateApplicationContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const grantId = searchParams.get('grantId')
+  
+  const [user, setUser] = useState<User | null>(null)
+  const [selectedGrant, setSelectedGrant] = useState<Grant | null>(null)
+  const [availableGrants, setAvailableGrants] = useState<Grant[]>([])
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false)
+  const [step, setStep] = useState(1)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [activeTab, setActiveTab] = useState("form")
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
+  const [showBudgetWarning, setShowBudgetWarning] = useState(false)
+  
+  // AI Store hooks
+  const {
+    currentApplication,
+    createApplication,
+    updateApplication
+  } = useApplications()
   
   // Form data
   const [applicationData, setApplicationData] = useState<ApplicationData>({
@@ -93,10 +148,28 @@ export default function CreateApplication() {
       technical_approach: '',
       expected_outcomes: [''],
       budget_breakdown: {
-        personnel: 0,
-        equipment: 0,
-        operations: 0,
-        other: 0
+        budget_type: 'total',
+        personnel: {
+          salaries: 0,
+          benefits: 0,
+          contractors: 0
+        },
+        equipment: {
+          hardware: 0,
+          software: 0,
+          facilities: 0
+        },
+        operations: {
+          travel: 0,
+          training: 0,
+          utilities: 0,
+          materials: 0
+        },
+        indirect_costs: {
+          administrative: 0,
+          overhead: 0
+        },
+        other: []
       },
       timeline: [{
         phase: 'Planning',
@@ -111,160 +184,273 @@ export default function CreateApplication() {
       success_metrics: [''],
       sustainability_plan: ''
     }
-  });
+  })
 
-  useEffect(() => {
-    loadAvailableGrants();
-  }, []);
-
-  const loadAvailableGrants = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/grants?limit=50');
-      const data = await response.json();
-      setAvailableGrants(data.grants || []);
-    } catch (error) {
-      console.error('Failed to load grants:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateApplicationData = (path: string, value: any) => {
+  const updateApplicationData = useCallback((path: string, value: any) => {
     setApplicationData(prev => {
-      const newData = { ...prev };
-      const keys = path.split('.');
-      let current: any = newData;
+      const newData = { ...prev }
+      const keys = path.split('.')
+      let current: any = newData
       
       for (let i = 0; i < keys.length - 1; i++) {
-        if (!current[keys[i]]) current[keys[i]] = {};
-        current = current[keys[i]];
+        if (!current[keys[i]]) current[keys[i]] = {}
+        current = current[keys[i]]
       }
       
-      current[keys[keys.length - 1]] = value;
-      return newData;
-    });
-  };
+      current[keys[keys.length - 1]] = value
+      return newData
+    })
+    
+    // Update AI store separately to avoid state update during render
+    if (currentApplication) {
+      setTimeout(() => {
+        const updatedSections = { ...currentApplication.sections }
+        const sectionKeys = path.split('.')
+        if (sectionKeys.length >= 2) {
+          const sectionName = sectionKeys[0]
+          const fieldName = sectionKeys.slice(1).join('.')
+          
+          if (!updatedSections[sectionName]) {
+            updatedSections[sectionName] = {}
+          }
+          updatedSections[sectionName][fieldName] = value
+          
+          updateApplication(currentApplication.id, {
+            sections: updatedSections
+          })
+        }
+      }, 0)
+    }
+  }, [currentApplication, updateApplication])
+
+  const initializeApplication = useCallback((grantId: string, organizationId: string) => {
+    if (!currentApplication || currentApplication.grantId !== grantId) {
+      createApplication(grantId, organizationId)
+      updateApplicationData('grant_id', grantId)
+    }
+  }, [currentApplication, createApplication, updateApplicationData])
+
+  const loadAvailableGrants = useCallback(async () => {
+    setLoading(true)
+    try {
+      const response = await grantsService.getGrants({ limit: 50 })
+      setAvailableGrants(response.grants || [])
+    } catch (error) {
+      console.error('Failed to load grants:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+  
+  const loadSpecificGrant = useCallback(async (grantId: string) => {
+    setLoading(true)
+    try {
+      const response = await grantsService.getGrants({ limit: 50 })
+      const grant = response.grants.find(g => g.id === grantId)
+      if (grant) {
+        setSelectedGrant(grant)
+        setAvailableGrants([grant])
+      }
+    } catch (error) {
+      console.error('Failed to load grant:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Check authentication
+    const token = localStorage.getItem('token')
+    const userStr = localStorage.getItem('user')
+    
+    if (!token || !userStr) {
+      router.push('/auth/login')
+      return
+    }
+
+    try {
+      const userData = JSON.parse(userStr)
+      setUser(userData)
+      
+      if (grantId) {
+        loadSpecificGrant(grantId)
+        initializeApplication(grantId, userData.id)
+      } else {
+        loadAvailableGrants()
+      }
+    } catch (error) {
+      console.error('Error parsing user data:', error)
+      router.push('/auth/login')
+    }
+  }, [router, grantId, loadSpecificGrant, initializeApplication, loadAvailableGrants])
 
   const addArrayItem = (path: string, defaultValue: any) => {
-    const current = getNestedValue(applicationData, path) || [];
-    updateApplicationData(path, [...current, defaultValue]);
-  };
+    const current = getNestedValue(applicationData, path) || []
+    updateApplicationData(path, [...current, defaultValue])
+  }
 
   const removeArrayItem = (path: string, index: number) => {
-    const current = getNestedValue(applicationData, path) || [];
-    const newArray = current.filter((_: any, i: number) => i !== index);
-    updateApplicationData(path, newArray);
-  };
+    const current = getNestedValue(applicationData, path) || []
+    const newArray = current.filter((_: any, i: number) => i !== index)
+    updateApplicationData(path, newArray)
+  }
 
   const updateArrayItem = (path: string, index: number, value: any) => {
-    const current = getNestedValue(applicationData, path) || [];
-    const newArray = [...current];
-    newArray[index] = value;
-    updateApplicationData(path, newArray);
-  };
+    const current = getNestedValue(applicationData, path) || []
+    const newArray = [...current]
+    newArray[index] = value
+    updateApplicationData(path, newArray)
+  }
 
   const getNestedValue = (obj: any, path: string) => {
-    return path.split('.').reduce((current, key) => current?.[key], obj);
-  };
+    return path.split('.').reduce((current, key) => current?.[key], obj)
+  }
 
   const validateStep = (stepNumber: number): boolean => {
-    const newErrors: Record<string, string> = {};
+    const newErrors: Record<string, string> = {}
     
     switch (stepNumber) {
       case 1:
-        if (!selectedGrant) newErrors.grant = 'Please select a grant';
-        if (!applicationData.project_title.trim()) newErrors.project_title = 'Project title is required';
-        if (!applicationData.project_description.trim()) newErrors.project_description = 'Project description is required';
-        if (applicationData.requested_amount <= 0) newErrors.requested_amount = 'Requested amount must be greater than 0';
-        if (applicationData.project_duration <= 0) newErrors.project_duration = 'Project duration must be greater than 0';
-        break;
+        if (!selectedGrant) newErrors.grant = 'Please select a grant'
+        if (!applicationData.project_title.trim()) newErrors.project_title = 'Project title is required'
+        if (!applicationData.project_description.trim()) newErrors.project_description = 'Project description is required'
+        if (applicationData.requested_amount <= 0) newErrors.requested_amount = 'Requested amount must be greater than 0'
+        if (applicationData.project_duration <= 0) newErrors.project_duration = 'Project duration must be greater than 0'
+        break
       
       case 2:
         if (!applicationData.application_data.technical_approach.trim()) {
-          newErrors.technical_approach = 'Technical approach is required';
+          newErrors.technical_approach = 'Technical approach is required'
         }
         if (applicationData.application_data.team_size <= 0) {
-          newErrors.team_size = 'Team size must be greater than 0';
+          newErrors.team_size = 'Team size must be greater than 0'
         }
-        break;
+        break
       
       case 3:
-        const budget = applicationData.application_data.budget_breakdown;
-        const total = budget.personnel + budget.equipment + budget.operations + budget.other;
-        if (total !== applicationData.requested_amount) {
-          newErrors.budget = `Budget breakdown (${total}) must equal requested amount (${applicationData.requested_amount})`;
-        }
-        break;
+        // Budget validation is now more flexible - no strict equality required
+        break
     }
     
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const nextStep = () => {
     if (validateStep(step)) {
-      setStep(prev => prev + 1);
+      setStep(prev => prev + 1)
     }
-  };
+  }
 
   const prevStep = () => {
-    setStep(prev => prev - 1);
-  };
+    setStep(prev => prev - 1)
+  }
 
   const saveAsDraft = async () => {
-    setSaving(true);
+    setSaving(true)
     try {
-      const response = await fetch('/api/applications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...applicationData,
-          grant_id: selectedGrant?.id,
+      if (currentApplication) {
+        updateApplication(currentApplication.id, {
           status: 'draft'
         })
-      });
-
-      if (response.ok) {
-        router.push('/dashboard/applications');
-      } else {
-        throw new Error('Failed to save application');
       }
+      
+      router.push('/dashboard/applications')
     } catch (error) {
-      console.error('Failed to save application:', error);
-      alert('Failed to save application. Please try again.');
+      console.error('Failed to save application:', error)
+      alert('Failed to save application. Please try again.')
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
-  };
+  }
 
   const submitApplication = async () => {
-    if (!validateStep(step)) return;
+    if (!validateStep(step)) return
     
-    setSaving(true);
+    // Check budget discrepancy
+    const budget = applicationData.application_data.budget_breakdown
+    const personnelTotal = budget.personnel.salaries + budget.personnel.benefits + budget.personnel.contractors
+    const equipmentTotal = budget.equipment.hardware + budget.equipment.software + budget.equipment.facilities
+    const operationsTotal = budget.operations.travel + budget.operations.training + budget.operations.utilities + budget.operations.materials
+    const indirectTotal = budget.indirect_costs.administrative + budget.indirect_costs.overhead
+    const otherTotal = budget.other.reduce((sum, item) => sum + item.amount, 0)
+    const budgetTotal = personnelTotal + equipmentTotal + operationsTotal + indirectTotal + otherTotal
+    
+    const difference = Math.abs(budgetTotal - applicationData.requested_amount)
+    const percentageDiff = applicationData.requested_amount > 0 ? (difference / applicationData.requested_amount) * 100 : 0
+    
+    if (difference > 0 && percentageDiff > 1) {
+      const message = `Budget discrepancy detected:
+      
+Requested Amount: €${applicationData.requested_amount.toLocaleString()}
+Budget Breakdown Total: €${budgetTotal.toLocaleString()}
+Difference: €${difference.toLocaleString()} (${percentageDiff.toFixed(1)}%)
+
+Are you sure you want to submit with this ${budgetTotal > applicationData.requested_amount ? 'over' : 'under'} budget?`
+      
+      if (!confirm(message)) return
+    }
+    
+    setSubmitting(true)
     try {
-      const response = await fetch('/api/applications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...applicationData,
-          grant_id: selectedGrant?.id,
+      if (currentApplication) {
+        updateApplication(currentApplication.id, {
           status: 'submitted'
         })
-      });
-
-      if (response.ok) {
-        router.push('/dashboard/applications?success=true');
-      } else {
-        throw new Error('Failed to submit application');
       }
+      
+      router.push('/dashboard/applications?success=true')
     } catch (error) {
-      console.error('Failed to submit application:', error);
-      alert('Failed to submit application. Please try again.');
+      console.error('Failed to submit application:', error)
+      alert('Failed to submit application. Please try again.')
     } finally {
-      setSaving(false);
+      setSubmitting(false)
     }
-  };
+  }
+
+  // AI Content Generation
+  const generateAIContent = async (fieldPath: string) => {
+    if (!selectedGrant || !user) return
+    
+    try {
+      setIsGeneratingAI(true)
+      
+      // Create context for AI generation
+      const context = {
+        grant: selectedGrant,
+        organization: { name: user.name },
+        fieldPath,
+        existingData: applicationData
+      }
+
+      // Mock AI content generation - replace with actual AI service call
+      const aiContent = await generateMockAIContent(fieldPath, context)
+      updateApplicationData(fieldPath, aiContent)
+      
+    } catch (error) {
+      console.error('Error generating AI content:', error)
+    } finally {
+      setIsGeneratingAI(false)
+    }
+  }
+
+  const generateMockAIContent = async (fieldPath: string, context: any): Promise<string> => {
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    const templates: Record<string, string> = {
+      'project_description': `This innovative project leverages cutting-edge technology to address critical challenges in ${selectedGrant?.categories?.[0] || 'the technology sector'}. Our solution combines proven methodologies with novel approaches to deliver measurable impact and sustainable outcomes.`,
+      'application_data.technical_approach': `Our technical approach follows industry best practices and incorporates the latest advancements in technology. We will utilize a phased implementation strategy that ensures quality deliverables while maintaining flexibility to adapt to changing requirements.`,
+      'application_data.sustainability_plan': `The project sustainability will be ensured through multiple revenue streams, strategic partnerships, and continued innovation. We have identified key stakeholders who will support the long-term viability of this initiative beyond the grant period.`
+    }
+    
+    return templates[fieldPath] || `AI-generated content for ${fieldPath}`
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    router.push('/')
+  }
 
   const renderStepIndicator = () => (
     <div className="flex items-center justify-center mb-8">
@@ -282,7 +468,7 @@ export default function CreateApplication() {
         </div>
       ))}
     </div>
-  );
+  )
 
   const renderGrantSelection = () => (
     <Card>
@@ -308,8 +494,8 @@ export default function CreateApplication() {
                     selectedGrant?.id === grant.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                   onClick={() => {
-                    setSelectedGrant(grant);
-                    updateApplicationData('grant_id', grant.id);
+                    setSelectedGrant(grant)
+                    updateApplicationData('grant_id', grant.id)
                   }}
                 >
                   <div className="flex justify-between items-start mb-2">
@@ -396,62 +582,66 @@ export default function CreateApplication() {
         )}
       </CardContent>
     </Card>
-  );
+  )
 
-  const renderTechnicalDetails = () => (
+  const renderProjectDetails = () => (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          Technical Approach & Team
+          Project Details
         </CardTitle>
-        <CardDescription>Describe your technical approach and team composition</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Technical Approach */}
         <div>
           <label className="block text-sm font-medium mb-2">Technical Approach *</label>
           <Textarea
             value={applicationData.application_data.technical_approach}
             onChange={(e) => updateApplicationData('application_data.technical_approach', e.target.value)}
-            placeholder="Describe your technical methodology, tools, and approach"
-            rows={6}
+            placeholder="Describe your technical approach and methodology"
+            rows={4}
             className={errors.technical_approach ? 'border-red-500' : ''}
           />
           {errors.technical_approach && <p className="text-red-500 text-sm mt-1">{errors.technical_approach}</p>}
         </div>
 
-        {/* Team Size */}
         <div>
           <label className="block text-sm font-medium mb-2">Team Size *</label>
           <Input
             type="number"
-            value={applicationData.application_data.team_size}
-            onChange={(e) => updateApplicationData('application_data.team_size', Number(e.target.value))}
-            min={1}
+            value={applicationData.application_data.team_size || ''}
+            onChange={(e) => updateApplicationData('application_data.team_size', parseInt(e.target.value) || 1)}
+            min="1"
             className={errors.team_size ? 'border-red-500' : ''}
           />
           {errors.team_size && <p className="text-red-500 text-sm mt-1">{errors.team_size}</p>}
         </div>
 
-        {/* Expected Outcomes */}
         <div>
-          <label className="block text-sm font-medium mb-2">Expected Outcomes</label>
+          <label className="block text-sm font-medium mb-2">Expected Outcomes *</label>
           {applicationData.application_data.expected_outcomes.map((outcome, index) => (
             <div key={index} className="flex gap-2 mb-2">
               <Input
                 value={outcome}
-                onChange={(e) => updateArrayItem('application_data.expected_outcomes', index, e.target.value)}
+                onChange={(e) => {
+                  const newOutcomes = [...applicationData.application_data.expected_outcomes]
+                  newOutcomes[index] = e.target.value
+                  updateApplicationData('application_data.expected_outcomes', newOutcomes)
+                }}
                 placeholder={`Expected outcome ${index + 1}`}
+                className="flex-1"
               />
               {applicationData.application_data.expected_outcomes.length > 1 && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
-                  onClick={() => removeArrayItem('application_data.expected_outcomes', index)}
+                  onClick={() => {
+                    const newOutcomes = applicationData.application_data.expected_outcomes.filter((_, i) => i !== index)
+                    updateApplicationData('application_data.expected_outcomes', newOutcomes)
+                  }}
                 >
-                  <X className="h-4 w-4" />
+                  Remove
                 </Button>
               )}
             </div>
@@ -459,219 +649,285 @@ export default function CreateApplication() {
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            onClick={() => addArrayItem('application_data.expected_outcomes', '')}
+            onClick={() => {
+              const newOutcomes = [...applicationData.application_data.expected_outcomes, '']
+              updateApplicationData('application_data.expected_outcomes', newOutcomes)
+            }}
           >
-            <Plus className="h-4 w-4 mr-2" />
             Add Outcome
-          </Button>
-        </div>
-
-        {/* Success Metrics */}
-        <div>
-          <label className="block text-sm font-medium mb-2">Success Metrics</label>
-          {applicationData.application_data.success_metrics.map((metric, index) => (
-            <div key={index} className="flex gap-2 mb-2">
-              <Input
-                value={metric}
-                onChange={(e) => updateArrayItem('application_data.success_metrics', index, e.target.value)}
-                placeholder={`Success metric ${index + 1}`}
-              />
-              {applicationData.application_data.success_metrics.length > 1 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => removeArrayItem('application_data.success_metrics', index)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => addArrayItem('application_data.success_metrics', '')}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Metric
           </Button>
         </div>
       </CardContent>
     </Card>
-  );
+  )
 
-  const renderBudgetTimeline = () => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <DollarSign className="h-5 w-5" />
-          Budget & Timeline
-        </CardTitle>
-        <CardDescription>Break down your budget and project timeline</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Budget Breakdown */}
-        <div>
-          <label className="block text-sm font-medium mb-4">Budget Breakdown *</label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Personnel</label>
-              <Input
-                type="number"
-                value={applicationData.application_data.budget_breakdown.personnel}
-                onChange={(e) => updateApplicationData('application_data.budget_breakdown.personnel', Number(e.target.value))}
-                min={0}
-              />
+  const renderBudgetBreakdown = () => {
+    const budget = applicationData.application_data.budget_breakdown
+
+    const calculateTotal = () => {
+      const personnelTotal = budget.personnel.salaries + budget.personnel.benefits + budget.personnel.contractors
+      const equipmentTotal = budget.equipment.hardware + budget.equipment.software + budget.equipment.facilities
+      const operationsTotal = budget.operations.travel + budget.operations.training + budget.operations.utilities + budget.operations.materials
+      const indirectTotal = budget.indirect_costs.administrative + budget.indirect_costs.overhead
+      const otherTotal = budget.other.reduce((sum, item) => sum + item.amount, 0)
+      return personnelTotal + equipmentTotal + operationsTotal + indirectTotal + otherTotal
+    }
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Budget Breakdown
+          </CardTitle>
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium">Budget Type:</label>
+            <select
+              className="p-2 border rounded"
+              value={budget.budget_type}
+              onChange={(e) => updateApplicationData('application_data.budget_breakdown.budget_type', e.target.value)}
+            >
+              <option value="total">Total Project Budget</option>
+              <option value="yearly">Annual Budget</option>
+            </select>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Personnel Costs */}
+          <div className="border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-4">Personnel Costs</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Salaries</label>
+                <Input
+                  type="number"
+                  value={budget.personnel.salaries || ''}
+                  onChange={(e) => updateApplicationData('application_data.budget_breakdown.personnel.salaries', parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Benefits</label>
+                <Input
+                  type="number"
+                  value={budget.personnel.benefits || ''}
+                  onChange={(e) => updateApplicationData('application_data.budget_breakdown.personnel.benefits', parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Contractors</label>
+                <Input
+                  type="number"
+                  value={budget.personnel.contractors || ''}
+                  onChange={(e) => updateApplicationData('application_data.budget_breakdown.personnel.contractors', parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Equipment</label>
-              <Input
-                type="number"
-                value={applicationData.application_data.budget_breakdown.equipment}
-                onChange={(e) => updateApplicationData('application_data.budget_breakdown.equipment', Number(e.target.value))}
-                min={0}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Operations</label>
-              <Input
-                type="number"
-                value={applicationData.application_data.budget_breakdown.operations}
-                onChange={(e) => updateApplicationData('application_data.budget_breakdown.operations', Number(e.target.value))}
-                min={0}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Other</label>
-              <Input
-                type="number"
-                value={applicationData.application_data.budget_breakdown.other}
-                onChange={(e) => updateApplicationData('application_data.budget_breakdown.other', Number(e.target.value))}
-                min={0}
-              />
+            <div className="mt-2 text-right text-sm text-gray-600">
+              Subtotal: €{(budget.personnel.salaries + budget.personnel.benefits + budget.personnel.contractors).toLocaleString()}
             </div>
           </div>
-          
-          {/* Budget Summary */}
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+
+          {/* Equipment Costs */}
+          <div className="border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-4">Equipment & Infrastructure</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Hardware</label>
+                <Input
+                  type="number"
+                  value={budget.equipment.hardware}
+                  onChange={(e) => updateApplicationData('application_data.budget_breakdown.equipment.hardware', parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Software</label>
+                <Input
+                  type="number"
+                  value={budget.equipment.software}
+                  onChange={(e) => updateApplicationData('application_data.budget_breakdown.equipment.software', parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Facilities</label>
+                <Input
+                  type="number"
+                  value={budget.equipment.facilities}
+                  onChange={(e) => updateApplicationData('application_data.budget_breakdown.equipment.facilities', parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            <div className="mt-2 text-right text-sm text-gray-600">
+              Subtotal: €{(budget.equipment.hardware + budget.equipment.software + budget.equipment.facilities).toLocaleString()}
+            </div>
+          </div>
+
+          {/* Operations Costs */}
+          <div className="border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-4">Operations</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Travel</label>
+                <Input
+                  type="number"
+                  value={budget.operations.travel}
+                  onChange={(e) => updateApplicationData('application_data.budget_breakdown.operations.travel', parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Training</label>
+                <Input
+                  type="number"
+                  value={budget.operations.training}
+                  onChange={(e) => updateApplicationData('application_data.budget_breakdown.operations.training', parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Utilities</label>
+                <Input
+                  type="number"
+                  value={budget.operations.utilities}
+                  onChange={(e) => updateApplicationData('application_data.budget_breakdown.operations.utilities', parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Materials</label>
+                <Input
+                  type="number"
+                  value={budget.operations.materials}
+                  onChange={(e) => updateApplicationData('application_data.budget_breakdown.operations.materials', parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            <div className="mt-2 text-right text-sm text-gray-600">
+              Subtotal: €{(budget.operations.travel + budget.operations.training + budget.operations.utilities + budget.operations.materials).toLocaleString()}
+            </div>
+          </div>
+
+          {/* Indirect Costs */}
+          <div className="border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-4">Indirect Costs</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Administrative</label>
+                <Input
+                  type="number"
+                  value={budget.indirect_costs.administrative}
+                  onChange={(e) => updateApplicationData('application_data.budget_breakdown.indirect_costs.administrative', parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Overhead</label>
+                <Input
+                  type="number"
+                  value={budget.indirect_costs.overhead}
+                  onChange={(e) => updateApplicationData('application_data.budget_breakdown.indirect_costs.overhead', parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            <div className="mt-2 text-right text-sm text-gray-600">
+              Subtotal: €{(budget.indirect_costs.administrative + budget.indirect_costs.overhead).toLocaleString()}
+            </div>
+          </div>
+
+          {/* Other Costs */}
+          <div className="border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-4">Other Expenses</h3>
+            {budget.other.map((item, index) => (
+              <div key={index} className="flex gap-2 mb-2">
+                <Input
+                  value={item.description}
+                  onChange={(e) => {
+                    const newOther = [...budget.other]
+                    newOther[index] = { ...newOther[index], description: e.target.value }
+                    updateApplicationData('application_data.budget_breakdown.other', newOther)
+                  }}
+                  placeholder="Description"
+                  className="flex-1"
+                />
+                <Input
+                  type="number"
+                  value={item.amount}
+                  onChange={(e) => {
+                    const newOther = [...budget.other]
+                    newOther[index] = { ...newOther[index], amount: parseFloat(e.target.value) || 0 }
+                    updateApplicationData('application_data.budget_breakdown.other', newOther)
+                  }}
+                  placeholder="Amount"
+                  className="w-32"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    const newOther = budget.other.filter((_, i) => i !== index)
+                    updateApplicationData('application_data.budget_breakdown.other', newOther)
+                  }}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const newOther = [...budget.other, { description: '', amount: 0 }]
+                updateApplicationData('application_data.budget_breakdown.other', newOther)
+              }}
+            >
+              Add Other Expense
+            </Button>
+            <div className="mt-2 text-right text-sm text-gray-600">
+              Subtotal: €{budget.other.reduce((sum, item) => sum + item.amount, 0).toLocaleString()}
+            </div>
+          </div>
+
+          {/* Total and Validation */}
+          <div className="border rounded-lg p-4 bg-gray-50">
             <div className="flex justify-between items-center">
-              <span className="font-medium">Total Budget:</span>
-              <span className="font-bold">
-                {Object.values(applicationData.application_data.budget_breakdown).reduce((a, b) => a + b, 0).toLocaleString()} {selectedGrant?.currency}
-              </span>
-            </div>
-            <div className="flex justify-between items-center text-sm text-gray-600">
-              <span>Requested Amount:</span>
-              <span>{applicationData.requested_amount.toLocaleString()} {selectedGrant?.currency}</span>
-            </div>
-          </div>
-          {errors.budget && <p className="text-red-500 text-sm mt-1">{errors.budget}</p>}
-        </div>
-
-        {/* Project Timeline */}
-        <div>
-          <label className="block text-sm font-medium mb-2">Project Timeline</label>
-          {applicationData.application_data.timeline.map((phase, index) => (
-            <Card key={index} className="mb-4">
-              <CardContent className="pt-4">
-                <div className="flex justify-between items-start mb-4">
-                  <h4 className="font-medium">Phase {index + 1}</h4>
-                  {applicationData.application_data.timeline.length > 1 && (
+              <h3 className="text-lg font-semibold">Total Budget</h3>
+              <div className="text-right">
+                <p className="text-2xl font-bold">€{calculateTotal().toLocaleString()}</p>
+                <p className="text-sm text-gray-600">
+                  Grant Amount: €{applicationData.requested_amount.toLocaleString()}
+                </p>
+                {calculateTotal() !== applicationData.requested_amount && (
+                  <div className="space-y-2">
+                    <p className="text-orange-500 text-sm">
+                      Difference: €{Math.abs(calculateTotal() - applicationData.requested_amount).toLocaleString()} 
+                      ({((Math.abs(calculateTotal() - applicationData.requested_amount) / applicationData.requested_amount) * 100).toFixed(1)}%)
+                    </p>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => removeArrayItem('application_data.timeline', index)}
+                      onClick={() => updateApplicationData('requested_amount', calculateTotal())}
                     >
-                      <X className="h-4 w-4" />
+                      Update Requested Amount to Match Budget
                     </Button>
-                  )}
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Phase Name</label>
-                    <Input
-                      value={phase.phase}
-                      onChange={(e) => updateArrayItem('application_data.timeline', index, { ...phase, phase: e.target.value })}
-                      placeholder="Phase name"
-                    />
                   </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Duration (months)</label>
-                    <Input
-                      type="number"
-                      value={phase.duration}
-                      onChange={(e) => updateArrayItem('application_data.timeline', index, { ...phase, duration: Number(e.target.value) })}
-                      min={1}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm text-gray-600 mb-2">Deliverables</label>
-                  {phase.deliverables.map((deliverable, dIndex) => (
-                    <div key={dIndex} className="flex gap-2 mb-2">
-                      <Input
-                        value={deliverable}
-                        onChange={(e) => {
-                          const newDeliverables = [...phase.deliverables];
-                          newDeliverables[dIndex] = e.target.value;
-                          updateArrayItem('application_data.timeline', index, { ...phase, deliverables: newDeliverables });
-                        }}
-                        placeholder={`Deliverable ${dIndex + 1}`}
-                      />
-                      {phase.deliverables.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const newDeliverables = phase.deliverables.filter((_, i) => i !== dIndex);
-                            updateArrayItem('application_data.timeline', index, { ...phase, deliverables: newDeliverables });
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const newDeliverables = [...phase.deliverables, ''];
-                      updateArrayItem('application_data.timeline', index, { ...phase, deliverables: newDeliverables });
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Deliverable
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => addArrayItem('application_data.timeline', {
-              phase: `Phase ${applicationData.application_data.timeline.length + 1}`,
-              duration: 3,
-              deliverables: ['']
-            })}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Phase
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
+                )}
+              </div>
+            </div>
+            {errors.budget && <p className="text-red-500 text-sm mt-2">{errors.budget}</p>}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const renderReviewSubmit = () => (
     <Card>
@@ -680,183 +936,317 @@ export default function CreateApplication() {
           <CheckCircle className="h-5 w-5" />
           Review & Submit
         </CardTitle>
-        <CardDescription>Review your application before submission</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Application Summary */}
         <div className="border rounded-lg p-4">
-          <h3 className="font-medium mb-4">Application Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <strong>Grant:</strong> {selectedGrant?.title}
-            </div>
-            <div>
-              <strong>Funder:</strong> {selectedGrant?.funder}
-            </div>
-            <div>
-              <strong>Project Title:</strong> {applicationData.project_title}
-            </div>
-            <div>
-              <strong>Requested Amount:</strong> {applicationData.requested_amount.toLocaleString()} {selectedGrant?.currency}
-            </div>
-            <div>
-              <strong>Duration:</strong> {applicationData.project_duration} months
-            </div>
-            <div>
-              <strong>Team Size:</strong> {applicationData.application_data.team_size} members
-            </div>
+          <h3 className="text-lg font-semibold mb-2">Application Summary</h3>
+          <div className="grid gap-2 text-sm">
+            <p><strong>Grant:</strong> {selectedGrant?.title}</p>
+            <p><strong>Project Title:</strong> {applicationData.project_title}</p>
+            <p><strong>Requested Amount:</strong> €{applicationData.requested_amount.toLocaleString()}</p>
+            <p><strong>Duration:</strong> {applicationData.project_duration} months</p>
+            <p><strong>Team Size:</strong> {applicationData.application_data.team_size}</p>
           </div>
         </div>
 
-        {/* Risk Assessment */}
-        <div>
-          <label className="block text-sm font-medium mb-2">Risk Assessment</label>
-          {applicationData.application_data.risk_assessment.map((risk, index) => (
-            <Card key={index} className="mb-4">
-              <CardContent className="pt-4">
-                <div className="flex justify-between items-start mb-4">
-                  <h4 className="font-medium">Risk {index + 1}</h4>
-                  {applicationData.application_data.risk_assessment.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => removeArrayItem('application_data.risk_assessment', index)}
-                    >
-                      <X className="h-4 w-4" />
+        <div className="border rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-2">Budget Summary</h3>
+          <div className="grid gap-1 text-sm">
+            {(() => {
+              const budget = applicationData.application_data.budget_breakdown
+              const personnelTotal = budget.personnel.salaries + budget.personnel.benefits + budget.personnel.contractors
+              const equipmentTotal = budget.equipment.hardware + budget.equipment.software + budget.equipment.facilities
+              const operationsTotal = budget.operations.travel + budget.operations.training + budget.operations.utilities + budget.operations.materials
+              const indirectTotal = budget.indirect_costs.administrative + budget.indirect_costs.overhead
+              const otherTotal = budget.other.reduce((sum, item) => sum + item.amount, 0)
+              
+              return (
+                <>
+                  <p><strong>Personnel:</strong> €{personnelTotal.toLocaleString()}</p>
+                  <p><strong>Equipment:</strong> €{equipmentTotal.toLocaleString()}</p>
+                  <p><strong>Operations:</strong> €{operationsTotal.toLocaleString()}</p>
+                  <p><strong>Indirect:</strong> €{indirectTotal.toLocaleString()}</p>
+                  <p><strong>Other:</strong> €{otherTotal.toLocaleString()}</p>
+                  <p className="font-semibold border-t pt-1"><strong>Total:</strong> €{(personnelTotal + equipmentTotal + operationsTotal + indirectTotal + otherTotal).toLocaleString()}</p>
+                </>
+              )
+            })()}
+          </div>
+        </div>
+
+        <div className="border rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-2">Project Description</h3>
+          <p className="text-sm text-gray-700">{applicationData.project_description}</p>
+        </div>
+
+        <div className="border rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-2">Expected Outcomes</h3>
+          <ul className="text-sm text-gray-700 list-disc list-inside">
+            {applicationData.application_data.expected_outcomes.map((outcome, index) => (
+              <li key={index}>{outcome}</li>
+            ))}
+          </ul>
+        </div>
+
+        <Button 
+          onClick={submitApplication}
+          disabled={submitting}
+          className="w-full bg-green-600 hover:bg-green-700"
+          size="lg"
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Submitting Application...
+            </>
+          ) : (
+            <>
+              <Send className="w-4 h-4 mr-2" />
+              Submit Application
+            </>
+          )}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar user={user} onLogout={handleLogout} />
+      
+      <div className="flex-1 overflow-auto">
+        <div className="p-8">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Button variant="ghost" onClick={() => router.push('/dashboard/grants')}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Grants
+                </Button>
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">Create Application</h1>
+                  <p className="text-gray-600">{selectedGrant?.title || 'Submit a new grant application'}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                <Button
+                  onClick={saveAsDraft}
+                  disabled={saving}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {saving ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Save Draft
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Enhanced UI with Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-6">
+              <TabsTrigger value="form">Application Form</TabsTrigger>
+              <TabsTrigger value="checklist">Requirements</TabsTrigger>
+              <TabsTrigger value="ai-assist">AI Assistant</TabsTrigger>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="form" className="space-y-6">
+              {/* Step Indicator */}
+              {renderStepIndicator()}
+
+              {/* Step Content */}
+              <div className="mb-8">
+                {step === 1 && renderGrantSelection()}
+                {step === 2 && renderProjectDetails()}
+                {step === 3 && renderBudgetBreakdown()}
+                {step === 4 && renderReviewSubmit()}
+              </div>
+
+              {/* Navigation */}
+              <div className="flex justify-between">
+                <Button
+                  variant="outline"
+                  onClick={prevStep}
+                  disabled={step === 1}
+                >
+                  Previous
+                </Button>
+
+                <div className="flex gap-2">
+                  {step < 4 ? (
+                    <Button onClick={nextStep}>
+                      Next
+                    </Button>
+                  ) : (
+                    <Button onClick={submitApplication} disabled={saving}>
+                      <Send className="h-4 w-4 mr-2" />
+                      {saving ? 'Submitting...' : 'Submit Application'}
                     </Button>
                   )}
                 </div>
-                
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Risk Description</label>
-                    <Input
-                      value={risk.risk}
-                      onChange={(e) => updateArrayItem('application_data.risk_assessment', index, { ...risk, risk: e.target.value })}
-                      placeholder="Describe the risk"
-                    />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="checklist">
+              <ApplicationChecklist
+                grantId={selectedGrant?.id || ''}
+                grantDetails={selectedGrant}
+                organizationProfile={{ name: user?.name, id: user?.id }}
+                applicationData={applicationData}
+                onUpdateChecklist={setChecklistItems}
+              />
+            </TabsContent>
+
+            <TabsContent value="ai-assist">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bot className="h-5 w-5" />
+                    AI Writing Assistant
+                  </CardTitle>
+                  <CardDescription>
+                    Let AI help you write compelling grant application content
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button
+                      onClick={() => generateAIContent('project_description')}
+                      disabled={isGeneratingAI}
+                      variant="outline"
+                      className="h-20 flex-col"
+                    >
+                      {isGeneratingAI ? (
+                        <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                      ) : (
+                        <Zap className="w-6 h-6 mb-2" />
+                      )}
+                      Generate Project Description
+                    </Button>
+                    
+                    <Button
+                      onClick={() => generateAIContent('application_data.technical_approach')}
+                      disabled={isGeneratingAI}
+                      variant="outline"
+                      className="h-20 flex-col"
+                    >
+                      {isGeneratingAI ? (
+                        <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                      ) : (
+                        <FileText className="w-6 h-6 mb-2" />
+                      )}
+                      Generate Technical Approach
+                    </Button>
+                    
+                    <Button
+                      onClick={() => generateAIContent('application_data.sustainability_plan')}
+                      disabled={isGeneratingAI}
+                      variant="outline"
+                      className="h-20 flex-col"
+                    >
+                      {isGeneratingAI ? (
+                        <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                      ) : (
+                        <Target className="w-6 h-6 mb-2" />
+                      )}
+                      Generate Sustainability Plan
+                    </Button>
+                    
+                    <Button
+                      onClick={() => setActiveTab('checklist')}
+                      variant="outline"
+                      className="h-20 flex-col"
+                    >
+                      <CheckCircle className="w-6 h-6 mb-2" />
+                      View Requirements
+                      <span className="text-xs">Checklist</span>
+                    </Button>
                   </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Impact</label>
-                    <Input
-                      value={risk.impact}
-                      onChange={(e) => updateArrayItem('application_data.risk_assessment', index, { ...risk, impact: e.target.value })}
-                      placeholder="Describe the potential impact"
-                    />
+                  
+                  {isGeneratingAI && (
+                    <div className="text-center py-4">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                      <p className="text-sm text-gray-600">AI is generating content...</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="preview">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="h-5 w-5" />
+                    Application Preview
+                  </CardTitle>
+                  <CardDescription>
+                    Review your complete application
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div className="border rounded-lg p-4">
+                      <h3 className="font-medium mb-4">Grant Information</h3>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div><strong>Grant:</strong> {selectedGrant?.title}</div>
+                        <div><strong>Funder:</strong> {selectedGrant?.funder}</div>
+                        <div><strong>Amount:</strong> {applicationData.requested_amount?.toLocaleString()} {selectedGrant?.currency}</div>
+                        <div><strong>Duration:</strong> {applicationData.project_duration} months</div>
+                      </div>
+                    </div>
+                    
+                    <div className="border rounded-lg p-4">
+                      <h3 className="font-medium mb-4">Project Details</h3>
+                      <div className="space-y-2 text-sm">
+                        <div><strong>Title:</strong> {applicationData.project_title}</div>
+                        <div><strong>Description:</strong> {applicationData.project_description}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-center pt-4">
+                      <Button className="mr-4" variant="outline">
+                        <Download className="w-4 h-4 mr-2" />
+                        Download PDF
+                      </Button>
+                      <Button onClick={submitApplication} disabled={saving}>
+                        <Send className="w-4 w-4 mr-2" />
+                        Submit Application
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Mitigation Strategy</label>
-                    <Input
-                      value={risk.mitigation}
-                      onChange={(e) => updateArrayItem('application_data.risk_assessment', index, { ...risk, mitigation: e.target.value })}
-                      placeholder="How will you mitigate this risk?"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => addArrayItem('application_data.risk_assessment', {
-              risk: '',
-              impact: '',
-              mitigation: ''
-            })}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Risk
-          </Button>
-        </div>
-
-        {/* Sustainability Plan */}
-        <div>
-          <label className="block text-sm font-medium mb-2">Sustainability Plan</label>
-          <Textarea
-            value={applicationData.application_data.sustainability_plan}
-            onChange={(e) => updateApplicationData('application_data.sustainability_plan', e.target.value)}
-            placeholder="Describe how the project will be sustained after the grant period"
-            rows={4}
-          />
-        </div>
-
-        {/* Final Validation */}
-        {Object.keys(errors).length > 0 && (
-          <div className="border border-red-200 rounded-lg p-4 bg-red-50">
-            <div className="flex items-center gap-2 text-red-700 mb-2">
-              <AlertCircle className="h-4 w-4" />
-              <span className="font-medium">Please fix the following errors:</span>
-            </div>
-            <ul className="text-sm text-red-600 list-disc list-inside">
-              {Object.values(errors).map((error, index) => (
-                <li key={index}>{error}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-
-  return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">Create Application</h1>
-          <p className="text-gray-600">Submit a new grant application</p>
-        </div>
-      </div>
-
-      {/* Step Indicator */}
-      {renderStepIndicator()}
-
-      {/* Step Content */}
-      <div className="mb-8">
-        {step === 1 && renderGrantSelection()}
-        {step === 2 && renderTechnicalDetails()}
-        {step === 3 && renderBudgetTimeline()}
-        {step === 4 && renderReviewSubmit()}
-      </div>
-
-      {/* Navigation */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={prevStep}
-          disabled={step === 1}
-        >
-          Previous
-        </Button>
-
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={saveAsDraft}
-            disabled={saving}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Saving...' : 'Save as Draft'}
-          </Button>
-
-          {step < 4 ? (
-            <Button onClick={nextStep}>
-              Next
-            </Button>
-          ) : (
-            <Button onClick={submitApplication} disabled={saving}>
-              <Send className="h-4 w-4 mr-2" />
-              {saving ? 'Submitting...' : 'Submit Application'}
-            </Button>
-          )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
-  );
+  )
+}
+
+export default function CreateApplication() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <CreateApplicationContent />
+    </Suspense>
+  )
 }

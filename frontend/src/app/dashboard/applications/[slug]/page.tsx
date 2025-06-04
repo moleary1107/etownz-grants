@@ -2,6 +2,16 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
+
+// Declare module augmentation for jsPDF
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card"
 import { Button } from "../../../../components/ui/button"
 import { Sidebar } from "../../../../components/layout/Sidebar"
@@ -72,15 +82,185 @@ interface Grant {
   status: string
 }
 
+interface Comment {
+  id: string
+  text: string
+  author: string
+  authorId: string
+  timestamp: string
+}
+
 export default function ApplicationDetailPage() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [application, setApplication] = useState<Application | null>(null)
   const [grant, setGrant] = useState<Grant | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [comments, setComments] = useState<Comment[]>([])
+  const [showCommentDialog, setShowCommentDialog] = useState(false)
+  const [newComment, setNewComment] = useState('')
+  const [documents, setDocuments] = useState<{id: string, name: string, uploadedAt: string, size: string}[]>([])
+  const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const [uploadingFile, setUploadingFile] = useState(false)
   const router = useRouter()
   const params = useParams()
   const applicationSlug = params.slug as string
+
+  const exportToPDF = () => {
+    if (!application || !grant) return
+
+    const doc = new jsPDF()
+    
+    // Title
+    doc.setFontSize(20)
+    doc.text('Grant Application', 20, 20)
+    
+    // Grant and Application Info
+    doc.setFontSize(12)
+    doc.text(`Grant: ${grant.title}`, 20, 35)
+    doc.text(`Application ID: ${application.id}`, 20, 45)
+    doc.text(`Status: ${application.status.toUpperCase()}`, 20, 55)
+    doc.text(`Submitted: ${application.submitted_at ? new Date(application.submitted_at).toLocaleDateString() : 'Not submitted'}`, 20, 65)
+    
+    // Project Details
+    doc.setFontSize(16)
+    doc.text('Project Details', 20, 85)
+    doc.setFontSize(12)
+    doc.text(`Title: ${application.project_title}`, 20, 95)
+    
+    // Wrap description text
+    const splitDescription = doc.splitTextToSize(`Description: ${application.project_description}`, 170)
+    doc.text(splitDescription, 20, 105)
+    
+    const descHeight = splitDescription.length * 5
+    let yPos = 105 + descHeight + 10
+    
+    // Financial Information
+    doc.text(`Requested Amount: €${application.requested_amount.toLocaleString()}`, 20, yPos)
+    doc.text(`Project Duration: ${application.project_duration} months`, 20, yPos + 10)
+    doc.text(`Team Size: ${application.application_data.team_size}`, 20, yPos + 20)
+    
+    // Budget Breakdown Table
+    yPos += 40
+    doc.setFontSize(14)
+    doc.text('Budget Breakdown', 20, yPos)
+    
+    const budgetData = Object.entries(application.application_data.budget_breakdown).map(([category, amount]) => [
+      category.charAt(0).toUpperCase() + category.slice(1),
+      `€${amount.toLocaleString()}`
+    ])
+    
+    doc.autoTable({
+      startY: yPos + 5,
+      head: [['Category', 'Amount']],
+      body: budgetData,
+      theme: 'striped',
+      headStyles: { fillColor: [66, 139, 202] }
+    })
+    
+    // Expected Outcomes
+    yPos = (doc as any).previousAutoTable.finalY + 20
+    doc.setFontSize(14)
+    doc.text('Expected Outcomes', 20, yPos)
+    doc.setFontSize(12)
+    
+    application.application_data.expected_outcomes.forEach((outcome, index) => {
+      const outcomeText = doc.splitTextToSize(`${index + 1}. ${outcome}`, 170)
+      doc.text(outcomeText, 20, yPos + 10 + (index * 10))
+      yPos += outcomeText.length * 5
+    })
+    
+    // Technical Approach
+    if (yPos > 250) {
+      doc.addPage()
+      yPos = 20
+    }
+    
+    doc.setFontSize(14)
+    doc.text('Technical Approach', 20, yPos + 20)
+    doc.setFontSize(12)
+    const splitApproach = doc.splitTextToSize(application.application_data.technical_approach, 170)
+    doc.text(splitApproach, 20, yPos + 30)
+    
+    // Save the PDF
+    doc.save(`application-${application.id}-${new Date().toISOString().split('T')[0]}.pdf`)
+  }
+
+  const handleAddComment = () => {
+    if (!newComment.trim() || !user) return
+
+    const comment: Comment = {
+      id: `comment-${Date.now()}`,
+      text: newComment,
+      author: user.name,
+      authorId: user.id,
+      timestamp: new Date().toISOString()
+    }
+
+    setComments([comment, ...comments])
+    setNewComment('')
+    setShowCommentDialog(false)
+    
+    // In a real app, this would save to the backend
+    // await saveComment(application.id, comment)
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !application) return
+
+    setUploadingFile(true)
+    try {
+      // Simulate upload delay
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Add to documents list
+      const newDoc = {
+        id: `doc-${Date.now()}`,
+        name: file.name,
+        uploadedAt: new Date().toISOString(),
+        size: `${(file.size / 1024).toFixed(1)} KB`
+      }
+      
+      setDocuments([newDoc, ...documents])
+      setShowUploadDialog(false)
+    } catch (error) {
+      console.error('Error uploading file:', error)
+      alert('Failed to upload file. Please try again.')
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  const handleDownloadAllFiles = async () => {
+    if (!application) return
+
+    try {
+      // Create application summary for download
+      const applicationData = {
+        id: application.id,
+        title: application.project_title,
+        description: application.project_description,
+        status: application.status,
+        requestedAmount: application.requested_amount,
+        documents: documents.map(d => d.name),
+        comments: comments.map(c => ({ author: c.author, text: c.text, timestamp: c.timestamp }))
+      }
+      
+      const blob = new Blob([JSON.stringify(applicationData, null, 2)], { type: 'application/json' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `application-${application.id}-data.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading files:', error)
+      alert('Failed to download files. Please try again.')
+    }
+  }
 
   useEffect(() => {
     // Check authentication
@@ -536,7 +716,7 @@ export default function ApplicationDetailPage() {
                   Edit Application
                 </Button>
               )}
-              <Button variant="outline">
+              <Button variant="outline" onClick={exportToPDF}>
                 <Download className="h-4 w-4 mr-2" />
                 Export PDF
               </Button>
@@ -794,21 +974,81 @@ export default function ApplicationDetailPage() {
                 </CardContent>
               </Card>
 
+              {/* Documents */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Documents</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {documents.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4">No documents uploaded</p>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {documents.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-gray-500" />
+                            <div>
+                              <p className="text-sm font-medium">{doc.name}</p>
+                              <p className="text-xs text-gray-500">{doc.size} • {new Date(doc.uploadedAt).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                          <Button size="sm" variant="ghost">
+                            <Download className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Comments */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Comments & Activity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {comments.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4">No comments yet</p>
+                  ) : (
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {comments.map((comment) => (
+                        <div key={comment.id} className="border-b pb-3 last:border-0">
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="font-medium text-sm">{comment.author}</span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(comment.timestamp).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700">{comment.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Actions */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline" onClick={() => setShowCommentDialog(true)}>
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Add Comment
                   </Button>
-                  <Button className="w-full" variant="outline">
+                  <Button className="w-full" variant="outline" onClick={() => setShowUploadDialog(true)}>
                     <Upload className="h-4 w-4 mr-2" />
                     Upload Document
                   </Button>
-                  <Button className="w-full" variant="outline">
+                  <Button 
+                    className="w-full" 
+                    variant="outline" 
+                    onClick={handleDownloadAllFiles}
+                    disabled={documents.length === 0 && comments.length === 0}
+                  >
                     <Download className="h-4 w-4 mr-2" />
                     Download All Files
                   </Button>
@@ -816,6 +1056,86 @@ export default function ApplicationDetailPage() {
               </Card>
             </div>
           </div>
+
+          {/* Comment Dialog */}
+          {showCommentDialog && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                <h3 className="text-lg font-semibold mb-4">Add Comment</h3>
+                <textarea
+                  className="w-full p-3 border rounded-lg resize-none"
+                  rows={4}
+                  placeholder="Enter your comment..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  autoFocus
+                />
+                <div className="flex justify-end space-x-3 mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowCommentDialog(false)
+                      setNewComment('')
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleAddComment}
+                    disabled={!newComment.trim()}
+                  >
+                    Add Comment
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Upload Dialog */}
+          {showUploadDialog && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                <h3 className="text-lg font-semibold mb-4">Upload Document</h3>
+                <div className="space-y-4">
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600 mb-2">Click to select a file or drag and drop</p>
+                    <input
+                      type="file"
+                      className="hidden"
+                      id="file-upload"
+                      onChange={handleFileUpload}
+                      accept=".pdf,.doc,.docx,.txt,.rtf,.odt,.xls,.xlsx,.ppt,.pptx"
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className="cursor-pointer inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Select File
+                    </label>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Supported formats: PDF, DOC, DOCX, TXT, RTF, ODT, XLS, XLSX, PPT, PPTX
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-3 mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowUploadDialog(false)}
+                    disabled={uploadingFile}
+                  >
+                    Cancel
+                  </Button>
+                  {uploadingFile && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                      Uploading...
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

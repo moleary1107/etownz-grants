@@ -148,7 +148,7 @@ export class OpenAIService {
       }
 
       const allEmbeddings: number[][] = [];
-      let totalUsage: OpenAIUsageInfo = {
+      const totalUsage: OpenAIUsageInfo = {
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
