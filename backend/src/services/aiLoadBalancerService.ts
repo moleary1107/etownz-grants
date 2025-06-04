@@ -106,66 +106,14 @@ export class AILoadBalancerService {
   }
 
   private async createTablesIfNotExist(): Promise<void> {
-    const createProvidersTable = `
-      CREATE TABLE IF NOT EXISTS ai_providers (
-        id VARCHAR(255) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        type VARCHAR(50) NOT NULL,
-        endpoint VARCHAR(500) NOT NULL,
-        api_key VARCHAR(500) NOT NULL,
-        models JSON NOT NULL,
-        rate_limit JSON NOT NULL,
-        health_status JSON NOT NULL,
-        cost JSON NOT NULL,
-        priority INTEGER NOT NULL DEFAULT 5,
-        is_active BOOLEAN NOT NULL DEFAULT true,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_type_active (type, is_active),
-        INDEX idx_priority_active (priority, is_active)
-      )
-    `;
-
-    const createScalingPoliciesTable = `
-      CREATE TABLE IF NOT EXISTS ai_scaling_policies (
-        id VARCHAR(255) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        trigger_metric VARCHAR(50) NOT NULL,
-        threshold DECIMAL(10,4) NOT NULL,
-        scale_action VARCHAR(50) NOT NULL,
-        cooldown_period INTEGER NOT NULL DEFAULT 300,
-        is_active BOOLEAN NOT NULL DEFAULT true,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_metric_active (trigger_metric, is_active)
-      )
-    `;
-
-    const createRequestLogsTable = `
-      CREATE TABLE IF NOT EXISTS ai_request_logs (
-        id VARCHAR(255) PRIMARY KEY,
-        request_id VARCHAR(255) NOT NULL,
-        provider_id VARCHAR(255) NOT NULL,
-        operation VARCHAR(100) NOT NULL,
-        model VARCHAR(100) NOT NULL,
-        input_tokens INTEGER NOT NULL,
-        output_tokens INTEGER NOT NULL,
-        response_time INTEGER NOT NULL,
-        cost DECIMAL(10,4) NOT NULL,
-        status VARCHAR(20) NOT NULL,
-        error_message TEXT,
-        queue_time INTEGER DEFAULT 0,
-        retry_count INTEGER DEFAULT 0,
-        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_provider_timestamp (provider_id, timestamp),
-        INDEX idx_status_timestamp (status, timestamp),
-        INDEX idx_request_id (request_id)
-      )
-    `;
-
-    await this.db.query(createProvidersTable);
-    await this.db.query(createScalingPoliciesTable);
-    await this.db.query(createRequestLogsTable);
+    // Tables are now created by migrations, just check if they exist
+    try {
+      await this.db.query('SELECT 1 FROM ai_providers LIMIT 1');
+      await this.db.query('SELECT 1 FROM ai_scaling_policies LIMIT 1');
+      await this.db.query('SELECT 1 FROM ai_request_logs LIMIT 1');
+    } catch (error) {
+      logger.warn('AI Load Balancer tables not found. Please run migrations.');
+    }
   }
 
   /**
@@ -246,7 +194,7 @@ export class AILoadBalancerService {
         `INSERT INTO ai_providers 
          (id, name, type, endpoint, api_key, models, rate_limit, 
           health_status, cost, priority, is_active) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           id,
           provider.name,
@@ -285,7 +233,7 @@ export class AILoadBalancerService {
       provider.healthStatus = { ...provider.healthStatus, ...healthData };
       
       await this.db.query(
-        'UPDATE ai_providers SET health_status = ? WHERE id = ?',
+        'UPDATE ai_providers SET health_status = $1 WHERE id = $2',
         [JSON.stringify(provider.healthStatus), providerId]
       );
 
@@ -315,7 +263,7 @@ export class AILoadBalancerService {
       await this.db.query(
         `INSERT INTO ai_scaling_policies 
          (id, name, trigger_metric, threshold, scale_action, cooldown_period, is_active) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
           id,
           policy.name,
@@ -368,7 +316,7 @@ export class AILoadBalancerService {
           provider_id,
           SUM(cost) as total_cost
         FROM ai_request_logs 
-        WHERE timestamp >= ?
+        WHERE timestamp >= $1
         GROUP BY provider_id
       `;
       

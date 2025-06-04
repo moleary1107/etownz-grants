@@ -131,55 +131,14 @@ export class AIMonitoringService {
   }
 
   private async createTablesIfNotExist(): Promise<void> {
-    const createMetricsTable = `
-      CREATE TABLE IF NOT EXISTS ai_metrics (
-        id VARCHAR(255) PRIMARY KEY,
-        metric_name VARCHAR(255) NOT NULL,
-        metric_type VARCHAR(50) NOT NULL,
-        value DECIMAL(20,8) NOT NULL,
-        labels JSON,
-        timestamp TIMESTAMP NOT NULL,
-        source VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_metric_name_timestamp (metric_name, timestamp),
-        INDEX idx_source_timestamp (source, timestamp),
-        INDEX idx_timestamp (timestamp)
-      )
-    `;
-
-    const createAlertsTable = `
-      CREATE TABLE IF NOT EXISTS ai_alerts (
-        id VARCHAR(255) PRIMARY KEY,
-        alert_name VARCHAR(255) NOT NULL,
-        severity VARCHAR(20) NOT NULL,
-        condition_text TEXT NOT NULL,
-        current_value DECIMAL(20,8) NOT NULL,
-        threshold_value DECIMAL(20,8) NOT NULL,
-        status VARCHAR(20) NOT NULL,
-        fired_at TIMESTAMP NOT NULL,
-        resolved_at TIMESTAMP NULL,
-        description TEXT,
-        actions JSON,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_status_severity (status, severity),
-        INDEX idx_fired_at (fired_at),
-        INDEX idx_alert_name (alert_name)
-      )
-    `;
-
-    const createDashboardCacheTable = `
-      CREATE TABLE IF NOT EXISTS ai_dashboard_cache (
-        cache_key VARCHAR(255) PRIMARY KEY,
-        cache_data JSON NOT NULL,
-        expires_at TIMESTAMP NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_expires_at (expires_at)
-      )
-    `;
-
-    await this.db.query(createMetricsTable);
-    await this.db.query(createAlertsTable);
-    await this.db.query(createDashboardCacheTable);
+    // Tables are now created by migrations, just check if they exist
+    try {
+      await this.db.query('SELECT 1 FROM ai_metrics LIMIT 1');
+      await this.db.query('SELECT 1 FROM ai_alerts LIMIT 1');
+      await this.db.query('SELECT 1 FROM ai_dashboard_cache LIMIT 1');
+    } catch (error) {
+      logger.warn('AI Monitoring tables not found. Please run migrations.');
+    }
   }
 
   /**
@@ -256,7 +215,7 @@ export class AIMonitoringService {
         `INSERT INTO ai_alerts 
          (id, alert_name, severity, condition_text, current_value, threshold_value, 
           status, fired_at, description, actions) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           alertId,
           alert.alertName,
@@ -406,7 +365,7 @@ export class AIMonitoringService {
         metric.source
       ]);
 
-      const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(',');
+      const placeholders = values.map((_, index) => `($${index * 7 + 1}, $${index * 7 + 2}, $${index * 7 + 3}, $${index * 7 + 4}, $${index * 7 + 5}, $${index * 7 + 6}, $${index * 7 + 7})`).join(',');
       const query = `INSERT INTO ai_metrics (id, metric_name, metric_type, value, labels, timestamp, source) VALUES ${placeholders}`;
       
       await this.db.query(query, values.flat());
@@ -612,7 +571,7 @@ export class AIMonitoringService {
   private async getCachedDashboard(cacheKey: string): Promise<AIPerformanceDashboard | null> {
     try {
       const result = await this.db.query(
-        'SELECT cache_data FROM ai_dashboard_cache WHERE cache_key = ? AND expires_at > NOW()',
+        'SELECT cache_data FROM ai_dashboard_cache WHERE cache_key = $1 AND expires_at > NOW()',
         [cacheKey]
       );
       const rows = Array.isArray(result) ? result : result.rows || [];
@@ -631,7 +590,7 @@ export class AIMonitoringService {
     try {
       const expiresAt = new Date(Date.now() + ttlMs);
       await this.db.query(
-        'INSERT INTO ai_dashboard_cache (cache_key, cache_data, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE cache_data = ?, expires_at = ?',
+        'INSERT INTO ai_dashboard_cache (cache_key, cache_data, expires_at) VALUES ($1, $2, $3) ON CONFLICT (cache_key) DO UPDATE SET cache_data = $4, expires_at = $5',
         [cacheKey, JSON.stringify(data), expiresAt, JSON.stringify(data), expiresAt]
       );
     } catch (error) {
@@ -641,7 +600,7 @@ export class AIMonitoringService {
 
   private async loadActiveAlerts(): Promise<void> {
     try {
-      const result = await this.db.query('SELECT * FROM ai_alerts WHERE status = "firing"');
+      const result = await this.db.query('SELECT * FROM ai_alerts WHERE status = $1', ['firing']);
       const alerts = Array.isArray(result) ? result : result.rows || [];
       
       this.alertsCache.clear();

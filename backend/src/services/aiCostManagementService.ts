@@ -103,72 +103,14 @@ export class AICostManagementService {
   }
 
   private async createTablesIfNotExist(): Promise<void> {
-    const createUsageMetricsTable = `
-      CREATE TABLE IF NOT EXISTS ai_usage_metrics (
-        id VARCHAR(255) PRIMARY KEY,
-        user_id VARCHAR(255) NOT NULL,
-        organization_id VARCHAR(255),
-        service VARCHAR(50) NOT NULL,
-        operation VARCHAR(100) NOT NULL,
-        model VARCHAR(100) NOT NULL,
-        input_tokens INTEGER NOT NULL DEFAULT 0,
-        output_tokens INTEGER NOT NULL DEFAULT 0,
-        total_tokens INTEGER NOT NULL DEFAULT 0,
-        cost DECIMAL(10,4) NOT NULL DEFAULT 0,
-        duration INTEGER NOT NULL DEFAULT 0,
-        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        endpoint VARCHAR(255),
-        request_id VARCHAR(255),
-        status VARCHAR(20) NOT NULL DEFAULT 'success',
-        error_message TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_user_timestamp (user_id, timestamp),
-        INDEX idx_org_timestamp (organization_id, timestamp),
-        INDEX idx_service_operation (service, operation),
-        INDEX idx_status_timestamp (status, timestamp)
-      )
-    `;
-
-    const createCostThresholdsTable = `
-      CREATE TABLE IF NOT EXISTS ai_cost_thresholds (
-        id VARCHAR(255) PRIMARY KEY,
-        organization_id VARCHAR(255) NOT NULL,
-        user_id VARCHAR(255),
-        type VARCHAR(20) NOT NULL,
-        limit_amount DECIMAL(10,4) NOT NULL,
-        current_usage DECIMAL(10,4) NOT NULL DEFAULT 0,
-        reset_date TIMESTAMP NOT NULL,
-        alert_threshold INTEGER NOT NULL DEFAULT 80,
-        is_active BOOLEAN NOT NULL DEFAULT true,
-        notification_sent BOOLEAN NOT NULL DEFAULT false,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_org_type_active (organization_id, type, is_active),
-        INDEX idx_user_type_active (user_id, type, is_active)
-      )
-    `;
-
-    const createOptimizationSuggestionsTable = `
-      CREATE TABLE IF NOT EXISTS ai_optimization_suggestions (
-        id VARCHAR(255) PRIMARY KEY,
-        organization_id VARCHAR(255) NOT NULL,
-        type VARCHAR(50) NOT NULL,
-        priority VARCHAR(20) NOT NULL,
-        title VARCHAR(255) NOT NULL,
-        description TEXT NOT NULL,
-        potential_savings DECIMAL(10,4) NOT NULL,
-        implementation_effort VARCHAR(20) NOT NULL,
-        action_items JSON,
-        status VARCHAR(20) NOT NULL DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        implemented_at TIMESTAMP NULL,
-        INDEX idx_org_priority_status (organization_id, priority, status)
-      )
-    `;
-
-    await this.db.query(createUsageMetricsTable);
-    await this.db.query(createCostThresholdsTable);
-    await this.db.query(createOptimizationSuggestionsTable);
+    // Tables are now created by migrations, just check if they exist
+    try {
+      await this.db.query('SELECT 1 FROM ai_usage_metrics LIMIT 1');
+      await this.db.query('SELECT 1 FROM ai_cost_thresholds LIMIT 1');
+      await this.db.query('SELECT 1 FROM ai_optimization_suggestions LIMIT 1');
+    } catch (error) {
+      logger.warn('AI Cost Management tables not found. Please run migrations.');
+    }
   }
 
   /**
@@ -191,7 +133,7 @@ export class AICostManagementService {
          (id, user_id, organization_id, service, operation, model, input_tokens, 
           output_tokens, total_tokens, cost, duration, timestamp, endpoint, 
           request_id, status, error_message) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
         [
           fullMetrics.id,
           fullMetrics.userId,
@@ -295,8 +237,8 @@ export class AICostManagementService {
           AVG(duration) as avg_duration,
           DATE(timestamp) as date
         FROM ai_usage_metrics 
-        WHERE organization_id = ? 
-          AND timestamp BETWEEN ? AND ?
+        WHERE organization_id = $1 
+          AND timestamp BETWEEN $2 AND $3
         GROUP BY service, operation, model, status, DATE(timestamp)
         ORDER BY timestamp DESC
       `;
@@ -425,7 +367,7 @@ export class AICostManagementService {
         `INSERT INTO ai_cost_thresholds 
          (id, organization_id, user_id, type, limit_amount, reset_date, 
           alert_threshold, is_active) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           id,
           threshold.organizationId,
@@ -481,8 +423,8 @@ export class AICostManagementService {
     const query = `
       SELECT SUM(cost) as total_cost
       FROM ai_usage_metrics 
-      WHERE ${threshold.organizationId ? 'organization_id = ?' : 'user_id = ?'}
-        AND timestamp >= ?
+      WHERE ${threshold.organizationId ? 'organization_id = $1' : 'user_id = $1'}
+        AND timestamp >= $2
         AND status = 'success'
     `;
 
@@ -497,7 +439,7 @@ export class AICostManagementService {
 
   private async updateThresholdUsage(thresholdId: string, currentUsage: number): Promise<void> {
     await this.db.query(
-      'UPDATE ai_cost_thresholds SET current_usage = ? WHERE id = ?',
+      'UPDATE ai_cost_thresholds SET current_usage = $1 WHERE id = $2',
       [currentUsage, thresholdId]
     );
   }
@@ -511,7 +453,7 @@ export class AICostManagementService {
     });
 
     await this.db.query(
-      'UPDATE ai_cost_thresholds SET notification_sent = true WHERE id = ?',
+      'UPDATE ai_cost_thresholds SET notification_sent = true WHERE id = $1',
       [threshold.id]
     );
   }
@@ -556,7 +498,7 @@ export class AICostManagementService {
 
     const query = `
       SELECT * FROM ai_usage_metrics 
-      WHERE organization_id = ? AND timestamp >= ?
+      WHERE organization_id = $1 AND timestamp >= $2
       ORDER BY timestamp DESC
     `;
 
@@ -592,7 +534,7 @@ export class AICostManagementService {
         `INSERT INTO ai_optimization_suggestions 
          (id, organization_id, type, priority, title, description, 
           potential_savings, implementation_effort, action_items) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           id,
           organizationId,
@@ -705,7 +647,7 @@ export class AICostManagementService {
     cutoffDate.setDate(cutoffDate.getDate() - 90); // Keep 90 days of data
 
     await this.db.query(
-      'DELETE FROM ai_usage_metrics WHERE timestamp < ?',
+      'DELETE FROM ai_usage_metrics WHERE timestamp < $1',
       [cutoffDate]
     );
 
@@ -716,7 +658,7 @@ export class AICostManagementService {
     const now = new Date();
     
     const result = await this.db.query(
-      'SELECT * FROM ai_cost_thresholds WHERE reset_date <= ? AND is_active = true',
+      'SELECT * FROM ai_cost_thresholds WHERE reset_date <= $1 AND is_active = true',
       [now]
     );
     const thresholdsToReset = Array.isArray(result) ? result : result.rows || [];
@@ -738,8 +680,8 @@ export class AICostManagementService {
 
       await this.db.query(
         `UPDATE ai_cost_thresholds 
-         SET current_usage = 0, reset_date = ?, notification_sent = false 
-         WHERE id = ?`,
+         SET current_usage = 0, reset_date = $1, notification_sent = false 
+         WHERE id = $2`,
         [newResetDate, threshold.id]
       );
     }

@@ -36,7 +36,8 @@ const progressiveFormService = new ProgressiveFormService(
  *             properties:
  *               grantId:
  *                 type: string
- *               applicatio
+ *               applicationId:
+ *                 type: string
  *               sessionType:
  *                 type: string
  *               fieldsTotal:
