@@ -22,11 +22,18 @@ import applicationsRoutes from './routes/applications';
 import webhooksRoutes from './routes/webhooks';
 import scrapingRoutes from './routes/scraping';
 import aiRoutes from './routes/ai';
+import aiTransparencyRoutes from './routes/aiTransparency';
+import aiWritingRoutes from './routes/aiWriting';
+import progressiveFormRoutes from './routes/progressiveForm';
+import complianceRoutes from './routes/compliance';
+import budgetOptimizationRoutes from './routes/budgetOptimization';
 import monitoringRoutes from './routes/monitoring';
 import predictiveRoutes from './routes/predictive';
 import stripeRoutes from './routes/stripe';
 import exportRoutes from './routes/export';
 import newsletterRoutes from './routes/newsletter';
+import semanticSearchRoutes from './routes/semanticSearch';
+import knowledgeBaseRoutes from './routes/knowledgeBase';
 
 // Import database service
 import { db } from './services/database';
@@ -59,6 +66,10 @@ const swaggerOptions = {
         description: 'AI-powered grant matching, semantic search, and intelligent analysis'
       },
       {
+        name: 'AI Transparency',
+        description: 'AI interaction tracking, transparency, and user feedback systems'
+      },
+      {
         name: 'Grants',
         description: 'Grant discovery, search, and management'
       },
@@ -85,6 +96,22 @@ const swaggerOptions = {
       {
         name: 'Predictive Analytics',
         description: 'Machine learning-powered predictive analytics, success probability, and budget optimization'
+      },
+      {
+        name: 'Compliance',
+        description: 'AI-powered compliance checking, rule validation, and automated quality assurance'
+      },
+      {
+        name: 'Budget Optimization',
+        description: 'AI-powered budget optimization, cost analysis, and financial planning for grants'
+      },
+      {
+        name: 'Semantic Search',
+        description: 'AI-powered semantic search, embedding generation, and similarity analysis'
+      },
+      {
+        name: 'Knowledge Base',
+        description: 'RAG knowledge base management, document storage, and intelligent retrieval'
       }
     ],
     servers: [
@@ -173,11 +200,18 @@ app.use('/applications', applicationsRoutes);
 app.use('/webhooks', webhooksRoutes);
 app.use('/scraping', scrapingRoutes);
 app.use('/ai', aiRoutes);
+app.use('/ai', aiTransparencyRoutes);
+app.use('/ai', aiWritingRoutes);
+app.use('/progressive-form', progressiveFormRoutes);
+app.use('/compliance', complianceRoutes);
+app.use('/budget-optimization', budgetOptimizationRoutes);
 app.use('/monitoring', monitoringRoutes);
 app.use('/predictive', predictiveRoutes);
 app.use('/stripe', stripeRoutes);
 app.use('/export', exportRoutes);
 app.use('/newsletter', newsletterRoutes);
+app.use('/semantic-search', semanticSearchRoutes);
+app.use('/knowledge-base', knowledgeBaseRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

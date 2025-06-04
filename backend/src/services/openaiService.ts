@@ -181,10 +181,42 @@ export class OpenAIService {
     }
   }
 
+
   /**
-   * Chat completion with usage tracking
+   * Chat completion with string input (convenience method)
    */
   async chatCompletion(
+    prompt: string,
+    options?: ChatCompletionOptions
+  ): Promise<string>;
+  
+  /**
+   * Chat completion with message array input
+   */
+  async chatCompletion(
+    messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+    options?: ChatCompletionOptions
+  ): Promise<{ content: string, usage: OpenAIUsageInfo }>;
+
+  async chatCompletion(
+    input: string | { role: 'system' | 'user' | 'assistant'; content: string }[],
+    options: ChatCompletionOptions = {}
+  ): Promise<string | { content: string, usage: OpenAIUsageInfo }> {
+    if (typeof input === 'string') {
+      // String input version - return just content
+      const messages = [{ role: 'user' as const, content: input }];
+      const result = await this.chatCompletionInternal(messages, options);
+      return result.content;
+    } else {
+      // Message array version - return content and usage
+      return this.chatCompletionInternal(input, options);
+    }
+  }
+
+  /**
+   * Internal chat completion implementation
+   */
+  private async chatCompletionInternal(
     messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
     options: ChatCompletionOptions = {}
   ): Promise<{ content: string, usage: OpenAIUsageInfo }> {
@@ -230,6 +262,51 @@ export class OpenAIService {
     } catch (error) {
       logger.error('Failed to generate chat completion:', error);
       throw new Error(`Failed to generate chat completion: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Streaming chat completion
+   */
+  async chatCompletionStream(
+    input: string | { role: 'system' | 'user' | 'assistant'; content: string }[],
+    options: ChatCompletionOptions = {}
+  ): Promise<any> {
+    try {
+      const messages = typeof input === 'string' 
+        ? [{ role: 'user' as const, content: input }]
+        : input;
+
+      const {
+        model = 'gpt-4o-mini',
+        temperature = 0.7,
+        maxTokens,
+        responseFormat = 'text'
+      } = options;
+
+      const requestParams: any = {
+        model,
+        messages,
+        temperature,
+        stream: true
+      };
+
+      if (maxTokens) {
+        requestParams.max_tokens = maxTokens;
+      }
+
+      if (responseFormat === 'json_object') {
+        requestParams.response_format = { type: 'json_object' };
+      }
+
+      const stream = await this.openai.chat.completions.create(requestParams);
+      
+      logger.info(`Started streaming chat completion with model: ${model}`);
+      
+      return stream;
+    } catch (error) {
+      logger.error('Failed to start streaming chat completion:', error);
+      throw new Error(`Failed to start streaming chat completion: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
