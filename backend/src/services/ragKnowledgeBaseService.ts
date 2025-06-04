@@ -1,6 +1,6 @@
 import { Pinecone } from '@pinecone-database/pinecone';
 import { OpenAI } from 'openai';
-import { DatabaseService } from './database';
+import { DatabaseService, db } from './database';
 import { logger } from './logger';
 import crypto from 'crypto';
 
@@ -135,7 +135,7 @@ export class RAGKnowledgeBaseService {
         RETURNING id
       `;
       
-      await DatabaseService.query(query, [
+      await db.query(query, [
         entryId,
         title,
         content,
@@ -169,7 +169,7 @@ export class RAGKnowledgeBaseService {
   ): Promise<void> {
     try {
       // Update status to processing
-      await DatabaseService.query(
+      await db.query(
         'UPDATE knowledge_base SET embedding_status = $1, updated_at = NOW() WHERE id = $2',
         ['processing', documentId]
       );
@@ -179,7 +179,7 @@ export class RAGKnowledgeBaseService {
       
       // Generate embeddings and store in Pinecone
       const index = this.pinecone.index(this.indexName);
-      const vectors = [];
+      const vectors: any[] = [];
 
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
@@ -214,7 +214,7 @@ export class RAGKnowledgeBaseService {
       }
 
       // Update status to completed
-      await DatabaseService.query(
+      await db.query(
         'UPDATE knowledge_base SET embedding_status = $1, updated_at = NOW() WHERE id = $2',
         ['completed', documentId]
       );
@@ -224,7 +224,7 @@ export class RAGKnowledgeBaseService {
       logger.error(`Error processing embeddings for document ${documentId}:`, error);
       
       // Update status to failed
-      await DatabaseService.query(
+      await db.query(
         'UPDATE knowledge_base SET embedding_status = $1, updated_at = NOW() WHERE id = $2',
         ['failed', documentId]
       );
@@ -418,7 +418,7 @@ export class RAGKnowledgeBaseService {
         WHERE id = $${paramIndex}
       `;
 
-      await DatabaseService.query(query, updateValues);
+      await db.query(query, updateValues);
 
       // If content was updated, reprocess embeddings
       if (updates.content) {
@@ -426,7 +426,7 @@ export class RAGKnowledgeBaseService {
         await this.deleteDocumentEmbeddings(documentId);
         
         // Get updated document data
-        const docResult = await DatabaseService.query(
+        const docResult = await db.query(
           'SELECT * FROM knowledge_base WHERE id = $1',
           [documentId]
         );
@@ -455,7 +455,7 @@ export class RAGKnowledgeBaseService {
   async deleteDocument(documentId: string): Promise<void> {
     try {
       // Delete from database
-      await DatabaseService.query(
+      await db.query(
         'DELETE FROM knowledge_base WHERE id = $1',
         [documentId]
       );
@@ -501,12 +501,12 @@ export class RAGKnowledgeBaseService {
   }> {
     try {
       const [docsResult, statusResult] = await Promise.all([
-        DatabaseService.query(`
+        db.query(`
           SELECT type, COUNT(*) as count 
           FROM knowledge_base 
           GROUP BY type
         `),
-        DatabaseService.query(`
+        db.query(`
           SELECT embedding_status, COUNT(*) as count 
           FROM knowledge_base 
           GROUP BY embedding_status
@@ -528,7 +528,7 @@ export class RAGKnowledgeBaseService {
 
       return {
         totalDocuments: Object.values(documentsByType).reduce((sum, count) => sum + count, 0),
-        totalEmbeddings: stats.totalVectorCount || 0,
+        totalEmbeddings: stats.totalRecordCount || 0,
         documentsByType,
         embeddingStatus
       };
@@ -587,14 +587,14 @@ export class RAGKnowledgeBaseService {
       const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
       const [documentsResult, countResult] = await Promise.all([
-        DatabaseService.query(`
+        db.query(`
           SELECT * FROM knowledge_base 
           ${whereClause}
           ORDER BY updated_at DESC 
           LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `, [...queryParams, limit, offset]),
         
-        DatabaseService.query(`
+        db.query(`
           SELECT COUNT(*) as total FROM knowledge_base 
           ${whereClause}
         `, queryParams)

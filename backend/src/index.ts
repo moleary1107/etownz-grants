@@ -35,7 +35,10 @@ import newsletterRoutes from './routes/newsletter';
 import semanticSearchRoutes from './routes/semanticSearch';
 import knowledgeBaseRoutes from './routes/knowledgeBase';
 import openaiAssistantsRoutes from './routes/openaiAssistants-simple';
-import partnerCoordinationRoutes from './routes/partnerCoordination';
+import aiCostManagementRoutes from './routes/aiCostManagement';
+import aiLoadBalancerRoutes from './routes/aiLoadBalancer';
+import aiMonitoringRoutes from './routes/aiMonitoring';
+// import partnerCoordinationRoutes from './routes/partnerCoordination';
 
 // Import database service
 import { db } from './services/database';
@@ -122,6 +125,18 @@ const swaggerOptions = {
       {
         name: 'Partner Coordination',
         description: 'AI-powered partner matching and collaboration planning for multi-partner grants'
+      },
+      {
+        name: 'AI Cost Management',
+        description: 'AI cost tracking, optimization, and threshold management for cost control'
+      },
+      {
+        name: 'AI Load Balancing',
+        description: 'AI provider management, load balancing, and scaling infrastructure'
+      },
+      {
+        name: 'AI Monitoring',
+        description: 'AI system monitoring, metrics collection, and performance analytics'
       }
     ],
     servers: [
@@ -223,7 +238,10 @@ app.use('/newsletter', newsletterRoutes);
 app.use('/semantic-search', semanticSearchRoutes);
 app.use('/knowledge-base', knowledgeBaseRoutes);
 app.use('/assistants', openaiAssistantsRoutes);
-app.use('/partner-coordination', partnerCoordinationRoutes);
+app.use('/ai-cost', aiCostManagementRoutes);
+app.use('/ai-load-balancer', aiLoadBalancerRoutes);
+app.use('/ai-monitoring', aiMonitoringRoutes);
+// app.use('/partner-coordination', partnerCoordinationRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

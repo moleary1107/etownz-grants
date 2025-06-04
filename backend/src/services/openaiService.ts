@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { logger } from './logger';
 import { VectorDatabaseService, VectorMetadata } from './vectorDatabase';
+import AICostManagementService from './aiCostManagementService';
 
 export interface OpenAIUsageInfo {
   promptTokens: number;
@@ -50,6 +51,7 @@ export interface SemanticSearchResult {
 export class OpenAIService {
   private openai: OpenAI;
   private vectorDB: VectorDatabaseService;
+  private costManager: AICostManagementService;
   private readonly models = {
     chat: {
       'gpt-4-turbo': { 
@@ -81,7 +83,46 @@ export class OpenAIService {
     });
 
     this.vectorDB = new VectorDatabaseService();
+    this.costManager = new AICostManagementService();
     logger.info('OpenAIService initialized');
+  }
+
+  /**
+   * Track AI usage for cost management
+   */
+  private async trackUsage(
+    operation: string,
+    model: string,
+    usage: OpenAIUsageInfo,
+    duration: number,
+    status: 'success' | 'error' | 'timeout',
+    userId?: string,
+    organizationId?: string,
+    endpoint?: string,
+    requestId?: string,
+    errorMessage?: string
+  ): Promise<void> {
+    try {
+      await this.costManager.recordUsage({
+        userId: userId || 'system',
+        organizationId,
+        service: 'openai',
+        operation,
+        model,
+        inputTokens: usage.promptTokens,
+        outputTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+        cost: usage.estimatedCost,
+        duration,
+        endpoint: endpoint || 'openai-api',
+        requestId: requestId || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        status,
+        errorMessage
+      });
+    } catch (error) {
+      // Don't fail the main operation if cost tracking fails
+      logger.warn('Failed to track AI usage:', error);
+    }
   }
 
   /**
@@ -89,8 +130,13 @@ export class OpenAIService {
    */
   async generateEmbedding(
     text: string, 
-    options: EmbeddingOptions = {}
+    options: EmbeddingOptions = {},
+    userId?: string,
+    organizationId?: string
   ): Promise<{ embedding: number[], usage: OpenAIUsageInfo }> {
+    const startTime = Date.now();
+    const requestId = `emb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     try {
       const {
         model = 'text-embedding-3-small',
@@ -124,10 +170,42 @@ export class OpenAIService {
         estimatedCost: this.calculateEmbeddingCost(response.usage.total_tokens, model)
       };
 
+      const duration = Date.now() - startTime;
+
+      // Track usage for cost management
+      await this.trackUsage(
+        'generate_embedding',
+        model,
+        usage,
+        duration,
+        'success',
+        userId,
+        organizationId,
+        'openai-embeddings',
+        requestId
+      );
+
       logger.info(`Generated embedding: ${embedding.length} dimensions, ${usage.totalTokens} tokens`);
       
       return { embedding, usage };
     } catch (error) {
+      const duration = Date.now() - startTime;
+      const usage: OpenAIUsageInfo = { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCost: 0 };
+      
+      // Track failed usage
+      await this.trackUsage(
+        'generate_embedding',
+        options.model || 'text-embedding-3-small',
+        usage,
+        duration,
+        'error',
+        userId,
+        organizationId,
+        'openai-embeddings',
+        requestId,
+        error instanceof Error ? error.message : String(error)
+      );
+
       logger.error('Failed to generate embedding:', error);
       throw new Error(`Failed to generate embedding: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -602,5 +680,8 @@ export class OpenAIService {
     }
   }
 }
+
+// Create singleton instance
+export const openaiService = new OpenAIService();
 
 export default OpenAIService;

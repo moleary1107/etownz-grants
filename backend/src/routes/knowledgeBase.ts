@@ -1,7 +1,7 @@
 import express from 'express';
 import { ragKnowledgeBaseService } from '../services/ragKnowledgeBaseService';
 import { logger } from '../services/logger';
-import { auth } from '../middleware/auth';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -53,7 +53,7 @@ const router = express.Router();
  *                 documentId:
  *                   type: string
  */
-router.post('/', auth, async (req, res) => {
+router.post('/', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const { title, content, type, source, category, tags = [] } = req.body;
 
@@ -141,7 +141,7 @@ router.post('/', auth, async (req, res) => {
  *       200:
  *         description: Search results
  */
-router.get('/search', auth, async (req, res) => {
+router.get('/search', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const {
       q: searchTerm = '',
@@ -216,7 +216,7 @@ router.get('/search', auth, async (req, res) => {
  *       200:
  *         description: Document updated successfully
  */
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -261,7 +261,7 @@ router.put('/:id', auth, async (req, res) => {
  *       200:
  *         description: Document deleted successfully
  */
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
 
@@ -317,7 +317,7 @@ router.delete('/:id', auth, async (req, res) => {
  *                     embeddingStatus:
  *                       type: object
  */
-router.get('/stats', auth, async (req, res) => {
+router.get('/stats', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const stats = await ragKnowledgeBaseService.getKnowledgeBaseStats();
 
@@ -346,7 +346,7 @@ router.get('/stats', auth, async (req, res) => {
  *       200:
  *         description: Pinecone index initialized successfully
  */
-router.post('/initialize', auth, async (req, res) => {
+router.post('/initialize', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     await ragKnowledgeBaseService.initializePineconeIndex();
 
@@ -409,7 +409,7 @@ router.post('/initialize', auth, async (req, res) => {
  *       200:
  *         description: Bulk upload results
  */
-router.post('/bulk-upload', auth, async (req, res) => {
+router.post('/bulk-upload', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const { documents } = req.body;
 
@@ -421,8 +421,8 @@ router.post('/bulk-upload', auth, async (req, res) => {
     }
 
     const validTypes = ['grant', 'policy', 'guideline', 'application', 'knowledge'];
-    const results = [];
-    const errors = [];
+    const results: any[] = [];
+    const errors: any[] = [];
 
     for (let i = 0; i < documents.length; i++) {
       const doc = documents[i];
@@ -501,7 +501,7 @@ router.post('/bulk-upload', auth, async (req, res) => {
  *       200:
  *         description: List of categories
  */
-router.get('/categories', auth, async (req, res) => {
+router.get('/categories', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const result = await ragKnowledgeBaseService.searchKnowledgeBase('', {}, { page: 1, limit: 1000 });
     
@@ -537,7 +537,7 @@ router.get('/categories', auth, async (req, res) => {
  *       200:
  *         description: List of tags
  */
-router.get('/tags', auth, async (req, res) => {
+router.get('/tags', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const result = await ragKnowledgeBaseService.searchKnowledgeBase('', {}, { page: 1, limit: 1000 });
     

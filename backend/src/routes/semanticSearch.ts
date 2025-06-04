@@ -2,7 +2,7 @@ import express from 'express';
 import { ragKnowledgeBaseService } from '../services/ragKnowledgeBaseService';
 import { embeddingService } from '../services/embeddingService';
 import { logger } from '../services/logger';
-import { auth } from '../middleware/auth';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -74,7 +74,7 @@ const router = express.Router();
  *                 totalResults:
  *                   type: number
  */
-router.post('/', auth, async (req, res) => {
+router.post('/', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const { query, topK = 10, filter = {}, minScore = 0.7 } = req.body;
 
@@ -151,7 +151,7 @@ router.post('/', auth, async (req, res) => {
  *                   items:
  *                     type: string
  */
-router.post('/context', auth, async (req, res) => {
+router.post('/context', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const { query, documentType, maxTokens = 4000 } = req.body;
 
@@ -223,7 +223,7 @@ router.post('/context', auth, async (req, res) => {
  *       200:
  *         description: Similar texts with similarity scores
  */
-router.post('/similar', auth, async (req, res) => {
+router.post('/similar', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const { text, candidates, threshold = 0.7, topK } = req.body;
 
@@ -293,7 +293,7 @@ router.post('/similar', auth, async (req, res) => {
  *       200:
  *         description: Generated embeddings
  */
-router.post('/embeddings', auth, async (req, res) => {
+router.post('/embeddings', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const { text, texts, model } = req.body;
 
@@ -383,7 +383,7 @@ router.post('/embeddings', auth, async (req, res) => {
  *       200:
  *         description: Text chunks
  */
-router.post('/chunk', auth, async (req, res) => {
+router.post('/chunk', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     const { text, options = {}, semanticOptions = {} } = req.body;
 
