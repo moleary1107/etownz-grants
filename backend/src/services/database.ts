@@ -77,6 +77,10 @@ export class DatabaseService {
     await this.pool.end()
   }
 
+  getPool(): Pool {
+    return this.pool
+  }
+
   async testConnection(): Promise<boolean> {
     try {
       const result = await this.query('SELECT NOW()')

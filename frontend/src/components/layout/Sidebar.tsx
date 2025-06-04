@@ -18,7 +18,11 @@ import {
   X,
   Zap,
   Plus,
-  Bell
+  Bell,
+  Shield,
+  Calculator,
+  Brain,
+  Database
 } from "lucide-react"
 import { Button } from "../ui/button"
 import { UserRole, hasPermission, User } from "../../lib/auth"
@@ -53,10 +57,34 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       permission: "canViewApplications"
     },
     {
+      name: "Compliance Checker",
+      href: "/dashboard/compliance",
+      icon: Shield,
+      permission: null // Available to all
+    },
+    {
+      name: "Budget Optimizer",
+      href: "/dashboard/budget-optimization",
+      icon: Calculator,
+      permission: null // Available to all
+    },
+    {
       name: "Monitoring & Alerts",
       href: "/dashboard/monitoring",
       icon: Bell,
       permission: null // Available to all
+    },
+    {
+      name: "Semantic Search",
+      href: "/dashboard/semantic-search",
+      icon: Brain,
+      permission: null // Available to all
+    },
+    {
+      name: "Knowledge Base",
+      href: "/dashboard/knowledge-base",
+      icon: Database,
+      permission: "canAccessAnalytics" // Require higher permission
     },
     {
       name: "Web Scraping",
