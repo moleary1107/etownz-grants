@@ -204,19 +204,18 @@ Return a JSON array with partner IDs and their compatibility scores.
 `;
 
     try {
-      const response = await openaiService.createChatCompletion({
-        model: 'gpt-4-turbo-preview',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert in partner selection for collaborative research and innovation projects.'
-          },
-          { role: 'user', content: prompt }
-        ],
+      const response = await openaiService.chatCompletion([
+        {
+          role: 'system',
+          content: 'You are an expert in partner selection for collaborative research and innovation projects.'
+        },
+        { role: 'user', content: prompt }
+      ], {
+        model: 'gpt-4-turbo',
         temperature: 0.3
       });
 
-      const scores = JSON.parse(response.choices[0].message.content || '[]');
+      const scores = JSON.parse(response.content || '[]');
       
       // Apply scores to partners
       return partners.map(partner => {
@@ -265,19 +264,18 @@ Provide a comprehensive analysis including:
 Return as structured JSON.
 `;
 
-      const response = await openaiService.createChatCompletion({
-        model: 'gpt-4-turbo-preview',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert partnership analyst for collaborative research and innovation projects.'
-          },
-          { role: 'user', content: prompt }
-        ],
+      const response = await openaiService.chatCompletion([
+        {
+          role: 'system',
+          content: 'You are an expert partnership analyst for collaborative research and innovation projects.'
+        },
+        { role: 'user', content: prompt }
+      ], {
+        model: 'gpt-4-turbo',
         temperature: 0.3
       });
 
-      const analysis = JSON.parse(response.choices[0].message.content || '{}');
+      const analysis = JSON.parse(response.content || '{}');
       
       return {
         compatibilityScore: analysis.compatibilityScore || 0,
@@ -329,19 +327,18 @@ Create ${preferences.maxWorkPackages || 6} work packages that:
 Return as structured JSON array of work packages.
 `;
 
-      const response = await openaiService.createChatCompletion({
-        model: 'gpt-4-turbo-preview',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert project manager for collaborative research and innovation projects.'
-          },
-          { role: 'user', content: prompt }
-        ],
+      const response = await openaiService.chatCompletion([
+        {
+          role: 'system',
+          content: 'You are an expert project manager for collaborative research and innovation projects.'
+        },
+        { role: 'user', content: prompt }
+      ], {
+        model: 'gpt-4-turbo',
         temperature: 0.4
       });
 
-      const workPackages = JSON.parse(response.choices[0].message.content || '[]');
+      const workPackages = JSON.parse(response.content || '[]');
       
       return workPackages.map((wp: any, index: number) => ({
         id: `wp-${index + 1}`,

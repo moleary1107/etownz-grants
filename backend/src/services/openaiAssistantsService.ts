@@ -337,7 +337,7 @@ When developing impact strategies:
     });
 
     // Create and execute run
-    const run = await this.openai.beta.threads.runs.create(threadId, {
+    const runStream = await this.openai.beta.threads.runs.create(threadId, {
       assistant_id: assistant.id,
       instructions: `Generate a ${sectionType} section for this grant application. 
                     Follow the specific requirements and maintain consistency with any previous sections.
@@ -347,9 +347,10 @@ When developing impact strategies:
 
     let generatedText = '';
     let tokensUsed = 0;
+    let runId = '';
 
     // Handle streaming response
-    for await (const event of run) {
+    for await (const event of runStream) {
       if (event.event === 'thread.message.delta') {
         const content = event.data.delta.content?.[0];
         if (content?.type === 'text' && content.text?.value) {
@@ -359,6 +360,7 @@ When developing impact strategies:
         }
       } else if (event.event === 'thread.run.completed') {
         tokensUsed = event.data.usage?.total_tokens || 0;
+        runId = event.data.id;
       }
     }
 
@@ -385,7 +387,7 @@ When developing impact strategies:
       tokensUsed,
       processingTime,
       threadId,
-      runId: run.id
+      runId: runId
     };
   }
 
@@ -407,7 +409,8 @@ When developing impact strategies:
     if (context.previousSections && Object.keys(context.previousSections).length > 0) {
       message += `\nPrevious sections for context:\n`;
       for (const [section, content] of Object.entries(context.previousSections)) {
-        message += `${section}: ${content.substring(0, 200)}...\n`;
+        const contentStr = String(content);
+        message += `${section}: ${contentStr.substring(0, 200)}...\n`;
       }
     }
 
@@ -582,7 +585,7 @@ Provide:
 
   private async generateSuggestions(text: string, sectionType: string): Promise<string[]> {
     // Generate improvement suggestions based on section type
-    const suggestions = [];
+    const suggestions: string[] = [];
 
     if (text.length < 100) {
       suggestions.push('Consider expanding the content with more detail and examples');

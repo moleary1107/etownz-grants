@@ -1,13 +1,17 @@
 import express from 'express';
 import { openaiAssistantsService } from '../services/openaiAssistantsService';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
-import { rateLimiter } from '../middleware/rateLimiter';
+import rateLimit from 'express-rate-limit';
 import { logger } from '../services/logger';
 
 const router = express.Router();
 
 // Rate limiting for AI endpoints
-const aiRateLimit = rateLimiter(60 * 1000, 20, 'Too many AI requests, please try again later');
+const aiRateLimit = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20, // 20 requests per minute
+  message: 'Too many AI requests, please try again later'
+});
 
 /**
  * GET /api/assistants
@@ -62,11 +66,11 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res) => {
  * POST /api/assistants/:assistantKey/threads
  * Create a new conversation thread with an assistant
  */
-router.post('/:assistantKey/threads', auth, aiRateLimit, async (req, res) => {
+router.post('/:assistantKey/threads', authenticateToken, aiRateLimit, async (req: AuthenticatedRequest, res) => {
   try {
     const { assistantKey } = req.params;
     const { grantApplicationId, metadata } = req.body;
-    const userId = req.user.id;
+    const userId = req.user!.id;
 
     const thread = await openaiAssistantsService.createThread(
       assistantKey,
@@ -91,9 +95,9 @@ router.post('/:assistantKey/threads', auth, aiRateLimit, async (req, res) => {
  * GET /api/assistants/threads
  * Get user's assistant threads
  */
-router.get('/threads', auth, async (req, res) => {
+router.get('/threads', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user!.id;
     const { assistantKey, grantApplicationId } = req.query;
 
     let threads = await openaiAssistantsService.getAssistantThreads(userId);
@@ -131,7 +135,7 @@ router.get('/threads', auth, async (req, res) => {
  * POST /api/assistants/:assistantKey/generate-section
  * Generate a grant proposal section using an assistant
  */
-router.post('/:assistantKey/generate-section', auth, aiRateLimit, async (req, res) => {
+router.post('/:assistantKey/generate-section', authenticateToken, aiRateLimit, async (req, res) => {
   try {
     const { assistantKey } = req.params;
     const {
@@ -213,7 +217,7 @@ router.post('/:assistantKey/generate-section', auth, aiRateLimit, async (req, re
  * POST /api/assistants/compliance-checker/check
  * Check grant application compliance
  */
-router.post('/compliance-checker/check', auth, aiRateLimit, async (req, res) => {
+router.post('/compliance-checker/check', authenticateToken, aiRateLimit, async (req, res) => {
   try {
     const { threadId, applicationData, grantScheme } = req.body;
 
@@ -246,7 +250,7 @@ router.post('/compliance-checker/check', auth, aiRateLimit, async (req, res) => 
  * POST /api/assistants/budget-analyst/optimize
  * Optimize budget allocation
  */
-router.post('/budget-analyst/optimize', auth, aiRateLimit, async (req, res) => {
+router.post('/budget-analyst/optimize', authenticateToken, aiRateLimit, async (req, res) => {
   try {
     const { threadId, budgetData, projectScope, fundingRules } = req.body;
 
@@ -281,7 +285,7 @@ router.post('/budget-analyst/optimize', auth, aiRateLimit, async (req, res) => {
  * DELETE /api/assistants/threads/:threadId
  * Delete an assistant thread
  */
-router.delete('/threads/:threadId', auth, async (req, res) => {
+router.delete('/threads/:threadId', authenticateToken, async (req, res) => {
   try {
     const { threadId } = req.params;
 
@@ -301,7 +305,7 @@ router.delete('/threads/:threadId', auth, async (req, res) => {
  * GET /api/assistants/analytics
  * Get assistant usage analytics
  */
-router.get('/analytics', auth, async (req, res) => {
+router.get('/analytics', authenticateToken, async (req, res) => {
   try {
     const { startDate, endDate, assistantKey } = req.query;
 
@@ -338,10 +342,10 @@ router.get('/analytics', auth, async (req, res) => {
  * POST /api/assistants/initialize
  * Initialize all assistants (admin only)
  */
-router.post('/initialize', auth, async (req, res) => {
+router.post('/initialize', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     // Check if user is admin
-    if (req.user.role !== 'admin') {
+    if (req.user?.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
@@ -361,7 +365,7 @@ router.post('/initialize', auth, async (req, res) => {
  * POST /api/assistants/threads/:threadId/rate
  * Rate an assistant interaction
  */
-router.post('/threads/:threadId/rate', auth, async (req, res) => {
+router.post('/threads/:threadId/rate', authenticateToken, async (req, res) => {
   try {
     const { threadId } = req.params;
     const { rating, feedback } = req.body;
