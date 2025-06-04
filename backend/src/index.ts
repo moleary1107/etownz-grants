@@ -34,6 +34,8 @@ import exportRoutes from './routes/export';
 import newsletterRoutes from './routes/newsletter';
 import semanticSearchRoutes from './routes/semanticSearch';
 import knowledgeBaseRoutes from './routes/knowledgeBase';
+import openaiAssistantsRoutes from './routes/openaiAssistants-simple';
+import partnerCoordinationRoutes from './routes/partnerCoordination';
 
 // Import database service
 import { db } from './services/database';
@@ -112,6 +114,14 @@ const swaggerOptions = {
       {
         name: 'Knowledge Base',
         description: 'RAG knowledge base management, document storage, and intelligent retrieval'
+      },
+      {
+        name: 'OpenAI Assistants',
+        description: 'Specialized OpenAI Assistant integration for grant writing, compliance, and analysis'
+      },
+      {
+        name: 'Partner Coordination',
+        description: 'AI-powered partner matching and collaboration planning for multi-partner grants'
       }
     ],
     servers: [
@@ -212,6 +222,8 @@ app.use('/export', exportRoutes);
 app.use('/newsletter', newsletterRoutes);
 app.use('/semantic-search', semanticSearchRoutes);
 app.use('/knowledge-base', knowledgeBaseRoutes);
+app.use('/assistants', openaiAssistantsRoutes);
+app.use('/partner-coordination', partnerCoordinationRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
