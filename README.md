@@ -150,6 +150,12 @@ We welcome contributions! Please see our [Development Guide](guides/development/
 
 ## 🚀 Recent Updates
 
+### v4.1 (January 2025) - Production Deployment Automation
+- ✅ Fixed all production deployment issues
+- 🚀 GitHub Actions automatic deployment on push to main
+- 🗄️ Complete AI database schema with all required tables
+- 🔄 Automatic migration system for future database updates
+
 ### v4.0 (June 2025) - Enhanced Grant Features
 - ✨ Enhanced grant data fields (coverage %, drawdown dates, etc.)
 - 📤 Complete export system (Google Docs, Word, PDF)
