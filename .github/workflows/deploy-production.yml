@@ -29,33 +29,34 @@ jobs:
           # Build new images
           docker-compose -f docker-compose.prod-local.yml build
           
-          # Stop old containers
-          docker-compose -f docker-compose.prod-local.yml down
+          # Stop old containers and clean state
+          docker-compose -f docker-compose.prod-local.yml down --volumes --remove-orphans
           
-          # Reset database volumes to ensure clean state
-          docker volume rm etownz-grants_postgres_data || true
-          docker volume rm etownz-grants_redis_data || true
+          # Remove any old volumes to ensure fresh database
+          docker volume rm etownz-grants_postgres_data etownz-grants_redis_data 2>/dev/null || true
           
-          # Start new containers
-          docker-compose -f docker-compose.prod-local.yml up -d
+          # Start containers in correct order
+          echo "Starting database and cache..."
+          docker-compose -f docker-compose.prod-local.yml up -d postgres redis
           
-          # Wait for database to initialize and backend to start
+          # Wait for database to be fully ready
+          echo "Waiting for database to be ready..."
+          timeout 120 bash -c 'until docker-compose -f docker-compose.prod-local.yml exec -T postgres pg_isready -U etownz -d etownz_grants; do sleep 2; done'
+          
+          # Verify database schema exists
+          echo "Verifying database schema..."
+          docker-compose -f docker-compose.prod-local.yml exec -T postgres psql -U etownz -d etownz_grants -c "\dt" | grep -q "organizations" || {
+            echo "Creating database schema..."
+            docker-compose -f docker-compose.prod-local.yml exec -T postgres psql -U etownz -d etownz_grants -f /docker-entrypoint-initdb.d/01-init.sql
+          }
+          
+          # Start backend and frontend after database is confirmed ready
+          echo "Starting application services..."
+          docker-compose -f docker-compose.prod-local.yml up -d backend frontend
+          
+          # Wait longer for backend to fully initialize all services
+          echo "Waiting for backend services to initialize..."
           sleep 30
-          
-          # Wait for database to be ready
-          echo "Waiting for database initialization..."
-          timeout 60 bash -c 'until docker-compose -f docker-compose.prod-local.yml exec -T postgres pg_isready -U etownz; do sleep 2; done'
-          
-          # Initialize database schema manually to ensure tables exist
-          echo "Initializing database schema..."
-          docker-compose -f docker-compose.prod-local.yml exec -T postgres psql -U etownz -d etownz_grants -f /docker-entrypoint-initdb.d/01-init.sql || echo "Schema already exists"
-          
-          # Restart backend after database is ready (in case it crashed on startup)
-          echo "Restarting backend after database initialization..."
-          docker-compose -f docker-compose.prod-local.yml restart backend
-          
-          # Give backend time to restart
-          sleep 10
           
           # Health check
           echo "Checking service health..."
@@ -69,13 +70,27 @@ jobs:
               exit 1
           fi
           
-          # Check backend
-          if curl -f -s http://localhost:8000/health > /dev/null; then
-              echo "✅ Backend is healthy"
-          else
-              echo "❌ Backend health check failed"
-              docker-compose -f docker-compose.prod-local.yml logs backend --tail=20
-              exit 1
+          # Check backend with retry logic
+          echo "Checking backend health..."
+          backend_healthy=false
+          for i in {1..10}; do
+            if curl -f -s http://localhost:8000/health > /dev/null; then
+              echo "✅ Backend is healthy (attempt $i)"
+              backend_healthy=true
+              break
+            else
+              echo "Backend not ready yet (attempt $i/10), waiting 10s..."
+              sleep 10
+            fi
+          done
+          
+          if [ "$backend_healthy" = false ]; then
+            echo "❌ Backend health check failed after 10 attempts"
+            echo "Backend logs:"
+            docker-compose -f docker-compose.prod-local.yml logs backend --tail=50
+            echo "Backend container status:"
+            docker-compose -f docker-compose.prod-local.yml ps backend
+            exit 1
           fi
           
           # Clean up old images (keep last 3)
