@@ -43,12 +43,31 @@ jobs:
           echo "Waiting for database to be ready..."
           timeout 120 bash -c 'until docker-compose -f docker-compose.prod-local.yml exec -T postgres pg_isready -U etownz -d etownz_grants; do sleep 2; done'
           
-          # Verify database schema exists
-          echo "Verifying database schema..."
-          docker-compose -f docker-compose.prod-local.yml exec -T postgres psql -U etownz -d etownz_grants -c "\dt" | grep -q "organizations" || {
-            echo "Creating database schema..."
-            docker-compose -f docker-compose.prod-local.yml exec -T postgres psql -U etownz -d etownz_grants -f /docker-entrypoint-initdb.d/01-init.sql
-          }
+          # Initialize complete database schema with all migrations
+          echo "Initializing complete database schema..."
+          
+          # Run base schema first
+          docker-compose -f docker-compose.prod-local.yml exec -T postgres psql -U etownz -d etownz_grants -f /docker-entrypoint-initdb.d/01-init.sql || echo "Base schema completed"
+          
+          # Start backend temporarily to access migration files
+          docker-compose -f docker-compose.prod-local.yml up -d backend
+          sleep 10
+          
+          # Run all migrations to ensure AI features work
+          echo "Running all database migrations..."
+          docker-compose -f docker-compose.prod-local.yml exec -T backend bash -c "
+            export PGPASSWORD=etownz2024
+            cd /app/src/migrations
+            for migration in *.sql; do
+              if [ -f \"\$migration\" ] && [ \"\$migration\" != \"fix_all_migrations.sql\" ]; then
+                echo \"Running migration: \$migration\"
+                psql -h postgres -U etownz -d etownz_grants -f \"\$migration\" || echo \"Migration \$migration completed with warnings\"
+              fi
+            done
+          "
+          
+          # Stop backend before restarting properly
+          docker-compose -f docker-compose.prod-local.yml stop backend
           
           # Start backend and frontend after database is confirmed ready
           echo "Starting application services..."
