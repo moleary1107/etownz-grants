@@ -55,16 +55,15 @@ jobs:
           
           # Run all migrations to ensure AI features work
           echo "Running all database migrations..."
-          docker-compose -f docker-compose.prod-local.yml exec -T backend bash -c "
-            export PGPASSWORD=etownz2024
-            cd /app/src/migrations
-            for migration in *.sql; do
-              if [ -f \"\$migration\" ] && [ \"\$migration\" != \"fix_all_migrations.sql\" ]; then
-                echo \"Running migration: \$migration\"
-                psql -h postgres -U etownz -d etownz_grants -f \"\$migration\" || echo \"Migration \$migration completed with warnings\"
+          for migration in 005_user_preferences_system.sql 006_application_assistance_system.sql 007_grant_monitoring_system.sql 008_predictive_analytics_system.sql 010_enhanced_grant_fields.sql 011_demo_users_seed.sql 012_ai_transparency_tracking.sql 013_document_upload_analysis.sql 014_progressive_form_system.sql 015_compliance_system.sql 016_budget_optimization_system.sql 017_rag_knowledge_base_system.sql 018_openai_assistants_system.sql 019_partner_coordination_system.sql 020_ai_cost_management_system.sql 021_ai_load_balancer_system.sql 022_ai_monitoring_system.sql; do
+            echo "Running migration: $migration"
+            docker-compose -f docker-compose.prod-local.yml exec -T backend sh -c "
+              export PGPASSWORD=etownz2024
+              if [ -f /app/src/migrations/$migration ]; then
+                psql -h postgres -U etownz -d etownz_grants -f /app/src/migrations/$migration || echo 'Migration $migration completed with warnings'
               fi
-            done
-          "
+            "
+          done
           
           # Stop backend before restarting properly
           docker-compose -f docker-compose.prod-local.yml stop backend
