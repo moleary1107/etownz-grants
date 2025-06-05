@@ -39,8 +39,16 @@ jobs:
           # Start new containers
           docker-compose -f docker-compose.prod-local.yml up -d
           
-          # Wait for services to start
-          sleep 15
+          # Wait for database to initialize and backend to start
+          sleep 30
+          
+          # Wait for database to be ready
+          echo "Waiting for database initialization..."
+          timeout 60 bash -c 'until docker-compose -f docker-compose.prod-local.yml exec -T postgres pg_isready -U etownz; do sleep 2; done'
+          
+          # Restart backend after database is ready (in case it crashed on startup)
+          echo "Restarting backend after database initialization..."
+          docker-compose -f docker-compose.prod-local.yml restart backend
           
           # Health check
           echo "Checking service health..."
