@@ -1,7 +1,9 @@
 services:
   # Frontend - Next.js
   frontend:
-    image: registry.digitalocean.com/etownz-grants-container/frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=https://grants.etownz.com/api
@@ -13,7 +15,9 @@ services:
 
   # Backend API
   backend:
-    image: registry.digitalocean.com/etownz-grants-container/backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
     command: node dist/index.js
     environment:
       - NODE_ENV=production
