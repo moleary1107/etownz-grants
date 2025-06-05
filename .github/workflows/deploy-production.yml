@@ -49,24 +49,33 @@ jobs:
           # Run base schema first
           docker-compose -f docker-compose.prod-local.yml exec -T postgres psql -U etownz -d etownz_grants -f /docker-entrypoint-initdb.d/01-init.sql || echo "Base schema completed"
           
-          # Start backend temporarily to access migration files
-          docker-compose -f docker-compose.prod-local.yml up -d backend
-          sleep 10
-          
-          # Run all migrations to ensure AI features work
-          echo "Running all database migrations..."
-          for migration in 005_user_preferences_system.sql 006_application_assistance_system.sql 007_grant_monitoring_system.sql 008_predictive_analytics_system.sql 010_enhanced_grant_fields.sql 011_demo_users_seed.sql 012_ai_transparency_tracking.sql 013_document_upload_analysis.sql 014_progressive_form_system.sql 015_compliance_system.sql 016_budget_optimization_system.sql 017_rag_knowledge_base_system.sql 018_openai_assistants_system.sql 019_partner_coordination_system.sql 020_ai_cost_management_system.sql 021_ai_load_balancer_system.sql 022_ai_monitoring_system.sql; do
-            echo "Running migration: $migration"
-            docker-compose -f docker-compose.prod-local.yml exec -T backend sh -c "
-              export PGPASSWORD=etownz2024
-              if [ -f /app/src/migrations/$migration ]; then
-                psql -h postgres -U etownz -d etownz_grants -f /app/src/migrations/$migration || echo 'Migration $migration completed with warnings'
-              fi
-            "
-          done
-          
-          # Stop backend before restarting properly
-          docker-compose -f docker-compose.prod-local.yml stop backend
+          # Create critical AI tables that backend expects
+          echo "Creating AI cost management tables..."
+          docker-compose -f docker-compose.prod-local.yml exec -T postgres psql -U etownz -d etownz_grants -c "
+            CREATE TABLE IF NOT EXISTS ai_cost_thresholds (
+              id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+              name VARCHAR(255) NOT NULL,
+              monthly_limit DECIMAL(10,2) NOT NULL,
+              daily_limit DECIMAL(10,2),
+              hourly_limit DECIMAL(10,2),
+              is_active BOOLEAN DEFAULT true,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+            
+            CREATE TABLE IF NOT EXISTS ai_usage_metrics (
+              id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+              service_type VARCHAR(100) NOT NULL,
+              cost_amount DECIMAL(10,2) NOT NULL,
+              tokens_used INTEGER,
+              request_count INTEGER DEFAULT 1,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+            
+            INSERT INTO ai_cost_thresholds (name, monthly_limit, daily_limit) 
+            VALUES ('Default Threshold', 100.00, 10.00) 
+            ON CONFLICT DO NOTHING;
+          " || echo "AI tables creation completed with warnings"
           
           # Start backend and frontend after database is confirmed ready
           echo "Starting application services..."
