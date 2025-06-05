@@ -20,6 +20,9 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Install PostgreSQL client and netcat for migrations
+RUN apk add --no-cache postgresql-client netcat-openbsd
+
 # Install production dependencies only
 COPY package.json ./
 RUN npm install --only=production
@@ -27,12 +30,16 @@ RUN npm install --only=production
 # Copy built files from builder
 COPY --from=builder /app/dist ./dist
 
-# Copy migrations to both locations
+# Copy migrations and scripts
 COPY src/migrations ./src/migrations
 COPY src/migrations ./dist/migrations
+COPY src/scripts ./src/scripts
+
+# Make startup script executable
+RUN chmod +x /app/src/scripts/start-with-migrations.sh
 
 # Expose port
 EXPOSE 8000
 
-# Start the server
-CMD ["node", "dist/index.js"]
+# Start with migrations
+CMD ["/app/src/scripts/start-with-migrations.sh"]
