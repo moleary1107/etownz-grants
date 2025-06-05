@@ -32,6 +32,10 @@ jobs:
           # Stop old containers
           docker-compose -f docker-compose.prod-local.yml down
           
+          # Reset database volumes to ensure clean state
+          docker volume rm etownz-grants_postgres_data || true
+          docker volume rm etownz-grants_redis_data || true
+          
           # Start new containers
           docker-compose -f docker-compose.prod-local.yml up -d
           
