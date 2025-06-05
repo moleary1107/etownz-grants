@@ -26,7 +26,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     image: etownz-grants-backend:prod-${BUILD_TAG:-latest}
-    command: node dist/index.js
+    # Use the Dockerfile CMD which runs migrations first
     environment:
       - NODE_ENV=production
       - NODE_TLS_REJECT_UNAUTHORIZED=0
@@ -50,6 +50,12 @@ services:
       - SANITY_PROJECT_ID=hpmuagfn
       - SANITY_DATASET=production
       - SANITY_AUTH_TOKEN=${SANITY_AUTH_TOKEN}
+      # Database connection for migrations
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=etownz_grants
+      - DATABASE_USER=etownz
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-etownz2024}
     ports:
       - "8000:8000"
     depends_on:
