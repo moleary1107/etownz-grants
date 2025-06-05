@@ -52,6 +52,42 @@ export type {
   BudgetOptimizationRequest 
 } from './predictiveAnalyticsService'
 
+// OpenAI Assistants Services
+export { assistantsService, AssistantsService } from './assistantsService'
+export type {
+  Assistant,
+  AssistantThread,
+  GenerateContentRequest,
+  GeneratedContent,
+  ComplianceCheckRequest,
+  ComplianceCheckResult,
+  BudgetOptimizationRequest as AssistantBudgetRequest,
+  BudgetOptimizationResult
+} from './assistantsService'
+
+// Knowledge Base Services
+export { knowledgeBaseService, KnowledgeBaseService } from './knowledgeBaseService'
+export type {
+  KnowledgeBaseEntry,
+  SearchQuery,
+  SearchResult,
+  QuestionRequest,
+  AnswerResponse,
+  DocumentUploadRequest
+} from './knowledgeBaseService'
+
+// AI Monitoring Services
+export { aiMonitoringService, AIMonitoringService } from './aiMonitoringService'
+export type {
+  AIMetric,
+  AIAlert,
+  ProviderStatus,
+  ServiceMetrics,
+  ModelUsage,
+  CostAnalytics,
+  PerformanceDashboard
+} from './aiMonitoringService'
+
 // Central API configuration
 export const API_CONFIG = {
   baseUrl: process.env.NODE_ENV === 'production' 

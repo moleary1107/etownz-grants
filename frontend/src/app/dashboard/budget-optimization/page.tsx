@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
-import BudgetOptimizer from '../../../components/budget/BudgetOptimizer';
+import { BudgetOptimizer } from '../../../components/budget/BudgetOptimizer';
 
 interface OptimizationHistory {
   id: string;

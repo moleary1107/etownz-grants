@@ -1,354 +1,442 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
+import { assistantsService } from '@/lib/api';
+import { useToast } from '@/lib/hooks/use-toast';
+import { 
+  CheckCircle, 
+  AlertTriangle, 
+  XCircle, 
+  FileCheck, 
+  Loader2,
+  RefreshCw,
+  Download,
+  Info,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
 
 interface ComplianceIssue {
-  field: string;
-  requirement: string;
-  severity: 'critical' | 'major' | 'minor';
-  suggestion: string;
-  ruleId?: string;
+  type: 'missing' | 'incomplete' | 'non_compliant';
+  section: string;
+  description: string;
+  severity: 'high' | 'medium' | 'low';
+  suggestion?: string;
 }
 
 interface ComplianceReport {
-  applicationId: string;
   overallScore: number;
   issues: ComplianceIssue[];
   suggestions: string[];
-  checkedAt: string;
-  criticalIssuesCount: number;
-  majorIssuesCount: number;
-  minorIssuesCount: number;
-}
-
-interface ComplianceRule {
-  id: string;
-  grantSchemeId: string;
-  ruleCategory: string;
-  ruleDescription: string;
-  severity: 'critical' | 'major' | 'minor';
-  automatedCheck: boolean;
+  timestamp: string;
+  sectionsChecked: number;
+  complianceBreakdown: {
+    eligibility: number;
+    technical: number;
+    budget: number;
+    impact: number;
+    documentation: number;
+  };
 }
 
 interface ComplianceCheckerProps {
   applicationId?: string;
   grantSchemeId: string;
-  sections?: {
-    [key: string]: {
-      content: string;
-      metadata?: any;
-    };
+  grantScheme: {
+    name: string;
+    fundingBody: string;
+    requirements: any[];
+    eligibilityCriteria: any[];
+    budgetRules: any;
   };
-  budget?: {
-    total: number;
-    categories: Array<{
-      name: string;
-      amount: number;
-      justification?: string;
-    }>;
-  };
-  organizationProfile?: {
-    type: string;
-    size: string;
-    location: string;
-    yearsInOperation: number;
+  applicationData: {
+    sections?: Record<string, any>;
+    budget?: any;
+    organization?: any;
+    documents?: any[];
   };
   onComplianceUpdate?: (report: ComplianceReport) => void;
+  className?: string;
 }
 
 export const ComplianceChecker: React.FC<ComplianceCheckerProps> = ({
   applicationId,
   grantSchemeId,
-  sections,
-  budget,
-  organizationProfile,
-  onComplianceUpdate
+  grantScheme,
+  applicationData,
+  onComplianceUpdate,
+  className = ''
 }) => {
-  const [report, setReport] = useState<ComplianceReport | null>(null);
-  const [rules, setRules] = useState<ComplianceRule[]>([]);
+  const { toast } = useToast();
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastChecked, setLastChecked] = useState<string | null>(null);
+  const [complianceReport, setComplianceReport] = useState<ComplianceReport | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [autoCheckEnabled, setAutoCheckEnabled] = useState(true);
 
+  // Initialize thread on mount
   useEffect(() => {
-    if (grantSchemeId) {
-      fetchComplianceRules();
-    }
-  }, [grantSchemeId]);
+    const initThread = async () => {
+      try {
+        const result = await assistantsService.createThread('compliance_checker');
+        setThreadId(result.threadId);
+      } catch (error) {
+        console.error('Failed to create compliance thread:', error);
+      }
+    };
+    initThread();
+  }, []);
 
-  const fetchComplianceRules = async () => {
+  // Auto-check when data changes
+  useEffect(() => {
+    if (autoCheckEnabled && threadId && applicationData.sections && Object.keys(applicationData.sections).length > 0) {
+      const debounceTimer = setTimeout(() => {
+        checkCompliance();
+      }, 2000); // 2 second debounce
+
+      return () => clearTimeout(debounceTimer);
+    }
+  }, [applicationData, threadId, autoCheckEnabled]);
+
+  const checkCompliance = useCallback(async () => {
+    if (!threadId) {
+      toast({
+        title: "Not ready",
+        description: "Compliance checker is initializing",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsChecking(true);
+
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/compliance/rules/${grantSchemeId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const result = await assistantsService.checkCompliance({
+        threadId,
+        applicationData: {
+          ...applicationData,
+          applicationId,
+          grantSchemeId
+        },
+        grantScheme
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setRules(data.data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching compliance rules:', error);
-    }
-  };
-
-  const runComplianceCheck = async () => {
-    setIsChecking(true);
-    setError(null);
-
-    try {
-      const token = localStorage.getItem('token');
-      
-      let response;
-      if (applicationId) {
-        // Check existing application
-        response = await fetch(`/compliance/check/${applicationId}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+      if (result.success) {
+        const report: ComplianceReport = {
+          overallScore: result.overallScore,
+          issues: result.issues,
+          suggestions: result.suggestions,
+          timestamp: result.timestamp,
+          sectionsChecked: Object.keys(applicationData.sections || {}).length,
+          complianceBreakdown: {
+            eligibility: calculateSectionScore(result.issues, 'eligibility'),
+            technical: calculateSectionScore(result.issues, 'technical'),
+            budget: calculateSectionScore(result.issues, 'budget'),
+            impact: calculateSectionScore(result.issues, 'impact'),
+            documentation: calculateSectionScore(result.issues, 'documentation')
           }
-        });
-      } else {
-        // Manual check with provided data
-        response = await fetch('/compliance/check-manual', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            grantSchemeId,
-            sections: sections || {},
-            budget,
-            organizationProfile
-          })
-        });
-      }
+        };
 
-      if (response.ok) {
-        const data = await response.json();
-        const complianceReport = data.data;
-        setReport(complianceReport);
-        setLastChecked(new Date().toISOString());
-        onComplianceUpdate?.(complianceReport);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to check compliance');
+        setComplianceReport(report);
+        onComplianceUpdate?.(report);
+
+        if (result.overallScore < 70) {
+          toast({
+            title: "Compliance issues found",
+            description: `Score: ${result.overallScore}%. ${result.issues.length} issues need attention.`,
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Compliance check complete",
+            description: `Score: ${result.overallScore}%. ${result.issues.length} minor issues found.`
+          });
+        }
       }
     } catch (error) {
-      setError('Network error occurred while checking compliance');
-      console.error('Compliance check error:', error);
+      toast({
+        title: "Compliance check failed",
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive"
+      });
     } finally {
       setIsChecking(false);
     }
+  }, [threadId, applicationData, applicationId, grantSchemeId, grantScheme, onComplianceUpdate, toast]);
+
+  const calculateSectionScore = (issues: ComplianceIssue[], section: string): number => {
+    const sectionIssues = issues.filter(issue => 
+      issue.section.toLowerCase().includes(section.toLowerCase())
+    );
+    
+    if (sectionIssues.length === 0) return 100;
+    
+    const severityWeights = { high: 30, medium: 15, low: 5 };
+    const totalDeduction = sectionIssues.reduce((sum, issue) => 
+      sum + (severityWeights[issue.severity] || 0), 0
+    );
+    
+    return Math.max(0, 100 - totalDeduction);
   };
 
-  const getSeverityColor = (severity: string) => {
+  const exportReport = useCallback(() => {
+    if (!complianceReport) return;
+
+    const reportContent = {
+      applicationId,
+      grantScheme: grantScheme.name,
+      timestamp: complianceReport.timestamp,
+      overallScore: complianceReport.overallScore,
+      issues: complianceReport.issues,
+      suggestions: complianceReport.suggestions,
+      breakdown: complianceReport.complianceBreakdown
+    };
+
+    const blob = new Blob([JSON.stringify(reportContent, null, 2)], { 
+      type: 'application/json' 
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `compliance-report-${applicationId || 'draft'}-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [complianceReport, applicationId, grantScheme]);
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const getSeverityIcon = (severity: 'high' | 'medium' | 'low') => {
     switch (severity) {
-      case 'critical':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'major':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'minor':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'high':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'medium':
+        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+      case 'low':
+        return <Info className="h-4 w-4 text-blue-500" />;
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 90) return 'text-green-600';
-    if (score >= 70) return 'text-yellow-600';
+  const getSeverityBadge = (severity: 'high' | 'medium' | 'low') => {
+    const variants = {
+      high: 'destructive' as const,
+      medium: 'secondary' as const,
+      low: 'default' as const
+    };
+    
+    return (
+      <Badge variant={variants[severity]}>
+        {severity.charAt(0).toUpperCase() + severity.slice(1)}
+      </Badge>
+    );
+  };
+
+  const getScoreColor = (score: number): string => {
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-yellow-600';
     return 'text-red-600';
   };
 
-  const getScoreStatus = (score: number) => {
-    if (score >= 90) return 'Excellent';
-    if (score >= 80) return 'Good';
-    if (score >= 70) return 'Fair';
-    if (score >= 60) return 'Poor';
-    return 'Critical';
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header and Controls */}
-      <Card className="p-6">
-        <div className="flex justify-between items-start mb-4">
+    <Card className={`p-6 ${className}`}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Compliance Checker</h2>
-            <p className="text-gray-600 mt-1">
-              AI-powered compliance checking for grant applications
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <FileCheck className="h-5 w-5" />
+              Compliance Checker
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Real-time compliance validation for {grantScheme.name}
             </p>
           </div>
-          <Button 
-            onClick={runComplianceCheck}
-            disabled={isChecking}
-            className="px-6"
-          >
-            {isChecking ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Checking...
-              </>
-            ) : (
-              'Run Compliance Check'
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAutoCheckEnabled(!autoCheckEnabled)}
+            >
+              {autoCheckEnabled ? 'Auto-check ON' : 'Auto-check OFF'}
+            </Button>
+            <Button
+              onClick={checkCompliance}
+              disabled={isChecking || !threadId}
+              size="sm"
+            >
+              {isChecking ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Checking...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Check Now
+                </>
+              )}
+            </Button>
+            {complianceReport && (
+              <Button
+                onClick={exportReport}
+                variant="outline"
+                size="sm"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Export
+              </Button>
             )}
-          </Button>
+          </div>
         </div>
 
-        {lastChecked && (
-          <p className="text-sm text-gray-500">
-            Last checked: {new Date(lastChecked).toLocaleString()}
-          </p>
-        )}
-
-        {error && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-red-800">{error}</p>
-          </div>
-        )}
-      </Card>
-
-      {/* Compliance Score */}
-      {report && (
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Compliance Score</h3>
-            <span className={`text-3xl font-bold ${getScoreColor(report.overallScore)}`}>
-              {report.overallScore}%
-            </span>
-          </div>
-          
-          <Progress value={report.overallScore} className="mb-4" />
-          
-          <div className="flex items-center justify-between">
-            <span className={`font-medium ${getScoreColor(report.overallScore)}`}>
-              {getScoreStatus(report.overallScore)}
-            </span>
-            <div className="flex space-x-4 text-sm">
-              {report.criticalIssuesCount > 0 && (
-                <span className="text-red-600">
-                  {report.criticalIssuesCount} Critical
+        {/* Overall Score */}
+        {complianceReport && (
+          <Card className="p-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Overall Compliance Score</h4>
+                <span className={`text-3xl font-bold ${getScoreColor(complianceReport.overallScore)}`}>
+                  {complianceReport.overallScore}%
                 </span>
-              )}
-              {report.majorIssuesCount > 0 && (
-                <span className="text-orange-600">
-                  {report.majorIssuesCount} Major
-                </span>
-              )}
-              {report.minorIssuesCount > 0 && (
-                <span className="text-yellow-600">
-                  {report.minorIssuesCount} Minor
-                </span>
-              )}
+              </div>
+              <Progress value={complianceReport.overallScore} className="h-3" />
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>{complianceReport.sectionsChecked} sections checked</span>
+                <span>{complianceReport.issues.length} issues found</span>
+              </div>
             </div>
-          </div>
-        </Card>
-      )}
+          </Card>
+        )}
 
-      {/* Issues List */}
-      {report && report.issues.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Compliance Issues</h3>
-          <div className="space-y-4">
-            {report.issues.map((issue, index) => (
-              <div 
-                key={index}
-                className="border border-gray-200 rounded-lg p-4 bg-white"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center space-x-3">
-                    <Badge className={getSeverityColor(issue.severity)}>
-                      {issue.severity.toUpperCase()}
-                    </Badge>
-                    <span className="font-medium text-gray-900">
-                      {issue.field.replace(/_/g, ' ').toUpperCase()}
+        {/* Breakdown by Section */}
+        {complianceReport && (
+          <Card className="p-4">
+            <h4 className="font-medium mb-4">Compliance Breakdown</h4>
+            <div className="space-y-3">
+              {Object.entries(complianceReport.complianceBreakdown).map(([section, score]) => (
+                <div key={section} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium capitalize">{section}</span>
+                    <span className={`text-sm font-bold ${getScoreColor(score)}`}>
+                      {score}%
                     </span>
                   </div>
+                  <Progress value={score} className="h-2" />
                 </div>
-                
-                <p className="text-gray-700 mb-2">
-                  <strong>Requirement:</strong> {issue.requirement}
-                </p>
-                
-                <p className="text-gray-600 text-sm">
-                  <strong>Suggestion:</strong> {issue.suggestion}
-                </p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+              ))}
+            </div>
+          </Card>
+        )}
 
-      {/* Suggestions */}
-      {report && report.suggestions.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Recommendations</h3>
-          <div className="space-y-3">
-            {report.suggestions.map((suggestion, index) => (
-              <div key={index} className="flex items-start space-x-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                <p className="text-gray-700">{suggestion}</p>
+        {/* Issues List */}
+        {complianceReport && complianceReport.issues.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium">Compliance Issues</h4>
+              <div className="flex gap-2">
+                <Badge variant="destructive">
+                  {complianceReport.issues.filter(i => i.severity === 'high').length} Critical
+                </Badge>
+                <Badge variant="secondary">
+                  {complianceReport.issues.filter(i => i.severity === 'medium').length} Major
+                </Badge>
+                <Badge>
+                  {complianceReport.issues.filter(i => i.severity === 'low').length} Minor
+                </Badge>
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
+            </div>
 
-      {/* Compliance Rules */}
-      {rules.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Compliance Rules</h3>
-          <div className="space-y-3">
-            {rules.map((rule) => (
-              <div key={rule.id} className="border-l-4 border-gray-200 pl-4">
-                <div className="flex items-center space-x-2 mb-1">
-                  <Badge className={getSeverityColor(rule.severity)}>
-                    {rule.severity}
-                  </Badge>
-                  <span className="text-sm text-gray-500">
-                    {rule.ruleCategory}
-                  </span>
-                  {rule.automatedCheck && (
-                    <Badge className="bg-green-100 text-green-800">
-                      Automated
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-gray-700 text-sm">{rule.ruleDescription}</p>
-              </div>
-            ))}
+            <div className="space-y-3">
+              {complianceReport.issues
+                .sort((a, b) => {
+                  const severityOrder = { high: 0, medium: 1, low: 2 };
+                  return severityOrder[a.severity] - severityOrder[b.severity];
+                })
+                .map((issue, index) => (
+                  <Card key={index} className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          {getSeverityIcon(issue.severity)}
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{issue.section}</span>
+                              {getSeverityBadge(issue.severity)}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {issue.description}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleSection(`issue-${index}`)}
+                        >
+                          {expandedSections[`issue-${index}`] ? 
+                            <ChevronUp className="h-4 w-4" /> : 
+                            <ChevronDown className="h-4 w-4" />
+                          }
+                        </Button>
+                      </div>
+                      
+                      {expandedSections[`issue-${index}`] && issue.suggestion && (
+                        <Card className="p-3 bg-muted/50">
+                          <p className="text-sm">
+                            <strong>Suggestion:</strong> {issue.suggestion}
+                          </p>
+                        </Card>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+            </div>
           </div>
-        </Card>
-      )}
+        )}
 
-      {/* No Report State */}
-      {!report && !isChecking && (
-        <Card className="p-8 text-center">
-          <div className="text-gray-400 mb-4">
-            <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No Compliance Check Results
-          </h3>
-          <p className="text-gray-500">
-            Run a compliance check to see detailed analysis and recommendations.
-          </p>
-        </Card>
-      )}
-    </div>
+        {/* Suggestions */}
+        {complianceReport && complianceReport.suggestions.length > 0 && (
+          <Card className="p-4">
+            <h4 className="font-medium mb-3">Improvement Suggestions</h4>
+            <ul className="space-y-2">
+              {complianceReport.suggestions.map((suggestion, index) => (
+                <li key={index} className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <span className="text-sm">{suggestion}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        {/* No Report Yet */}
+        {!complianceReport && !isChecking && (
+          <Card className="p-8 text-center">
+            <FileCheck className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground">
+              No compliance check performed yet. Click "Check Now" to validate your application.
+            </p>
+          </Card>
+        )}
+
+        {/* Loading State */}
+        {isChecking && (
+          <Card className="p-8 text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-3" />
+            <p className="text-muted-foreground">
+              Analyzing your application against grant requirements...
+            </p>
+          </Card>
+        )}
+      </div>
+    </Card>
   );
 };
-
-export default ComplianceChecker;

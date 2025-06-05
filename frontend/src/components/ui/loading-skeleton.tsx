@@ -93,3 +93,6 @@ export function ApplicationFormSkeleton() {
     </div>
   )
 }
+
+// Export LoadingSkeleton as an alias for Skeleton for backward compatibility
+export const LoadingSkeleton = Skeleton;
