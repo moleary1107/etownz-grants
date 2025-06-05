@@ -46,9 +46,16 @@ jobs:
           echo "Waiting for database initialization..."
           timeout 60 bash -c 'until docker-compose -f docker-compose.prod-local.yml exec -T postgres pg_isready -U etownz; do sleep 2; done'
           
+          # Initialize database schema manually to ensure tables exist
+          echo "Initializing database schema..."
+          docker-compose -f docker-compose.prod-local.yml exec -T postgres psql -U etownz -d etownz_grants -f /docker-entrypoint-initdb.d/01-init.sql || echo "Schema already exists"
+          
           # Restart backend after database is ready (in case it crashed on startup)
           echo "Restarting backend after database initialization..."
           docker-compose -f docker-compose.prod-local.yml restart backend
+          
+          # Give backend time to restart
+          sleep 10
           
           # Health check
           echo "Checking service health..."
