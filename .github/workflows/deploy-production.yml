@@ -1,0 +1,105 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Deploy to production server
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: 165.227.149.136
+        username: root
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          # Navigate to project directory
+          cd /root/etownz-grants
+          
+          # Pull latest code
+          git pull origin main
+          
+          # Set build tag
+          export BUILD_TAG=$(date +%Y%m%d-%H%M%S)
+          echo "Building with tag: $BUILD_TAG"
+          
+          # Build new images
+          docker-compose -f docker-compose.prod-local.yml build
+          
+          # Stop old containers
+          docker-compose -f docker-compose.prod-local.yml down
+          
+          # Start new containers
+          docker-compose -f docker-compose.prod-local.yml up -d
+          
+          # Wait for services to start
+          sleep 15
+          
+          # Health check
+          echo "Checking service health..."
+          
+          # Check frontend
+          if curl -f -s http://localhost:3001 > /dev/null; then
+              echo "✅ Frontend is healthy"
+          else
+              echo "❌ Frontend health check failed"
+              docker-compose -f docker-compose.prod-local.yml logs frontend --tail=20
+              exit 1
+          fi
+          
+          # Check backend
+          if curl -f -s http://localhost:8000/health > /dev/null; then
+              echo "✅ Backend is healthy"
+          else
+              echo "❌ Backend health check failed"
+              docker-compose -f docker-compose.prod-local.yml logs backend --tail=20
+              exit 1
+          fi
+          
+          # Clean up old images (keep last 3)
+          docker images | grep etownz-grants-frontend | tail -n +4 | awk '{print $3}' | xargs -r docker rmi || true
+          docker images | grep etownz-grants-backend | tail -n +4 | awk '{print $3}' | xargs -r docker rmi || true
+          
+          echo "✅ Deployment complete!"
+    
+    - name: Verify deployment
+      run: |
+        # Test frontend
+        if curl -f -s https://grants.etownz.com > /dev/null; then
+            echo "✅ Frontend is accessible"
+        else
+            echo "❌ Frontend is not accessible"
+            exit 1
+        fi
+        
+        # Test backend API
+        if curl -f -s https://grants.etownz.com/api/health > /dev/null; then
+            echo "✅ Backend API is healthy"
+        else
+            echo "❌ Backend API health check failed"
+            exit 1
+        fi
+        
+        # Test knowledge-base page
+        if curl -f -s https://grants.etownz.com/dashboard/knowledge-base | grep -q "Knowledge Base"; then
+            echo "✅ Knowledge-base page is working"
+        else
+            echo "❌ Knowledge-base page check failed"
+            exit 1
+        fi
+        
+    - name: Notify deployment status
+      if: always()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: |
+          Deployment to production ${{ job.status }}
+          Commit: ${{ github.sha }}
+          Author: ${{ github.actor }}
+          Message: ${{ github.event.head_commit.message }}
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+      continue-on-error: true

@@ -24,7 +24,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     image: etownz-grants-backend:prod-${BUILD_TAG:-latest}
     command: node dist/index.js
     environment:
