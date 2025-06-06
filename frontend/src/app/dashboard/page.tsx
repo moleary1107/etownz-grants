@@ -89,21 +89,25 @@ export default function DashboardPage() {
       // Load real data from APIs
       const [grantStats, aiStats, scrapingStats] = await Promise.all([
         grantsService.getStats().catch(() => ({ total: 0, active: 0, expired: 0, recent: 0 })),
-        aiService.getStats().catch(() => ({ total_grants: 0, total_embeddings: 0, avg_processing_time: 0 })),
-        scrapingService.getStats().catch(() => ({ jobs: { total: 0 }, pages: { total: 0 }, documents: { total: 0 } }))
+        aiService.getStats().catch(() => ({ grantsProcessed: 0, vectorsStored: 0, avg_processing_time: 0 })),
+        scrapingService.getStats().catch(() => ({ 
+          jobs: { total: 0 }, 
+          grants: { total: 0 }, 
+          documents: { total: 0 } 
+        }))
       ])
 
       // Get upcoming deadlines (next 30 days)
       const upcomingGrants = await grantsService.getUpcomingDeadlines(30).catch(() => ({ grants: [] }))
       
       setStats({
-        totalGrants: grantStats.total || 127,
+        totalGrants: parseInt(grantStats.total as string) || 127,
         activeApplications: 8, // Mock for now - would need applications API
         upcomingDeadlines: upcomingGrants.grants.length || 3,
         fundingSecured: 125000, // Mock for now - would need applications API
-        aiProcessedGrants: aiStats.total_grants || 0,
-        crawledPages: scrapingStats.pages.total || 0,
-        vectorEmbeddings: aiStats.total_embeddings || 0
+        aiProcessedGrants: aiStats.grantsProcessed || 0,
+        crawledPages: scrapingStats.grants?.total || 0,
+        vectorEmbeddings: aiStats.vectorsStored || 0
       })
 
       setRecentActivity([

@@ -53,12 +53,27 @@ export interface ScrapedDocument {
 export interface ScrapingStats {
   jobs: {
     total: number
+    completed: number
+    running: number
+    failed: number
   }
-  pages: {
+  grants: {
     total: number
+    added_to_vector_db: number
+    by_type: {
+      national: number
+      regional: number
+      local: number
+      energy: number
+      research: number
+      business: number
+      arts: number
+      other: number
+    }
   }
   documents: {
     total: number
+    processed: number
   }
 }
 
@@ -77,7 +92,9 @@ class ScrapingService {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = '/api'
+    this.baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://grants.etownz.com' 
+      : 'http://localhost:8000'
   }
 
   /**

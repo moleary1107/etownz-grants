@@ -79,7 +79,9 @@ class MonitoringService {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = '/api'
+    this.baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://grants.etownz.com' 
+      : 'http://localhost:8000'
   }
 
   /**
