@@ -614,4 +614,5 @@ export class GrantsService {
   }
 }
 
+export const grantsService = new GrantsService();
 export default GrantsService;

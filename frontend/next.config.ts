@@ -20,6 +20,14 @@ const nextConfig: NextConfig = {
     domains: ['images.unsplash.com', 'via.placeholder.com'],
     formats: ['image/webp', 'image/avif']
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:8000/:path*'
+      }
+    ];
+  },
   async headers() {
     return [
       {
