@@ -3,6 +3,7 @@ import { asyncHandler } from '../middleware/errorHandler';
 import { GrantsRepository, GrantFilters } from '../repositories/grantsRepository';
 import { GrantsService } from '../services/grantsService';
 import { logger } from '../services/logger';
+import { db } from '../services/database';
 
 const router = express.Router();
 const grantsRepo = new GrantsRepository();
@@ -578,6 +579,53 @@ router.post('/search/ai', asyncHandler(async (req, res) => {
  *       404:
  *         description: Grant not found
  */
+/**
+ * @swagger
+ * /grants/upcoming-deadlines:
+ *   get:
+ *     summary: Get grants with upcoming deadlines
+ *     tags: [Grants]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 30
+ *         description: Number of days to look ahead for deadlines
+ *     responses:
+ *       200:
+ *         description: Grants with upcoming deadlines
+ */
+router.get('/upcoming-deadlines', asyncHandler(async (req, res) => {
+  const days = Number(req.query.days) || 30;
+  
+  try {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() + days);
+    
+    // Simple query to get grants with deadlines in the next N days
+    const grants = await db.query(`
+      SELECT * FROM grants 
+      WHERE deadline IS NOT NULL 
+      AND deadline >= NOW() 
+      AND deadline <= $1 
+      AND is_active = true
+      ORDER BY deadline ASC
+      LIMIT 50
+    `, [cutoffDate]);
+    
+    res.json({
+      grants: grants.rows || [],
+      days,
+      cutoffDate: cutoffDate.toISOString()
+    });
+  } catch (error) {
+    logger.error('Error fetching upcoming deadlines', { error, days });
+    res.json({ grants: [], days });
+  }
+}));
+
 router.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   
