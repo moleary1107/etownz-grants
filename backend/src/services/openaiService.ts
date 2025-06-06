@@ -48,6 +48,35 @@ export interface SemanticSearchResult {
   reasoning?: string;
 }
 
+export interface GrantContentAnalysis {
+  grants: ExtractedGrantInfo[];
+  metadata: {
+    processingTime: number;
+    confidence: number;
+    tokensUsed: number;
+  };
+  overallConfidence: number;
+}
+
+export interface ExtractedGrantInfo {
+  title: string;
+  description: string;
+  amount?: {
+    min?: number;
+    max?: number;
+    currency?: string;
+  };
+  deadline?: Date;
+  eligibility?: string[];
+  categories?: string[];
+  contactInfo?: {
+    email?: string;
+    phone?: string;
+    website?: string;
+  };
+  confidence: number;
+}
+
 export class OpenAIService {
   private openai: OpenAI;
   private vectorDB: VectorDatabaseService;
@@ -645,6 +674,256 @@ export class OpenAIService {
     const inputCost = (inputTokens / 1000000) * modelCosts.inputCost;
     const outputCost = (outputTokens / 1000000) * modelCosts.outputCost;
     return (inputCost + outputCost) * 100; // Return in cents
+  }
+
+  /**
+   * Analyze content for grant information using AI
+   */
+  async analyzeContentForGrants(
+    content: string,
+    userId?: string,
+    organizationId?: string
+  ): Promise<GrantContentAnalysis> {
+    const startTime = Date.now();
+    const requestId = `grant_analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    try {
+      const systemPrompt = `You are an AI assistant specialized in extracting grant funding information from web content. 
+      
+      Analyze the provided content and identify all grant funding opportunities. For each grant found, extract:
+      1. Title/name of the grant
+      2. Description/purpose
+      3. Funding amount (minimum, maximum, or both if specified)
+      4. Application deadline
+      5. Eligibility criteria
+      6. Categories or focus areas
+      7. Contact information (email, phone, website)
+      
+      Return the results in JSON format with confidence scores (0.0-1.0) for each grant found.
+      
+      Rules:
+      - Only include actual funding opportunities, not general information
+      - Extract amounts in their original currency when possible
+      - Parse dates into ISO format when identifiable
+      - Assign confidence based on completeness and clarity of information
+      - If no grants are found, return an empty array`;
+
+      const userPrompt = `Analyze this content for grant funding opportunities:
+
+${content.substring(0, 8000)}`; // Limit content to avoid token limits
+
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini', // Use cost-effective model for content analysis
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+        max_tokens: 2000
+      });
+
+      const response = completion.choices[0]?.message?.content;
+      if (!response) {
+        throw new Error('No response from OpenAI');
+      }
+
+      const parsedResponse = JSON.parse(response);
+      const duration = Date.now() - startTime;
+
+      // Calculate usage
+      const usage: OpenAIUsageInfo = {
+        promptTokens: completion.usage?.prompt_tokens || 0,
+        completionTokens: completion.usage?.completion_tokens || 0,
+        totalTokens: completion.usage?.total_tokens || 0,
+        estimatedCost: this.calculateChatCost(completion.usage?.prompt_tokens || 0, completion.usage?.completion_tokens || 0, 'gpt-4o-mini')
+      };
+
+      // Track usage
+      await this.trackUsage(
+        'grant_analysis',
+        'gpt-4o-mini',
+        usage,
+        duration,
+        'success',
+        userId,
+        organizationId,
+        'chat/completions',
+        requestId
+      );
+
+      // Process and validate the response
+      const grants: ExtractedGrantInfo[] = (parsedResponse.grants || []).map((grant: any) => ({
+        title: grant.title || 'Untitled Grant',
+        description: grant.description || '',
+        amount: grant.amount ? {
+          min: grant.amount.min ? Number(grant.amount.min) : undefined,
+          max: grant.amount.max ? Number(grant.amount.max) : undefined,
+          currency: grant.amount.currency || 'EUR'
+        } : undefined,
+        deadline: grant.deadline ? new Date(grant.deadline) : undefined,
+        eligibility: Array.isArray(grant.eligibility) ? grant.eligibility : [],
+        categories: Array.isArray(grant.categories) ? grant.categories : [],
+        contactInfo: grant.contactInfo || {},
+        confidence: Math.min(1.0, Math.max(0.0, Number(grant.confidence) || 0.5))
+      }));
+
+      const overallConfidence = grants.length > 0 
+        ? grants.reduce((sum, grant) => sum + grant.confidence, 0) / grants.length
+        : 0;
+
+      logger.info(`Grant analysis completed: found ${grants.length} grants`, {
+        requestId,
+        duration,
+        tokensUsed: usage.totalTokens,
+        cost: usage.estimatedCost
+      });
+
+      return {
+        grants,
+        metadata: {
+          processingTime: duration,
+          confidence: overallConfidence,
+          tokensUsed: usage.totalTokens
+        },
+        overallConfidence
+      };
+
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      // Track failed usage
+      await this.trackUsage(
+        'grant_analysis',
+        'gpt-4o-mini',
+        { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCost: 0 },
+        duration,
+        'error',
+        userId,
+        organizationId,
+        'chat/completions',
+        requestId,
+        error instanceof Error ? error.message : String(error)
+      );
+
+      logger.error('Grant content analysis failed:', {
+        error: error instanceof Error ? error.message : String(error),
+        requestId,
+        duration
+      });
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Analyze grant opportunity for specific extraction requirements
+   */
+  async extractGrantWithPrompt(
+    content: string,
+    extractionPrompt: string,
+    userId?: string,
+    organizationId?: string
+  ): Promise<{
+    extractedData: any;
+    confidence: number;
+    usage: OpenAIUsageInfo;
+  }> {
+    const startTime = Date.now();
+    const requestId = `custom_extraction_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    try {
+      const systemPrompt = `You are an AI assistant that extracts specific information from grant and funding content based on user requirements.
+      
+      Extract information according to the user's specific instructions and return it in a structured JSON format.
+      Include a confidence score (0.0-1.0) based on how well you could fulfill the extraction requirements.`;
+
+      const userPrompt = `Content to analyze:
+${content.substring(0, 8000)}
+
+Extraction Requirements:
+${extractionPrompt}
+
+Please extract the requested information and provide a confidence score.`;
+
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.2,
+        max_tokens: 1500
+      });
+
+      const response = completion.choices[0]?.message?.content;
+      if (!response) {
+        throw new Error('No response from OpenAI');
+      }
+
+      const parsedResponse = JSON.parse(response);
+      const duration = Date.now() - startTime;
+
+      // Calculate usage
+      const usage: OpenAIUsageInfo = {
+        promptTokens: completion.usage?.prompt_tokens || 0,
+        completionTokens: completion.usage?.completion_tokens || 0,
+        totalTokens: completion.usage?.total_tokens || 0,
+        estimatedCost: this.calculateChatCost(completion.usage?.prompt_tokens || 0, completion.usage?.completion_tokens || 0, 'gpt-4o-mini')
+      };
+
+      // Track usage
+      await this.trackUsage(
+        'custom_extraction',
+        'gpt-4o-mini',
+        usage,
+        duration,
+        'success',
+        userId,
+        organizationId,
+        'chat/completions',
+        requestId
+      );
+
+      logger.info('Custom grant extraction completed', {
+        requestId,
+        duration,
+        tokensUsed: usage.totalTokens,
+        confidence: parsedResponse.confidence || 0.5
+      });
+
+      return {
+        extractedData: parsedResponse,
+        confidence: Math.min(1.0, Math.max(0.0, Number(parsedResponse.confidence) || 0.5)),
+        usage
+      };
+
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      
+      // Track failed usage
+      await this.trackUsage(
+        'custom_extraction',
+        'gpt-4o-mini',
+        { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCost: 0 },
+        duration,
+        'error',
+        userId,
+        organizationId,
+        'chat/completions',
+        requestId,
+        error instanceof Error ? error.message : String(error)
+      );
+
+      logger.error('Custom grant extraction failed:', {
+        error: error instanceof Error ? error.message : String(error),
+        requestId,
+        duration
+      });
+      
+      throw error;
+    }
   }
 
   /**
