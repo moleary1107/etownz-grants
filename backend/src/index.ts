@@ -1,6 +1,33 @@
 // Load environment variables first
 import dotenv from 'dotenv';
-dotenv.config();
+import path from 'path';
+
+// Try multiple possible .env locations
+const envPaths = [
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(__dirname, '../.env'),
+  path.resolve(__dirname, '../../.env')
+];
+
+let envLoaded = false;
+for (const envPath of envPaths) {
+  try {
+    const result = dotenv.config({ path: envPath });
+    if (!result.error && process.env.OPENAI_API_KEY) {
+      console.log(`✅ Environment loaded from: ${envPath}`);
+      console.log(`🔑 OpenAI API Key loaded: ${process.env.OPENAI_API_KEY?.substring(0, 7)}${process.env.OPENAI_API_KEY?.length > 7 ? '***' : ''}`);
+      envLoaded = true;
+      break;
+    }
+  } catch (error) {
+    // Continue to next path
+  }
+}
+
+if (!envLoaded) {
+  console.error('❌ Failed to load .env file from any location');
+  console.error('Tried paths:', envPaths);
+}
 
 import express from 'express';
 import cors from 'cors';
@@ -39,6 +66,10 @@ import openaiAssistantsRoutes from './routes/openaiAssistants-simple';
 import aiCostManagementRoutes from './routes/aiCostManagement';
 import aiLoadBalancerRoutes from './routes/aiLoadBalancer';
 import aiMonitoringRoutes from './routes/aiMonitoring';
+import aiEditorRoutes from './routes/aiEditor';
+import grantIntelligenceRoutes from './routes/grantIntelligence';
+import templatesRoutes from './routes/templates';
+import databaseSyncRoutes from './routes/databaseSync';
 // import partnerCoordinationRoutes from './routes/partnerCoordination';
 
 // Import database service
@@ -47,7 +78,7 @@ import { db } from './services/database';
 // TODO: Add Sentry integration in production
 
 const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = parseInt(process.env.PORT || '8000');
 
 // Swagger configuration
 const swaggerOptions = {
@@ -243,6 +274,10 @@ app.use('/assistants', openaiAssistantsRoutes);
 app.use('/ai-cost', aiCostManagementRoutes);
 app.use('/ai-load-balancer', aiLoadBalancerRoutes);
 app.use('/ai-monitoring', aiMonitoringRoutes);
+app.use('/ai/editor', aiEditorRoutes);
+app.use('/grant-intelligence', grantIntelligenceRoutes);
+app.use('/templates', templatesRoutes);
+app.use('/database-sync', databaseSyncRoutes);
 // app.use('/partner-coordination', partnerCoordinationRoutes);
 
 // 404 handler
@@ -268,7 +303,7 @@ async function startServer() {
     }
 
     // Start server
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       logger.info(`🚀 Server running on port ${PORT}`);
       logger.info(`📚 API Documentation available at http://localhost:${PORT}/docs`);
       logger.info(`🏥 Health check available at http://localhost:${PORT}/health`);

@@ -5,12 +5,16 @@
  * Runs all pending migrations in order
  */
 
+require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 
 // Database configuration
-const dbConfig = {
+const dbConfig = process.env.DATABASE_URL ? {
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+} : {
     host: process.env.DATABASE_HOST || 'postgres',
     port: process.env.DATABASE_PORT || 5432,
     database: process.env.DATABASE_NAME || 'etownz_grants',

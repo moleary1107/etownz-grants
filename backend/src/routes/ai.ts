@@ -1778,4 +1778,285 @@ router.get('/applications/:draftId/writing-suggestions', asyncHandler(async (req
   }
 }));
 
+/**
+ * @swagger
+ * /ai/editor/auto-generate:
+ *   post:
+ *     summary: Auto-generate section content for grant applications
+ *     tags: [AI Editor]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - grantId
+ *               - organizationId
+ *               - sectionType
+ *               - grantInfo
+ *               - organizationProfile
+ *             properties:
+ *               grantId:
+ *                 type: string
+ *                 description: Grant ID
+ *               organizationId:
+ *                 type: string
+ *                 description: Organization ID
+ *               sectionType:
+ *                 type: string
+ *                 enum: [executive_summary, project_description, methodology, budget_justification, impact_statement, team_expertise]
+ *                 description: Type of section to generate
+ *               grantInfo:
+ *                 type: object
+ *                 description: Grant information
+ *               organizationProfile:
+ *                 type: object
+ *                 description: Organization profile data
+ *               requirements:
+ *                 type: object
+ *                 description: Additional requirements
+ *     responses:
+ *       200:
+ *         description: Section content generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 content:
+ *                   type: string
+ *                   description: Generated section content
+ *                 metadata:
+ *                   type: object
+ *                   description: Generation metadata
+ */
+router.post('/editor/auto-generate', asyncHandler(async (req, res) => {
+  const startTime = Date.now();
+  const { grantId, organizationId, sectionType, grantInfo, organizationProfile, requirements } = req.body;
+
+  if (!grantId || !organizationId || !sectionType || !grantInfo || !organizationProfile) {
+    return res.status(400).json({
+      error: 'Missing required fields',
+      message: 'grantId, organizationId, sectionType, grantInfo, and organizationProfile are required'
+    });
+  }
+
+  try {
+    logger.info('Auto-generating section content', {
+      grantId,
+      organizationId,
+      sectionType
+    });
+
+    // Create a comprehensive prompt for content generation
+    const prompt = `Generate a comprehensive ${sectionType.replace('_', ' ')} section for a grant application.
+
+Grant Information:
+- Title: ${grantInfo.title || 'Grant Application'}
+- Funder: ${grantInfo.funder || 'Funding Organization'}
+- Amount: ${grantInfo.amount || 'To be determined'}
+- Deadline: ${grantInfo.deadline || 'TBD'}
+- Focus Areas: ${grantInfo.focus_areas?.join(', ') || 'Research and Innovation'}
+
+Organization Profile:
+- Name: ${organizationProfile.name || 'Organization'}
+- Type: ${organizationProfile.type || 'Organization'}
+- Location: ${organizationProfile.location || 'Location'}
+- Expertise: ${organizationProfile.expertise?.join(', ') || 'Domain expertise'}
+- Track Record: ${organizationProfile.track_record || 'Proven experience'}
+
+Section Type: ${sectionType}
+
+Please generate detailed, professional content that:
+1. Is specific to the grant requirements and organization capabilities
+2. Demonstrates clear alignment between organization strengths and grant objectives
+3. Includes specific examples and quantifiable outcomes where appropriate
+4. Follows academic/professional grant writing standards
+5. Is compelling and persuasive while remaining factual
+
+Word count: Aim for 800-1200 words for this section.`;
+
+    // Use OpenAI to generate the content
+    const generatedContent = await openaiService.generateText(prompt, {
+      model: 'gpt-4o-mini',
+      max_tokens: 2000,
+      temperature: 0.7
+    });
+
+    const processingTime = Date.now() - startTime;
+
+    logger.info('Section content generated successfully', {
+      grantId,
+      organizationId,
+      sectionType,
+      contentLength: generatedContent.length,
+      processingTime
+    });
+
+    res.json({
+      content: generatedContent,
+      metadata: {
+        generated_at: new Date().toISOString(),
+        grant_id: grantId,
+        organization_id: organizationId,
+        section_type: sectionType,
+        word_count: generatedContent.split(/\s+/).length,
+        processing_time: processingTime,
+        ai_model: 'gpt-4o-mini'
+      }
+    });
+  } catch (error) {
+    const processingTime = Date.now() - startTime;
+    logger.error('Failed to generate section content', {
+      error: error instanceof Error ? error.message : String(error),
+      grantId,
+      organizationId,
+      sectionType,
+      processingTime
+    });
+
+    res.status(500).json({
+      error: 'Content generation failed',
+      message: 'Unable to generate section content',
+      details: process.env.NODE_ENV === 'development' 
+        ? error instanceof Error ? error.message : String(error)
+        : undefined
+    });
+  }
+}));
+
+/**
+ * @swagger
+ * /ai/editor/auto-generate-application:
+ *   post:
+ *     summary: Auto-generate complete grant application
+ *     tags: [AI Editor]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - grantId
+ *               - organizationId
+ *               - grantInfo
+ *               - organizationProfile
+ *             properties:
+ *               grantId:
+ *                 type: string
+ *               organizationId:
+ *                 type: string
+ *               grantInfo:
+ *                 type: object
+ *               organizationProfile:
+ *                 type: object
+ *               projectIdea:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Complete application generated successfully
+ */
+router.post('/editor/auto-generate-application', asyncHandler(async (req, res) => {
+  const startTime = Date.now();
+  const { grantId, organizationId, grantInfo, organizationProfile, projectIdea } = req.body;
+
+  if (!grantId || !organizationId || !grantInfo || !organizationProfile) {
+    return res.status(400).json({
+      error: 'Missing required fields',
+      message: 'grantId, organizationId, grantInfo, and organizationProfile are required'
+    });
+  }
+
+  try {
+    logger.info('Auto-generating complete application', {
+      grantId,
+      organizationId
+    });
+
+    const sections = ['executive_summary', 'project_description', 'methodology', 'budget_justification', 'impact_statement', 'team_expertise'];
+    const generatedSections: Array<{
+      name: string;
+      type: string;
+      content: string;
+      word_count: number;
+      required: boolean;
+      completed: boolean;
+    }> = [];
+
+    for (const sectionType of sections) {
+      const prompt = `Generate a comprehensive ${sectionType.replace('_', ' ')} section for a grant application.
+
+Grant Information:
+- Title: ${grantInfo.title || 'Grant Application'}
+- Funder: ${grantInfo.funder || 'Funding Organization'}
+- Project Idea: ${projectIdea || 'Innovative research project'}
+
+Organization Profile:
+- Name: ${organizationProfile.name || 'Organization'}
+- Type: ${organizationProfile.type || 'Organization'}
+
+Please generate detailed, professional content for the ${sectionType} section.`;
+
+      const content = await openaiService.generateText(prompt, {
+        model: 'gpt-4o-mini',
+        max_tokens: 1500,
+        temperature: 0.7
+      });
+
+      generatedSections.push({
+        name: sectionType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        type: sectionType,
+        content,
+        word_count: content.split(/\s+/).length,
+        required: true,
+        completed: true
+      });
+    }
+
+    const processingTime = Date.now() - startTime;
+
+    logger.info('Complete application generated successfully', {
+      grantId,
+      organizationId,
+      sectionsCount: generatedSections.length,
+      processingTime
+    });
+
+    res.json({
+      sections: generatedSections,
+      metadata: {
+        generated_at: new Date().toISOString(),
+        grant_id: grantId,
+        organization_id: organizationId,
+        total_words: generatedSections.reduce((sum, section) => sum + section.word_count, 0),
+        completion_percentage: 100,
+        processing_time: processingTime,
+        ai_model: 'gpt-4o-mini'
+      }
+    });
+  } catch (error) {
+    const processingTime = Date.now() - startTime;
+    logger.error('Failed to generate complete application', {
+      error: error instanceof Error ? error.message : String(error),
+      grantId,
+      organizationId,
+      processingTime
+    });
+
+    res.status(500).json({
+      error: 'Application generation failed',
+      message: 'Unable to generate complete application',
+      details: process.env.NODE_ENV === 'development' 
+        ? error instanceof Error ? error.message : String(error)
+        : undefined
+    });
+  }
+}));
+
 export default router;

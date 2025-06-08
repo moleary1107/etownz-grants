@@ -1,5 +1,9 @@
 import express from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
+import { db } from '../services/database';
+import { logger } from '../services/logger';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 
@@ -123,6 +127,200 @@ router.put('/profile', asyncHandler(async (req, res) => {
     message: 'Profile updated successfully',
     organization: req.body
   });
+}));
+
+/**
+ * @swagger
+ * /organizations:
+ *   get:
+ *     summary: List organizations
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Organizations retrieved successfully
+ */
+router.get('/', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res) => {
+  try {
+    const result = await db.query(`
+      SELECT id, name, description, website, contact_email, organization_type, created_at
+      FROM organizations 
+      ORDER BY name ASC
+    `);
+
+    res.json({
+      success: true,
+      organizations: result.rows
+    });
+  } catch (error) {
+    logger.error('Failed to list organizations:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to list organizations'
+    });
+  }
+}));
+
+/**
+ * @swagger
+ * /organizations:
+ *   post:
+ *     summary: Create new organization
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               website:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Organization created successfully
+ */
+router.post('/', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res) => {
+  try {
+    const { name, description, website, type } = req.body;
+    
+    if (!name || name.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'Organization name is required'
+      });
+    }
+
+    const organizationId = uuidv4();
+    
+    const result = await db.query(`
+      INSERT INTO organizations (
+        id, name, description, website, organization_type, contact_email, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+      RETURNING *
+    `, [
+      organizationId,
+      name.trim(),
+      description || null,
+      website || null,
+      type || 'research',
+      req.user?.email || null
+    ]);
+
+    logger.info('Organization created', {
+      organizationId,
+      name,
+      createdBy: req.user?.id
+    });
+
+    res.status(201).json({
+      success: true,
+      organization: result.rows[0]
+    });
+  } catch (error) {
+    logger.error('Failed to create organization:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create organization'
+    });
+  }
+}));
+
+/**
+ * @swagger
+ * /organizations/{id}:
+ *   get:
+ *     summary: Get organization details
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Organization details retrieved
+ */
+router.get('/:id', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await db.query(`
+      SELECT * FROM organizations WHERE id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Organization not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      organization: result.rows[0]
+    });
+  } catch (error) {
+    logger.error('Failed to get organization:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get organization'
+    });
+  }
+}));
+
+/**
+ * @swagger
+ * /organizations/{id}/intelligence:
+ *   get:
+ *     summary: Get organization intelligence data
+ *     tags: [Organizations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Organization intelligence retrieved
+ */
+router.get('/:id/intelligence', authenticateToken, asyncHandler(async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await db.query(`
+      SELECT * FROM organization_intelligence 
+      WHERE organization_id = $1 
+      ORDER BY confidence_score DESC, created_at DESC
+    `, [id]);
+
+    res.json({
+      success: true,
+      intelligence: result.rows
+    });
+  } catch (error) {
+    logger.error('Failed to get organization intelligence:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get organization intelligence'
+    });
+  }
 }));
 
 export default router;

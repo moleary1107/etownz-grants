@@ -370,49 +370,116 @@ export class FirecrawlIntegrationService extends EventEmitter {
 
   // Crawling Methods
   private async executeCrawl(job: FirecrawlJob): Promise<any> {
-    const crawlOptions = {
-      includes: job.configuration.includePatterns,
-      excludes: job.configuration.excludePatterns,
-      maxDepth: job.configuration.maxDepth,
-      limit: 100,
-      allowBackwardCrawling: false,
-      allowExternalContentLinks: job.configuration.followExternalLinks,
-      onlyMainContent: true,
-      includeHtml: true,
-      waitFor: 2000
-    };
+    const maxRetries = 3;
+    let attempt = 0;
+    
+    while (attempt < maxRetries) {
+      try {
+        // Use Firecrawl v1 API format with enhanced error handling
+        const crawlOptions = {
+          includePaths: job.configuration.includePatterns?.length ? job.configuration.includePatterns : undefined,
+          excludePaths: job.configuration.excludePatterns?.length ? job.configuration.excludePatterns : undefined,
+          maxDepth: Math.min(job.configuration.maxDepth || 3, 5),
+          limit: 100,
+          allowBackwardCrawling: false,
+          allowExternalContentLinks: job.configuration.followExternalLinks || false,
+          // V1 API format
+          formats: ['markdown', 'html'],
+          onlyMainContent: true,
+          waitFor: 2000,
+          timeout: 60000 // 60 second timeout
+        };
 
-    const crawlResult = await this.firecrawl.crawlUrl(job.sourceUrl, crawlOptions as any);
+        logger.info('Starting crawl attempt', { 
+          jobId: job.id, 
+          attempt: attempt + 1, 
+          url: job.sourceUrl,
+          options: crawlOptions 
+        });
 
-    if (!crawlResult.success) {
-      throw new Error(`Firecrawl failed: ${crawlResult.error || 'Unknown error'}`);
-    }
+        const crawlResult = await this.firecrawl.crawlUrl(job.sourceUrl, crawlOptions);
 
-    const pages = crawlResult.data || [];
-    logger.info('Crawl completed', { jobId: job.id, pageCount: pages.length });
+        if (!crawlResult.success) {
+          throw new Error(`Firecrawl failed: ${crawlResult.error || 'Unknown error'}`);
+        }
 
-    // Process pages
-    for (let i = 0; i < pages.length; i++) {
-      await this.processPage(pages[i], job);
-      
-      // Update progress
-      const progress = Math.floor((i + 1) / pages.length * 90);
-      await this.updateJobProgress(job.id, progress);
-      
-      // Rate limiting
-      if (job.configuration.rateLimitMs > 0) {
-        await this.sleep(job.configuration.rateLimitMs);
+        const pages = crawlResult.data || [];
+        logger.info('Crawl completed successfully', { 
+          jobId: job.id, 
+          pageCount: pages.length,
+          attempt: attempt + 1 
+        });
+
+        // Process pages with error handling
+        const processedPages = [];
+        const failedPages = [];
+        
+        for (let i = 0; i < pages.length; i++) {
+          try {
+            await this.processPage(pages[i], job);
+            processedPages.push(pages[i].url || pages[i].metadata?.sourceURL);
+            
+            // Update progress
+            const progress = Math.floor((i + 1) / pages.length * 90);
+            await this.updateJobProgress(job.id, progress);
+            
+          } catch (pageError) {
+            logger.warn('Failed to process page', { 
+              jobId: job.id,
+              pageUrl: pages[i].url || pages[i].metadata?.sourceURL,
+              error: pageError instanceof Error ? pageError.message : String(pageError)
+            });
+            failedPages.push({
+              url: pages[i].url || pages[i].metadata?.sourceURL,
+              error: pageError instanceof Error ? pageError.message : String(pageError)
+            });
+            job.stats.errorsEncountered++;
+          }
+          
+          // Rate limiting
+          if (job.configuration.rateLimitMs > 0) {
+            await this.sleep(job.configuration.rateLimitMs);
+          }
+        }
+
+        return { 
+          pagesProcessed: processedPages.length,
+          totalPages: pages.length,
+          failedPages,
+          processedPages,
+          successRate: pages.length > 0 ? (processedPages.length / pages.length) * 100 : 0
+        };
+
+      } catch (error) {
+        attempt++;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        logger.error(`Crawl attempt ${attempt} failed`, { 
+          jobId: job.id, 
+          attempt,
+          error: errorMessage,
+          url: job.sourceUrl
+        });
+
+        if (attempt >= maxRetries) {
+          // Final attempt failed, record detailed error
+          job.stats.errorsEncountered++;
+          throw new Error(`Crawl failed after ${maxRetries} attempts. Last error: ${errorMessage}`);
+        }
+
+        // Wait before retry with exponential backoff
+        const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+        logger.info(`Retrying crawl in ${waitTime}ms`, { jobId: job.id, attempt: attempt + 1 });
+        await this.sleep(waitTime);
       }
     }
-
-    return { pagesProcessed: pages.length };
   }
 
   private async executeTargetedScrape(job: FirecrawlJob): Promise<any> {
     const scrapeResult = await this.firecrawl.scrapeUrl(job.sourceUrl, {
       formats: ['markdown', 'html'],
       onlyMainContent: true
-    } as any);
+    });
 
     if (!scrapeResult.success) {
       throw new Error(`Scrape failed: ${scrapeResult.error}`);
@@ -434,7 +501,7 @@ export class FirecrawlIntegrationService extends EventEmitter {
       - Categories or focus areas
     `;
 
-    // For now, let's use regular scraping and then use our OpenAI service for extraction
+    // Use Firecrawl v1 API for basic extraction
     const extractResult = await this.firecrawl.scrapeUrl(job.sourceUrl, {
       formats: ['markdown'],
       onlyMainContent: true
@@ -460,12 +527,12 @@ export class FirecrawlIntegrationService extends EventEmitter {
   }
 
   private async executeDocumentHarvest(job: FirecrawlJob): Promise<any> {
-    // First crawl to find documents
+    // First crawl to find documents using v1 API format
     const crawlResult = await this.firecrawl.crawlUrl(job.sourceUrl, {
-      includes: ['*.pdf', '*.docx', '*.doc'],
+      includePaths: ['*.pdf', '*.docx', '*.doc'],
       maxDepth: job.configuration.maxDepth,
-      onlyMainContent: true,
-      includeHtml: true
+      formats: ['markdown', 'html'],
+      onlyMainContent: true
     } as any);
 
     if (!crawlResult.success || !crawlResult.data) {
@@ -493,8 +560,9 @@ export class FirecrawlIntegrationService extends EventEmitter {
     `, [job.sourceUrl, job.id]);
 
     const scrapeResult = await this.firecrawl.scrapeUrl(job.sourceUrl, {
-      formats: ['markdown', 'html']
-    } as any);
+      formats: ['markdown', 'html'],
+      onlyMainContent: true
+    });
 
     if (!scrapeResult.success) {
       throw new Error('Monitoring scrape failed');
@@ -572,8 +640,9 @@ export class FirecrawlIntegrationService extends EventEmitter {
   private async processDocument(url: string, job: FirecrawlJob): Promise<void> {
     try {
       const docResult = await this.firecrawl.scrapeUrl(url, {
-        formats: ['markdown', 'html']
-      } as any);
+        formats: ['markdown', 'html'],
+        onlyMainContent: true
+      });
 
       if (!docResult.success) {
         throw new Error(`Failed to scrape document: ${docResult.error}`);
@@ -622,55 +691,185 @@ export class FirecrawlIntegrationService extends EventEmitter {
 
   // AI Analysis Methods
   private async analyzeContent(contentId: string, content: string, job: FirecrawlJob): Promise<void> {
-    try {
-      // Use OpenAI to analyze content for grants
-      const analysis = await openaiService.analyzeContentForGrants(content);
-      
-      if (analysis.grants && analysis.grants.length > 0) {
-        // Save extracted grants
-        for (const grant of analysis.grants) {
+    const maxRetries = 2;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      try {
+        // Skip content that's too short or likely not grant-related
+        if (content.length < 100) {
+          logger.debug('Skipping AI analysis for short content', { contentId, length: content.length });
+          return;
+        }
+
+        // Pre-filter content for grant-related keywords
+        const grantKeywords = [
+          'grant', 'funding', 'application', 'deadline', 'eligibility', 
+          'award', 'scholarship', 'finance', 'budget', 'proposal'
+        ];
+        const hasGrantKeywords = grantKeywords.some(keyword => 
+          content.toLowerCase().includes(keyword)
+        );
+
+        if (!hasGrantKeywords) {
+          logger.debug('Skipping AI analysis for non-grant content', { contentId });
+          return;
+        }
+
+        logger.info('Starting AI content analysis', { 
+          contentId, 
+          attempt: attempt + 1,
+          contentLength: content.length 
+        });
+
+        // Use OpenAI to analyze content for grants with rate limiting
+        const analysis = await this.withRetryAndRateLimit(async () => {
+          return await openaiService.analyzeContentForGrants(content.substring(0, 12000)); // Limit content size
+        }, `AI analysis for content ${contentId}`);
+        
+        if (analysis && analysis.grants && analysis.grants.length > 0) {
+          logger.info('Found grants in content', { 
+            contentId, 
+            grantsFound: analysis.grants.length 
+          });
+
+          // Save extracted grants with validation
+          for (const grant of analysis.grants) {
+            try {
+              // Validate grant data
+              if (!grant.title || grant.title.trim().length === 0) {
+                logger.warn('Skipping grant with empty title', { contentId, grant });
+                continue;
+              }
+
+              await db.query(`
+                INSERT INTO firecrawl_extracted_grants (
+                  content_id, title, description, amount_min, amount_max,
+                  currency, deadline, eligibility, categories, contact_info,
+                  confidence_score, ai_metadata
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+              `, [
+                contentId,
+                grant.title.trim().substring(0, 500), // Ensure title isn't too long
+                grant.description ? grant.description.substring(0, 2000) : null,
+                grant.amount?.min || null,
+                grant.amount?.max || null,
+                grant.amount?.currency || 'EUR',
+                grant.deadline || null,
+                JSON.stringify(grant.eligibility || []),
+                JSON.stringify(grant.categories || []),
+                JSON.stringify(grant.contactInfo || {}),
+                Math.min(Math.max(grant.confidence || 0.7, 0), 1), // Clamp between 0 and 1
+                JSON.stringify(analysis.metadata || {})
+              ]);
+              
+              job.stats.grantsFound++;
+            } catch (grantSaveError) {
+              logger.error('Failed to save extracted grant', { 
+                contentId, 
+                grant: grant.title,
+                error: grantSaveError instanceof Error ? grantSaveError.message : String(grantSaveError)
+              });
+            }
+          }
+        }
+
+        // Save AI analysis results
+        await db.query(`
+          UPDATE firecrawl_scraped_content 
+          SET ai_analysis = $1, confidence_score = $2, processing_status = 'ai_analyzed'
+          WHERE id = $3
+        `, [
+          JSON.stringify({
+            ...analysis,
+            analyzedAt: new Date().toISOString(),
+            contentLength: content.length
+          }),
+          Math.min(Math.max(analysis?.overallConfidence || 0.5, 0), 1),
+          contentId
+        ]);
+
+        job.stats.dataExtracted++;
+        
+        logger.info('AI analysis completed successfully', { 
+          contentId,
+          grantsFound: analysis?.grants?.length || 0,
+          confidence: analysis?.overallConfidence || 0.5
+        });
+
+        return; // Success, exit retry loop
+
+      } catch (error) {
+        attempt++;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        logger.error(`AI analysis attempt ${attempt} failed`, { 
+          contentId,
+          attempt,
+          error: errorMessage
+        });
+
+        if (attempt >= maxRetries) {
+          // Final attempt failed
+          job.stats.errorsEncountered++;
+          
+          // Save error state
           await db.query(`
-            INSERT INTO firecrawl_extracted_grants (
-              content_id, title, description, amount_min, amount_max,
-              currency, deadline, eligibility, categories, contact_info,
-              confidence_score, ai_metadata
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            UPDATE firecrawl_scraped_content 
+            SET processing_status = 'ai_failed', ai_analysis = $1
+            WHERE id = $2
           `, [
-            contentId,
-            grant.title,
-            grant.description,
-            grant.amount?.min,
-            grant.amount?.max,
-            grant.amount?.currency || 'EUR',
-            grant.deadline,
-            JSON.stringify(grant.eligibility || []),
-            JSON.stringify(grant.categories || []),
-            JSON.stringify(grant.contactInfo || {}),
-            grant.confidence || 0.7,
-            JSON.stringify(analysis.metadata || {})
+            JSON.stringify({
+              error: errorMessage,
+              failedAt: new Date().toISOString(),
+              attempts: attempt
+            }),
+            contentId
           ]);
           
-          job.stats.grantsFound++;
+          throw new Error(`AI analysis failed after ${maxRetries} attempts: ${errorMessage}`);
         }
+
+        // Wait before retry
+        const waitTime = 2000 * attempt; // 2s, 4s
+        await this.sleep(waitTime);
       }
-
-      // Save AI analysis results
-      await db.query(`
-        UPDATE firecrawl_scraped_content 
-        SET ai_analysis = $1, confidence_score = $2 
-        WHERE id = $3
-      `, [
-        JSON.stringify(analysis),
-        analysis.overallConfidence || 0.5,
-        contentId
-      ]);
-
-      job.stats.dataExtracted++;
-
-    } catch (error) {
-      logger.error('AI analysis failed', { contentId, error });
-      job.stats.errorsEncountered++;
     }
+  }
+
+  /**
+   * Helper method for rate limiting and retry logic
+   */
+  private async withRetryAndRateLimit<T>(
+    operation: () => Promise<T>,
+    operationName: string,
+    maxRetries: number = 2
+  ): Promise<T> {
+    let attempt = 0;
+    
+    while (attempt < maxRetries) {
+      try {
+        // Add small delay for rate limiting
+        if (attempt > 0) {
+          await this.sleep(1000 * attempt);
+        }
+        
+        return await operation();
+      } catch (error) {
+        attempt++;
+        
+        if (attempt >= maxRetries) {
+          logger.error(`Operation ${operationName} failed after ${maxRetries} attempts`, { error });
+          throw error;
+        }
+        
+        logger.warn(`Operation ${operationName} attempt ${attempt} failed, retrying...`, { 
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+    
+    throw new Error(`Operation ${operationName} failed unexpectedly`);
   }
 
   private async saveAIExtractionResults(job: FirecrawlJob, extractedData: any): Promise<void> {
@@ -799,6 +998,60 @@ export class FirecrawlIntegrationService extends EventEmitter {
   }
 
   // Public API Methods
+  /**
+   * Simple website crawling method for compatibility
+   */
+  async crawlWebsite(url: string, options: {
+    maxPages?: number;
+    includePdfs?: boolean;
+    followInternalLinks?: boolean;
+    excludePatterns?: string[];
+    includePatterns?: string[];
+    extractContacts?: boolean;
+    extractImages?: boolean;
+    extractMetadata?: boolean;
+  } = {}): Promise<{
+    success: boolean;
+    jobId?: string;
+    pages?: any[];
+    error?: string;
+  }> {
+    try {
+      // Create a job for this crawl
+      const job = await this.createJob(url, 'full_crawl', {
+        maxDepth: Math.min(options.maxPages || 5, 3),
+        includePatterns: options.includePatterns || ['*'],
+        excludePatterns: options.excludePatterns || [],
+        followExternalLinks: false,
+        processDocuments: options.includePdfs !== false,
+        extractStructuredData: options.extractMetadata !== false
+      });
+
+      // Process the job immediately (simplified for compatibility)
+      try {
+        await this.processFullCrawl(job);
+        
+        // Get the results
+        const content = await this.getJobContent(job.id, { includePages: true });
+        
+        return {
+          success: true,
+          jobId: job.id,
+          pages: content.pages || []
+        };
+      } catch (processingError) {
+        await this.updateJobStatus(job.id, 'failed', processingError instanceof Error ? processingError.message : String(processingError));
+        throw processingError;
+      }
+    } catch (error) {
+      logger.error('Website crawl failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+
   async getJob(jobId: string): Promise<FirecrawlJob | null> {
     const result = await db.query('SELECT * FROM firecrawl_jobs WHERE id = $1', [jobId]);
     return result.rows[0] ? this.mapRowToJob(result.rows[0]) : null;
@@ -855,7 +1108,8 @@ export class FirecrawlIntegrationService extends EventEmitter {
     contentType?: string;
     limit?: number;
     offset?: number;
-  } = {}): Promise<{ content: any[]; total: number }> {
+    includePages?: boolean;
+  } = {}): Promise<{ content: any[]; total: number; pages?: any[] }> {
     let whereClause = 'WHERE job_id = $1';
     const params: any[] = [jobId];
     let paramIndex = 2;
@@ -877,10 +1131,25 @@ export class FirecrawlIntegrationService extends EventEmitter {
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `, [...params, options.limit || 50, options.offset || 0]);
 
-    return {
+    const result: any = {
       content: contentResult.rows,
       total
     };
+
+    if (options.includePages) {
+      result.pages = contentResult.rows.map(row => ({
+        url: row.url,
+        title: row.title,
+        content: row.content,
+        markdown: row.markdown,
+        html: row.html,
+        metadata: row.metadata,
+        contentType: row.content_type,
+        createdAt: row.created_at
+      }));
+    }
+
+    return result;
   }
 
   async getExtractedGrants(options: {
@@ -1040,6 +1309,13 @@ export class FirecrawlIntegrationService extends EventEmitter {
     }
 
     return createdJobs;
+  }
+
+  /**
+   * Process a full crawl job immediately (for compatibility)
+   */
+  private async processFullCrawl(job: FirecrawlJob): Promise<void> {
+    await this.processJob(job);
   }
 
   // Statistics

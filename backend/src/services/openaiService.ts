@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import axios from 'axios';
 import { logger } from './logger';
 import { VectorDatabaseService, VectorMetadata } from './vectorDatabase';
 import AICostManagementService from './aiCostManagementService';
@@ -107,8 +108,21 @@ export class OpenAIService {
       throw new Error('OPENAI_API_KEY environment variable is required');
     }
 
+    // Debug: check for Unicode characters in API key
+    const apiKey = process.env.OPENAI_API_KEY;
+    const hasUnicode = /[^\x00-\x7F]/.test(apiKey);
+    if (hasUnicode) {
+      logger.error('API key contains non-ASCII characters', { 
+        keyLength: apiKey.length,
+        firstChars: apiKey.substring(0, 10),
+        unicodeDetected: true
+      });
+    }
+
     this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
+      apiKey: apiKey,
+      timeout: 30000, // 30 second timeout
+      maxRetries: 3
     });
 
     this.vectorDB = new VectorDatabaseService();
@@ -176,16 +190,20 @@ export class OpenAIService {
         throw new Error('Text cannot be empty');
       }
 
-      // Limit text to max token size (8192 tokens ≈ 32,000 characters)
-      const limitedText = text.substring(0, 32000);
+      // Clean and limit text to max token size (8192 tokens for embedding models)
+      const cleanedText = text.replace(/\n/g, ' ').trim();
+      const limitedText = cleanedText.substring(0, 32000);
+
+      logger.debug(`Generating embedding for text length: ${limitedText.length}, model: ${model}`);
 
       const requestParams: any = {
         model,
-        input: limitedText
+        input: limitedText,
+        encoding_format: "float"
       };
 
       // Add dimensions parameter if specified and supported
-      if (dimensions && model === 'text-embedding-3-large') {
+      if (dimensions && (model === 'text-embedding-3-large' || model === 'text-embedding-3-small')) {
         requestParams.dimensions = dimensions;
       }
 
@@ -327,47 +345,123 @@ export class OpenAIService {
     messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
     options: ChatCompletionOptions = {}
   ): Promise<{ content: string, usage: OpenAIUsageInfo }> {
+    const {
+      model = 'gpt-4o-mini',
+      temperature = 0.7,
+      maxTokens,
+      responseFormat = 'text'
+    } = options;
+
+    const requestParams: any = {
+      model,
+      messages,
+      temperature
+    };
+
+    if (maxTokens) {
+      requestParams.max_tokens = maxTokens;
+    }
+
+    if (responseFormat === 'json_object') {
+      requestParams.response_format = { type: 'json_object' };
+    }
+
     try {
-      const {
-        model = 'gpt-4o-mini',
-        temperature = 0.7,
-        maxTokens,
-        responseFormat = 'text'
-      } = options;
+      // Try using the original OpenAI client first, with timeout settings
+      try {
+        const completion = await this.openai.chat.completions.create(requestParams);
+        
+        const content = completion.choices[0].message.content || '';
+        const usage: OpenAIUsageInfo = {
+          promptTokens: completion.usage?.prompt_tokens || 0,
+          completionTokens: completion.usage?.completion_tokens || 0,
+          totalTokens: completion.usage?.total_tokens || 0,
+          estimatedCost: this.calculateChatCost(
+            completion.usage?.prompt_tokens || 0,
+            completion.usage?.completion_tokens || 0,
+            model
+          )
+        };
 
-      const requestParams: any = {
-        model,
-        messages,
-        temperature
-      };
+        logger.info(`Chat completion via OpenAI client: ${usage.totalTokens} tokens, $${(usage.estimatedCost / 100).toFixed(4)}`);
+        return { content, usage };
+        
+      } catch (clientError) {
+        logger.warn('OpenAI client failed, falling back to fetch', { 
+          error: clientError instanceof Error ? clientError.message : String(clientError) 
+        });
+        
+        // Fallback to fetch with comprehensive sanitization
+        function sanitizeText(text: string): string {
+          return text
+            // Convert to ASCII-safe characters
+            .replace(/[\u2018\u2019]/g, "'")     // Smart single quotes
+            .replace(/[\u201C\u201D]/g, '"')     // Smart double quotes
+            .replace(/\u2026/g, '...')           // Horizontal ellipsis
+            .replace(/\u2013/g, '-')             // En dash
+            .replace(/\u2014/g, '--')            // Em dash
+            .replace(/\u00A0/g, ' ')             // Non-breaking space
+            .replace(/[\u2000-\u200F]/g, ' ')    // Various Unicode spaces
+            .replace(/[\u2028\u2029]/g, '\n')    // Line/paragraph separators
+            // Remove any character above ASCII range to prevent ByteString errors
+            .replace(/[^\x00-\x7F]/g, '')
+            // Clean up any double spaces
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+        
+        const sanitizedParams = {
+          ...requestParams,
+          messages: requestParams.messages.map((msg: any) => {
+            const sanitized = sanitizeText(msg.content);
+            // Debug: log character codes around index 10
+            if (sanitized.length > 15) {
+              const chars = sanitized.substring(5, 15).split('').map((c, i) => `${i+5}:${c}(${c.charCodeAt(0)})`);
+              logger.debug('Characters around index 10:', { chars });
+            }
+            return {
+              ...msg,
+              content: sanitized
+            };
+          })
+        };
+        
+        const response = await axios.post('https://api.openai.com/v1/chat/completions', 
+          sanitizedParams,
+          {
+            headers: {
+              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+              'Content-Type': 'application/json; charset=utf-8'
+            },
+            timeout: 30000
+          }
+        );
 
-      if (maxTokens) {
-        requestParams.max_tokens = maxTokens;
+        const data = response.data;
+        
+        const content = data.choices[0].message.content || '';
+        const usage: OpenAIUsageInfo = {
+          promptTokens: data.usage?.prompt_tokens || 0,
+          completionTokens: data.usage?.completion_tokens || 0,
+          totalTokens: data.usage?.total_tokens || 0,
+          estimatedCost: this.calculateChatCost(
+            data.usage?.prompt_tokens || 0,
+            data.usage?.completion_tokens || 0,
+            model
+          )
+        };
+
+        logger.info(`Chat completion via fetch: ${usage.totalTokens} tokens, $${(usage.estimatedCost / 100).toFixed(4)}`);
+        return { content, usage };
       }
-
-      if (responseFormat === 'json_object') {
-        requestParams.response_format = { type: 'json_object' };
-      }
-
-      const response = await this.openai.chat.completions.create(requestParams);
       
-      const content = response.choices[0].message.content || '';
-      const usage: OpenAIUsageInfo = {
-        promptTokens: response.usage?.prompt_tokens || 0,
-        completionTokens: response.usage?.completion_tokens || 0,
-        totalTokens: response.usage?.total_tokens || 0,
-        estimatedCost: this.calculateChatCost(
-          response.usage?.prompt_tokens || 0,
-          response.usage?.completion_tokens || 0,
-          model
-        )
-      };
-
-      logger.info(`Chat completion: ${usage.totalTokens} tokens, $${(usage.estimatedCost / 100).toFixed(4)}`);
-      
-      return { content, usage };
     } catch (error) {
-      logger.error('Failed to generate chat completion:', error);
+      logger.error('Failed to generate chat completion:', {
+        error: error instanceof Error ? error.message : String(error),
+        name: error instanceof Error ? error.name : undefined,
+        stack: error instanceof Error ? error.stack : undefined,
+        requestParams: requestParams
+      });
       throw new Error(`Failed to generate chat completion: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -927,6 +1021,39 @@ Please extract the requested information and provide a confidence score.`;
   }
 
   /**
+   * Generate text using OpenAI completion (convenience method for AI Editor)
+   */
+  async generateText(
+    prompt: string,
+    options: {
+      model?: 'gpt-4-turbo' | 'gpt-4o' | 'gpt-4o-mini';
+      max_tokens?: number;
+      temperature?: number;
+    } = {}
+  ): Promise<string> {
+    try {
+      const {
+        model = 'gpt-4o-mini',
+        max_tokens = 2000,
+        temperature = 0.7
+      } = options;
+
+      const messages = [{ role: 'user' as const, content: prompt }];
+      
+      const { content } = await this.chatCompletionInternal(messages, {
+        model,
+        maxTokens: max_tokens,
+        temperature
+      });
+
+      return content;
+    } catch (error) {
+      logger.error('Failed to generate text:', error);
+      throw new Error(`Failed to generate text: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
    * Get service health status
    */
   async healthCheck(): Promise<{
@@ -935,28 +1062,44 @@ Please extract the requested information and provide a confidence score.`;
     vectorDbConnected: boolean;
     error?: string;
   }> {
+    let openaiConnected = false;
+    let openaiError: string | undefined;
+    let vectorDbConnected = false;
+    let vectorDbError: string | undefined;
+
+    // Test OpenAI connection separately
     try {
-      // Test OpenAI connection with a simple embedding
       await this.generateEmbedding('test', { model: 'text-embedding-3-small' });
-      
-      // Test vector database connection
-      const vectorHealth = await this.vectorDB.healthCheck();
-      
-      return {
-        status: vectorHealth.status === 'healthy' ? 'healthy' : 'unhealthy',
-        openaiConnected: true,
-        vectorDbConnected: vectorHealth.status === 'healthy',
-        error: vectorHealth.error
-      };
+      openaiConnected = true;
+      logger.debug('OpenAI embedding service: Connected successfully');
     } catch (error) {
-      logger.error('OpenAI service health check failed:', error);
-      return {
-        status: 'unhealthy',
-        openaiConnected: false,
-        vectorDbConnected: false,
-        error: error instanceof Error ? error.message : String(error)
-      };
+      openaiError = error instanceof Error ? error.message : String(error);
+      logger.error('OpenAI embedding service connection failed:', openaiError);
     }
+
+    // Test vector database connection separately
+    try {
+      const vectorHealth = await this.vectorDB.healthCheck();
+      vectorDbConnected = vectorHealth.status === 'healthy';
+      if (!vectorDbConnected && vectorHealth.error) {
+        vectorDbError = vectorHealth.error;
+      }
+      logger.debug(`Vector database: ${vectorHealth.status}`);
+    } catch (error) {
+      vectorDbError = error instanceof Error ? error.message : String(error);
+      logger.error('Vector database connection failed:', vectorDbError);
+    }
+
+    // Determine overall status
+    const isHealthy = openaiConnected && vectorDbConnected;
+    const combinedError = [openaiError, vectorDbError].filter(Boolean).join('; ');
+
+    return {
+      status: isHealthy ? 'healthy' : 'unhealthy',
+      openaiConnected,
+      vectorDbConnected,
+      error: combinedError || undefined
+    };
   }
 }
 

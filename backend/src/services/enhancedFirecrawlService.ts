@@ -262,22 +262,18 @@ export class EnhancedFirecrawlService {
     try {
       logger.info('Starting enhanced crawl job', { jobId: job.id, sourceUrl: job.source_url });
 
-      // Configure Firecrawl options
+      // Configure Firecrawl v1 API options
       const crawlOptions = {
-        crawlerOptions: {
-          includes: job.configuration.include_patterns,
-          excludes: job.configuration.exclude_patterns,
-          maxDepth: job.configuration.max_depth,
-          limit: 100,
-          allowBackwardCrawling: false,
-          allowExternalContentLinks: job.configuration.follow_external_links
-        },
-        pageOptions: {
-          onlyMainContent: true,
-          includeHtml: true,
-          screenshot: job.configuration.capture_screenshots,
-          waitFor: 2000
-        }
+        includePaths: job.configuration.include_patterns,
+        excludePaths: job.configuration.exclude_patterns,
+        maxDepth: job.configuration.max_depth,
+        limit: 100,
+        allowBackwardCrawling: false,
+        allowExternalContentLinks: job.configuration.follow_external_links,
+        formats: ['markdown', 'html'],
+        onlyMainContent: true,
+        screenshot: job.configuration.capture_screenshots,
+        waitFor: 2000
       };
 
       // Start the crawl
@@ -413,10 +409,11 @@ export class EnhancedFirecrawlService {
   private async processDocument(url: string, pageId: string, job: CrawlJobExtended): Promise<ScrapedDocument> {
     const fileType = this.getFileTypeFromUrl(url);
     
-    // Scrape document with Firecrawl
+    // Scrape document with Firecrawl v1 API
     const docResult = await this.firecrawl.scrapeUrl(url, {
-      formats: ['markdown', 'html']
-    } as any);
+      formats: ['markdown', 'html'],
+      onlyMainContent: true
+    });
 
     if (!docResult.success) {
       throw new Error(`Failed to scrape document: ${docResult.error}`);
@@ -775,6 +772,152 @@ export class EnhancedFirecrawlService {
 
     await db.query(`DELETE FROM ${table} WHERE id = ANY($1)`, [ids]);
     logger.info(`Deleted ${ids.length} ${type}`, { ids });
+  }
+
+  /**
+   * Simple crawl website method for grant intelligence integration
+   */
+  async crawlWebsite(
+    url: string,
+    options: {
+      maxPages?: number;
+      includePdfs?: boolean;
+      followInternalLinks?: boolean;
+      excludePatterns?: string[];
+      includePatterns?: string[];
+      extractContacts?: boolean;
+      extractImages?: boolean;
+      extractMetadata?: boolean;
+    } = {}
+  ): Promise<{
+    success: boolean;
+    jobId?: string;
+    pages?: Array<{
+      url: string;
+      title?: string;
+      content: string;
+      metadata?: any;
+    }>;
+    documents?: Array<{
+      url: string;
+      title?: string;
+      content: string;
+      file_type: string;
+      metadata?: any;
+    }>;
+    error?: string;
+  }> {
+    try {
+      await this.initialize();
+
+      const {
+        maxPages = 10,
+        includePdfs = true,
+        followInternalLinks = true,
+        excludePatterns = [],
+        includePatterns = ['*'],
+        extractContacts = false,
+        extractImages = false,
+        extractMetadata = true
+      } = options;
+
+      logger.info('Starting website crawl', { url, options });
+
+      // Configure crawl options for Firecrawl v1 API
+      const crawlOptions = {
+        includePaths: includePatterns,
+        excludePaths: excludePatterns,
+        maxDepth: 2,
+        limit: maxPages,
+        allowBackwardCrawling: false,
+        allowExternalContentLinks: !followInternalLinks,
+        formats: ['markdown', extractMetadata ? 'html' : 'markdown'],
+        onlyMainContent: true,
+        screenshot: false,
+        waitFor: 2000
+      };
+
+      // Execute crawl
+      const crawlResult = await this.firecrawl.crawlUrl(url, crawlOptions);
+
+      if (!crawlResult.success) {
+        return {
+          success: false,
+          error: crawlResult.error || 'Crawl failed'
+        };
+      }
+
+      const pages = (crawlResult.data || []).map((page: any) => ({
+        url: page.metadata?.sourceURL || page.url || url,
+        title: page.metadata?.title || 'Untitled',
+        content: page.markdown || page.content || '',
+        metadata: page.metadata || {}
+      }));
+
+      // If PDFs are requested, try to extract document links and scrape them
+      const documents: any[] = [];
+      if (includePdfs && pages.length > 0) {
+        for (const page of pages) {
+          const docLinks = this.extractDocumentLinks(page.content);
+          for (const docUrl of docLinks.slice(0, 3)) { // Limit to 3 documents per page
+            try {
+              const docResult = await this.firecrawl.scrapeUrl(docUrl, {
+                formats: ['markdown'],
+                onlyMainContent: true
+              });
+
+              if (docResult.success) {
+                const docData = (docResult as any).data || docResult;
+                documents.push({
+                  url: docUrl,
+                  title: docData.metadata?.title || this.extractTitleFromUrl(docUrl),
+                  content: docData.markdown || docData.content || '',
+                  file_type: this.getFileTypeFromUrl(docUrl),
+                  metadata: docData.metadata || {}
+                });
+              }
+            } catch (error) {
+              logger.warn('Failed to scrape document', { url: docUrl, error });
+            }
+          }
+        }
+      }
+
+      const jobId = `crawl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      logger.info('Website crawl completed', {
+        url,
+        jobId,
+        pagesFound: pages.length,
+        documentsFound: documents.length
+      });
+
+      return {
+        success: true,
+        jobId,
+        pages,
+        documents
+      };
+
+    } catch (error) {
+      logger.error('Website crawl failed', { url, error });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown crawl error'
+      };
+    }
+  }
+
+  private extractDocumentLinks(content: string): string[] {
+    const documentRegex = /href\s*=\s*["']([^"']*\.(?:pdf|docx?|txt|rtf))["']/gi;
+    const links: string[] = [];
+    let match;
+
+    while ((match = documentRegex.exec(content)) !== null) {
+      links.push(match[1]);
+    }
+
+    return [...new Set(links)]; // Remove duplicates
   }
 }
 
