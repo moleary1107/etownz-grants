@@ -81,6 +81,18 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       permission: null // Available to all
     },
     {
+      name: "Grant Intelligence",
+      href: "/dashboard/grant-intelligence",
+      icon: Brain,
+      permission: "canAccessAnalytics" // Require higher permission for AI features
+    },
+    {
+      name: "Content Templates",
+      href: "/dashboard/templates",
+      icon: FileText,
+      permission: "canAccessAnalytics" // Require higher permission for AI features
+    },
+    {
       name: "Knowledge Base",
       href: "/dashboard/knowledge-base",
       icon: Database,
@@ -90,6 +102,12 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       name: "Web Scraping",
       href: "/dashboard/scraping",
       icon: Zap,
+      permission: "canAccessAnalytics"
+    },
+    {
+      name: "Organization Analysis",
+      href: "/dashboard/organization-analysis",
+      icon: Building,
       permission: "canAccessAnalytics"
     },
     {

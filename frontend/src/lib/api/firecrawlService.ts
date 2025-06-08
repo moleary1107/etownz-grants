@@ -276,6 +276,101 @@ export class FirecrawlService {
 
     return response.json();
   }
+
+  // Organization Analysis Methods
+  async scrapeAndAnalyzeOrganization(
+    organizationId: string,
+    websiteUrl: string,
+    options: {
+      maxPages?: number;
+      includePdfs?: boolean;
+      followLinks?: boolean;
+    } = {}
+  ): Promise<{
+    success: boolean;
+    organizationId: string;
+    websiteUrl: string;
+    pagesScraped: number;
+    intelligenceExtracted: number;
+    capabilitiesIdentified: number;
+    scrapedPages: string[];
+    error?: string;
+  }> {
+    const response = await fetch(`/api/grant-intelligence/scrape-and-analyze/${organizationId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        websiteUrl,
+        maxPages: options.maxPages || 5,
+        includePdfs: options.includePdfs !== false,
+        followLinks: options.followLinks !== false,
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to scrape organization: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  async getOrganizationCapabilities(organizationId: string): Promise<{
+    organizationId: string;
+    capabilities: Array<{
+      id: string;
+      capability_type: string;
+      capability_name: string;
+      description: string;
+      proficiency_level: string;
+      evidence_sources: string[];
+      keywords: string[];
+      created_at: string;
+    }>;
+  }> {
+    const response = await fetch(`/api/grant-intelligence/capabilities/${organizationId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get capabilities: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  async getOrganizationIntelligence(organizationId: string): Promise<{
+    intelligence: Array<{
+      id: string;
+      data_source: string;
+      intelligence_type: string;
+      extracted_data: any;
+      summary: string;
+      keywords: string[];
+      relevance_tags: string[];
+      confidence_score: number;
+      created_at: string;
+    }>;
+  }> {
+    const response = await fetch(`/api/organizations/${organizationId}/intelligence`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get intelligence: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
 }
 
 export const firecrawlService = new FirecrawlService();
