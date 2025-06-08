@@ -92,13 +92,20 @@ export class AICostManagementService {
 
   private async initializeService(): Promise<void> {
     try {
+      // Skip initialization if disabled via environment
+      if (process.env.DISABLE_AI_COST_MANAGEMENT === 'true') {
+        logger.info('AI Cost Management Service initialization skipped (disabled via environment)');
+        return;
+      }
+
       await this.createTablesIfNotExist();
       await this.loadThresholdsIntoCache();
       this.startPeriodicCleanup();
       logger.info('AI Cost Management Service initialized');
     } catch (error) {
       logger.error('Failed to initialize AI Cost Management Service:', error);
-      throw error;
+      // Don't throw error to prevent server crash in production
+      logger.warn('AI Cost Management Service will be disabled due to initialization failure');
     }
   }
 
