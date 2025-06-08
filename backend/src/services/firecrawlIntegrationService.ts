@@ -411,27 +411,31 @@ export class FirecrawlIntegrationService extends EventEmitter {
         });
 
         // Process pages with error handling
-        const processedPages = [];
-        const failedPages = [];
+        const processedPages: string[] = [];
+        const failedPages: Array<{ url: string; error: string }> = [];
         
         for (let i = 0; i < pages.length; i++) {
           try {
             await this.processPage(pages[i], job);
-            processedPages.push(pages[i].url || pages[i].metadata?.sourceURL);
+            const pageUrl = pages[i].url || pages[i].metadata?.sourceURL || 'unknown';
+            processedPages.push(pageUrl);
             
             // Update progress
             const progress = Math.floor((i + 1) / pages.length * 90);
             await this.updateJobProgress(job.id, progress);
             
           } catch (pageError) {
+            const pageUrl = pages[i].url || pages[i].metadata?.sourceURL || 'unknown';
+            const errorMessage = pageError instanceof Error ? pageError.message : String(pageError);
+            
             logger.warn('Failed to process page', { 
               jobId: job.id,
-              pageUrl: pages[i].url || pages[i].metadata?.sourceURL,
-              error: pageError instanceof Error ? pageError.message : String(pageError)
+              pageUrl,
+              error: errorMessage
             });
             failedPages.push({
-              url: pages[i].url || pages[i].metadata?.sourceURL,
-              error: pageError instanceof Error ? pageError.message : String(pageError)
+              url: pageUrl,
+              error: errorMessage
             });
             job.stats.errorsEncountered++;
           }
