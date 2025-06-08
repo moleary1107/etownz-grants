@@ -1,2 +1,0 @@
-Deployment date: Fri 30 May 2025 19:01:58 IST
-Deployed from: Marks-Laptop.local

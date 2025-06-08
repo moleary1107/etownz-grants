@@ -197,23 +197,23 @@ export class FirecrawlService {
         `, [
           source.id,
           job.id,
-          grant.externalId || grant.url || grant.title,
+          grant.id || grant.sourceUrl || grant.title,
           grant.title,
           grant.description,
           grant.provider,
-          grant.url,
-          grant.amountText,
+          grant.sourceUrl,
+          grant.amount?.description || '',
           grant.amount?.min,
           grant.amount?.max,
-          grant.currency || 'EUR',
+          grant.amount?.currency || 'EUR',
           grant.deadline,
-          grant.deadlineText,
-          grant.categories || [],
-          grant.locationRestrictions || [],
+          grant.deadline ? grant.deadline.toISOString() : null,
+          grant.category ? [grant.category] : [],
+          grant.location ? [grant.location] : [],
           grant.documentUrls || [],
-          grant.eligibilityText,
-          grant.eligibilityCriteria || {},
-          grant.confidenceScore || 0.5,
+          grant.eligibility?.map(e => e.description).join('; ') || '',
+          JSON.stringify(grant.eligibility || []),
+          grant.eligibilityScore || 0.5,
           'pending'
         ])
         
@@ -286,7 +286,7 @@ export class FirecrawlService {
         values.push(JSON.stringify(value))
       } else {
         updateFields.push(`${key} = $${paramIndex}`)
-        values.push(value)
+        values.push(value as string)
       }
       paramIndex++
     }
