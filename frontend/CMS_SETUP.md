@@ -50,8 +50,8 @@ npm run cms
 
 ### 4. Access CMS Interface
 
-- **Website**: http://localhost:3000
-- **CMS Admin**: http://localhost:3000/cms
+- **Website**: http://localhost:3001
+- **CMS Admin**: http://localhost:3001/cms
 
 ## Content Management
 

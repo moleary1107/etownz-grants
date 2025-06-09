@@ -108,15 +108,25 @@ export class OpenAIService {
       throw new Error('OPENAI_API_KEY environment variable is required');
     }
 
-    // Debug: check for Unicode characters in API key
-    const apiKey = process.env.OPENAI_API_KEY;
+    // Validate and sanitize API key
+    let apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OpenAI API key is required');
+    }
+    
+    // Check for Unicode characters and sanitize if needed
     const hasUnicode = /[^\x00-\x7F]/.test(apiKey);
     if (hasUnicode) {
-      logger.error('API key contains non-ASCII characters', { 
+      logger.warn('API key contains non-ASCII characters, sanitizing', { 
         keyLength: apiKey.length,
-        firstChars: apiKey.substring(0, 10),
+        firstChars: apiKey.substring(0, 5) + '...',
         unicodeDetected: true
       });
+      // Remove non-ASCII characters and trim whitespace
+      apiKey = apiKey.replace(/[^\x00-\x7F]/g, '').trim();
+      if (!apiKey.startsWith('sk-')) {
+        throw new Error('Invalid OpenAI API key format after sanitization');
+      }
     }
 
     this.openai = new OpenAI({

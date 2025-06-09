@@ -4,13 +4,13 @@
 -- Application Templates Table
 CREATE TABLE IF NOT EXISTS application_templates (
     id SERIAL PRIMARY KEY,
-    grant_id VARCHAR(255) NOT NULL,
+    grant_id UUID NOT NULL,
     template_type VARCHAR(20) NOT NULL CHECK (template_type IN ('form', 'narrative', 'budget', 'technical')),
     title VARCHAR(255) NOT NULL,
     description TEXT,
     sections JSONB NOT NULL DEFAULT '[]',
-    required_fields TEXT[] NOT NULL DEFAULT '{}',
-    optional_fields TEXT[] NOT NULL DEFAULT '{}',
+    required_fields TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    optional_fields TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
     validation_rules JSONB NOT NULL DEFAULT '[]',
     ai_guidance JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS application_templates (
 -- Application Drafts Table
 CREATE TABLE IF NOT EXISTS application_drafts (
     id SERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
-    grant_id VARCHAR(255) NOT NULL,
+    user_id UUID NOT NULL,
+    grant_id UUID NOT NULL,
     template_id INTEGER REFERENCES application_templates(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
     status VARCHAR(20) NOT NULL CHECK (status IN ('draft', 'in_review', 'submitted', 'approved', 'rejected')) DEFAULT 'draft',
@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS application_drafts (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Foreign key constraints
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (grant_id) REFERENCES grants(id) ON DELETE CASCADE
 );
 
@@ -60,7 +61,7 @@ CREATE TABLE IF NOT EXISTS ai_suggestions (
 -- Application Assistance Sessions Table (for tracking AI interactions)
 CREATE TABLE IF NOT EXISTS assistance_sessions (
     id SERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
+    user_id UUID NOT NULL,
     draft_id INTEGER REFERENCES application_drafts(id) ON DELETE CASCADE,
     session_type VARCHAR(50) NOT NULL CHECK (session_type IN ('smart_form', 'content_generation', 'validation', 'auto_complete', 'writing_assistance')),
     request_data JSONB NOT NULL DEFAULT '{}',
@@ -76,7 +77,7 @@ CREATE TABLE IF NOT EXISTS assistance_sessions (
 -- Content Generation History Table
 CREATE TABLE IF NOT EXISTS content_generation_history (
     id SERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
+    user_id UUID NOT NULL,
     draft_id INTEGER REFERENCES application_drafts(id) ON DELETE CASCADE,
     section_id VARCHAR(255) NOT NULL,
     prompt TEXT NOT NULL,
@@ -93,7 +94,7 @@ CREATE TABLE IF NOT EXISTS content_generation_history (
 -- Smart Form Templates Cache Table (for performance)
 CREATE TABLE IF NOT EXISTS smart_form_cache (
     id SERIAL PRIMARY KEY,
-    grant_id VARCHAR(255) NOT NULL,
+    grant_id UUID NOT NULL,
     organization_hash VARCHAR(64) NOT NULL, -- Hash of organization profile for caching
     template_data JSONB NOT NULL,
     pre_filled_data JSONB NOT NULL,
@@ -114,10 +115,7 @@ CREATE TABLE IF NOT EXISTS application_analytics (
     metric_name VARCHAR(100) NOT NULL,
     metric_value DECIMAL(10,4),
     metric_metadata JSONB DEFAULT '{}',
-    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    -- Index for time-series queries
-    INDEX (draft_id, metric_name, recorded_at)
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Indexes for performance
@@ -146,6 +144,7 @@ CREATE INDEX IF NOT EXISTS idx_content_generation_section ON content_generation_
 
 CREATE INDEX IF NOT EXISTS idx_smart_form_cache_grant_id ON smart_form_cache(grant_id);
 CREATE INDEX IF NOT EXISTS idx_smart_form_cache_expires ON smart_form_cache(expires_at);
+
 
 -- Functions for maintaining application analytics
 CREATE OR REPLACE FUNCTION update_draft_completion_percentage()

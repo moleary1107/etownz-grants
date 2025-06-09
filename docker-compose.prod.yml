@@ -10,7 +10,7 @@ services:
       - NEXT_PUBLIC_SANITY_PROJECT_ID=hpmuagfn
       - NEXT_PUBLIC_SANITY_DATASET=production
     ports:
-      - "3001:3000"
+      - "3001:3001"
     restart: unless-stopped
 
   # Backend API

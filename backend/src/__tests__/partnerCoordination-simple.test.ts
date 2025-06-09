@@ -1,7 +1,12 @@
 import { DatabaseService } from '../services/database';
 
 // Mock dependencies
-jest.mock('../services/database');
+const mockGetInstance = jest.fn();
+jest.mock('../services/database', () => ({
+  DatabaseService: {
+    getInstance: mockGetInstance
+  }
+}));
 
 describe('Partner Coordination Service - Simple Tests', () => {
   let mockDb: jest.Mocked<DatabaseService>;
@@ -47,10 +52,14 @@ describe('Partner Coordination Service - Simple Tests', () => {
 
   describe('Database Integration', () => {
     it('should use database service for partner queries', async () => {
+      // Mock the database instance
+      const mockDbInstance = { query: jest.fn() };
+      mockGetInstance.mockReturnValue(mockDbInstance);
+      
       const { partnerCoordinationService } = await import('../services/partnerCoordinationService');
       
       // Verify database service is being used
-      expect(DatabaseService.getInstance).toHaveBeenCalled();
+      expect(mockGetInstance).toHaveBeenCalled();
     });
 
     it('should handle database query structure', async () => {

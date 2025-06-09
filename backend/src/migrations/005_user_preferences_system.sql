@@ -1,10 +1,16 @@
--- Migration 005: User Preferences and Learning System
+-- Migration 005: User Preferences and Learning System (FIXED)
 -- Create tables for user preferences, interactions, and recommendation system
+
+-- Drop existing tables if they exist (to fix the type mismatch)
+DROP TABLE IF EXISTS user_recommendation_cache CASCADE;
+DROP TABLE IF EXISTS user_interactions CASCADE;
+DROP TABLE IF EXISTS user_preferences CASCADE;
+DROP TABLE IF EXISTS user_learning_metrics CASCADE;
 
 -- User Preferences Table
 CREATE TABLE IF NOT EXISTS user_preferences (
     id SERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
+    user_id UUID NOT NULL,
     preference_type VARCHAR(50) NOT NULL CHECK (preference_type IN ('category', 'funder_type', 'amount_range', 'location', 'keyword')),
     preference_value VARCHAR(255) NOT NULL,
     weight DECIMAL(3,2) NOT NULL CHECK (weight >= 0 AND weight <= 1),
@@ -12,27 +18,29 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
-    UNIQUE(user_id, preference_type, preference_value)
+    UNIQUE(user_id, preference_type, preference_value),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- User Interactions Table
 CREATE TABLE IF NOT EXISTS user_interactions (
     id SERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
-    grant_id VARCHAR(255) NOT NULL,
+    user_id UUID NOT NULL,
+    grant_id UUID NOT NULL,
     interaction_type VARCHAR(20) NOT NULL CHECK (interaction_type IN ('view', 'favorite', 'apply', 'share', 'dismiss')),
     context JSONB,
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
-    -- Foreign key constraint (assumes grants table exists)
+    -- Foreign key constraints
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (grant_id) REFERENCES grants(id) ON DELETE CASCADE
 );
 
 -- User Recommendation Cache Table (for performance)
 CREATE TABLE IF NOT EXISTS user_recommendation_cache (
     id SERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
-    grant_id VARCHAR(255) NOT NULL,
+    user_id UUID NOT NULL,
+    grant_id UUID NOT NULL,
     score DECIMAL(5,4) NOT NULL,
     reasoning JSONB NOT NULL,
     explanation TEXT[],
@@ -42,105 +50,88 @@ CREATE TABLE IF NOT EXISTS user_recommendation_cache (
     
     -- Constraints
     UNIQUE(user_id, grant_id, context),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (grant_id) REFERENCES grants(id) ON DELETE CASCADE
 );
 
 -- User Learning Metrics Table (aggregated data for performance)
 CREATE TABLE IF NOT EXISTS user_learning_metrics (
-    user_id VARCHAR(255) PRIMARY KEY,
-    total_interactions INTEGER DEFAULT 0,
-    favorite_categories TEXT[],
-    avg_grant_amount DECIMAL(12,2),
-    preferred_funders TEXT[],
-    success_rate DECIMAL(3,2) DEFAULT 0,
-    last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    user_id UUID PRIMARY KEY,
+    category_preferences JSONB DEFAULT '{}',
+    funder_preferences JSONB DEFAULT '{}',
+    amount_preferences JSONB DEFAULT '{}',
+    interaction_stats JSONB DEFAULT '{}',
+    model_version VARCHAR(20),
+    last_calculation TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Indexes for performance
+-- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_preferences_type_value ON user_preferences(preference_type, preference_value);
-CREATE INDEX IF NOT EXISTS idx_user_preferences_weight ON user_preferences(weight DESC);
-
 CREATE INDEX IF NOT EXISTS idx_user_interactions_user_id ON user_interactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_interactions_grant_id ON user_interactions(grant_id);
-CREATE INDEX IF NOT EXISTS idx_user_interactions_type ON user_interactions(interaction_type);
 CREATE INDEX IF NOT EXISTS idx_user_interactions_timestamp ON user_interactions(timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_user_interactions_user_grant ON user_interactions(user_id, grant_id);
-
+CREATE INDEX IF NOT EXISTS idx_user_interactions_type ON user_interactions(interaction_type);
 CREATE INDEX IF NOT EXISTS idx_recommendation_cache_user_id ON user_recommendation_cache(user_id);
 CREATE INDEX IF NOT EXISTS idx_recommendation_cache_expires ON user_recommendation_cache(expires_at);
 CREATE INDEX IF NOT EXISTS idx_recommendation_cache_score ON user_recommendation_cache(score DESC);
 
--- Functions for maintaining learning metrics
-CREATE OR REPLACE FUNCTION update_user_learning_metrics()
+-- Create update trigger function if it doesn't exist
+CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Update learning metrics when interactions change
-    INSERT INTO user_learning_metrics (
-        user_id,
-        total_interactions,
-        last_updated
-    )
-    VALUES (
-        NEW.user_id,
-        1,
-        NOW()
-    )
-    ON CONFLICT (user_id) DO UPDATE SET
-        total_interactions = user_learning_metrics.total_interactions + 1,
-        last_updated = NOW();
-    
+    NEW.updated_at = NOW();
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to automatically update learning metrics
-DROP TRIGGER IF EXISTS trigger_update_learning_metrics ON user_interactions;
-CREATE TRIGGER trigger_update_learning_metrics
-    AFTER INSERT ON user_interactions
-    FOR EACH ROW
-    EXECUTE FUNCTION update_user_learning_metrics();
+-- Apply trigger to user_preferences
+DROP TRIGGER IF EXISTS update_user_preferences_updated_at ON user_preferences;
+CREATE TRIGGER update_user_preferences_updated_at 
+    BEFORE UPDATE ON user_preferences 
+    FOR EACH ROW 
+    EXECUTE PROCEDURE update_updated_at_column();
 
--- Function to clean expired recommendation cache
-CREATE OR REPLACE FUNCTION clean_expired_recommendations()
-RETURNS INTEGER AS $$
+-- Create helper function to initialize user preferences
+CREATE OR REPLACE FUNCTION initialize_user_preferences(p_user_id UUID)
+RETURNS VOID AS $$
 DECLARE
-    deleted_count INTEGER;
+    v_user_record RECORD;
 BEGIN
-    DELETE FROM user_recommendation_cache 
-    WHERE expires_at < NOW();
+    -- Get user's organization information
+    SELECT u.*, o.* INTO v_user_record
+    FROM users u
+    LEFT JOIN organizations o ON u.org_id = o.id
+    WHERE u.id = p_user_id;
     
-    GET DIAGNOSTICS deleted_count = ROW_COUNT;
-    RETURN deleted_count;
+    -- Initialize basic preferences based on organization data
+    IF v_user_record.categories IS NOT NULL THEN
+        INSERT INTO user_preferences (user_id, preference_type, preference_value, weight)
+        SELECT p_user_id, 'category', unnest(v_user_record.categories), 0.8
+        ON CONFLICT (user_id, preference_type, preference_value) DO NOTHING;
+    END IF;
+    
+    -- Initialize metrics entry
+    INSERT INTO user_learning_metrics (user_id)
+    VALUES (p_user_id)
+    ON CONFLICT (user_id) DO NOTHING;
 END;
 $$ LANGUAGE plpgsql;
 
--- Add some initial data for testing (if needed)
--- Note: This would typically be handled by the application, not migration
-
--- Views for analytics
+-- Create view for user preference summary
 CREATE OR REPLACE VIEW user_preference_summary AS
 SELECT 
-    user_id,
-    preference_type,
-    COUNT(*) as preference_count,
-    AVG(weight) as avg_weight,
-    MAX(updated_at) as last_updated
-FROM user_preferences
-GROUP BY user_id, preference_type;
-
-CREATE OR REPLACE VIEW user_interaction_summary AS
-SELECT 
-    user_id,
-    interaction_type,
-    COUNT(*) as interaction_count,
-    MAX(timestamp) as last_interaction
-FROM user_interactions
-GROUP BY user_id, interaction_type;
-
--- Grant this to the application user
--- GRANT SELECT, INSERT, UPDATE, DELETE ON user_preferences TO your_app_user;
--- GRANT SELECT, INSERT, UPDATE, DELETE ON user_interactions TO your_app_user;
--- GRANT SELECT, INSERT, UPDATE, DELETE ON user_recommendation_cache TO your_app_user;
--- GRANT SELECT, INSERT, UPDATE, DELETE ON user_learning_metrics TO your_app_user;
--- GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO your_app_user;
+    u.id as user_id,
+    u.email,
+    u.first_name,
+    u.last_name,
+    COUNT(DISTINCT up.id) as preference_count,
+    COUNT(DISTINCT ui.id) as interaction_count,
+    MAX(ui.timestamp) as last_interaction,
+    COALESCE(ulm.model_version, 'v1.0') as model_version
+FROM users u
+LEFT JOIN user_preferences up ON u.id = up.user_id
+LEFT JOIN user_interactions ui ON u.id = ui.user_id
+LEFT JOIN user_learning_metrics ulm ON u.id = ulm.user_id
+GROUP BY u.id, u.email, u.first_name, u.last_name, ulm.model_version;

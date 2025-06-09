@@ -49,6 +49,7 @@ import applicationsRoutes from './routes/applications';
 import webhooksRoutes from './routes/webhooks';
 import scrapingRoutes from './routes/scraping';
 import firecrawlRoutes from './routes/firecrawl';
+import mcpScrapingRoutes from './routes/mcpScraping';
 import aiRoutes from './routes/ai';
 import aiTransparencyRoutes from './routes/aiTransparency';
 import aiWritingRoutes from './routes/aiWriting';
@@ -113,6 +114,10 @@ const swaggerOptions = {
       {
         name: 'Scraping',
         description: 'Web scraping and data extraction for grant discovery'
+      },
+      {
+        name: 'MCP Scraping',
+        description: 'Enhanced scraping using MCP server with Firecrawl fallback'
       },
       {
         name: 'Authentication',
@@ -257,6 +262,7 @@ app.use('/applications', applicationsRoutes);
 app.use('/webhooks', webhooksRoutes);
 app.use('/scraping', scrapingRoutes);
 app.use('/firecrawl', firecrawlRoutes);
+app.use('/mcp-scraping', mcpScrapingRoutes);
 app.use('/ai', aiRoutes);
 app.use('/ai', aiTransparencyRoutes);
 app.use('/ai', aiWritingRoutes);

@@ -13,5 +13,11 @@ module.exports = {
   ],
   setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts'],
   testTimeout: 10000,
-  verbose: true
+  verbose: true,
+  // Prevent port conflicts during parallel testing
+  maxWorkers: 1,
+  runInBand: true,
+  // Use random ports for test servers
+  globalSetup: '<rootDir>/src/test/globalSetup.ts',
+  globalTeardown: '<rootDir>/src/test/globalTeardown.ts'
 };
