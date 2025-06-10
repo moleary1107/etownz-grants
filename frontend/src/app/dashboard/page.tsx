@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Sidebar } from "../../components/layout/Sidebar"
+import { DashboardGrid, generateDefaultWidgets } from "../../components/dashboard/DashboardGrid"
+import { useDashboardStore, useDashboardAnalytics } from "../../lib/store/dashboardStore"
+import { NotificationCenter, useMockNotifications } from "../../components/notifications/NotificationCenter"
+import { QuickActionsBar } from "../../components/dashboard/QuickActionsBar"
+import { MobileDashboard } from "../../components/dashboard/MobileDashboard"
+import { useMobileFeatures } from "../../lib/hooks/useMobileDetection"
+import { InstallPrompt, useInstallPromptManager } from "../../components/pwa/InstallPrompt"
 import { 
   TrendingUp, 
   FileText, 
@@ -25,7 +32,10 @@ import {
   Search,
   Eye,
   Bell,
-  Target
+  Target,
+  Sparkles,
+  RefreshCw,
+  X
 } from "lucide-react"
 import { User, UserRole } from "../../lib/auth"
 import { grantsService, aiService, scrapingService } from "../../lib/api"
@@ -61,8 +71,29 @@ export default function DashboardPage() {
     vectorEmbeddings: 0
   })
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
-  const [, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
+  const [showWelcome, setShowWelcome] = useState(false)
   const router = useRouter()
+
+  // Dashboard store
+  const { 
+    widgets, 
+    setWidgets, 
+    resetToDefaults,
+    preferences 
+  } = useDashboardStore()
+  const { trackDashboardCustomization } = useDashboardAnalytics()
+  
+  // Notifications
+  const notifications = useMockNotifications(user || {} as User)
+  const [notificationList, setNotificationList] = useState(notifications)
+  
+  // Mobile detection
+  const mobileFeatures = useMobileFeatures()
+  const shouldUseMobileView = mobileFeatures.isMobile || (mobileFeatures.isTablet && mobileFeatures.isTouchDevice)
+  
+  // PWA Install prompt
+  const { showPrompt, hidePrompt, handleInstall } = useInstallPromptManager()
 
   useEffect(() => {
     // Check authentication
@@ -78,6 +109,14 @@ export default function DashboardPage() {
       const userData = JSON.parse(userStr)
       setUser(userData)
       loadDashboardData()
+      
+      // Initialize dashboard widgets if none exist
+      if (widgets.length === 0) {
+        const defaultWidgets = generateDefaultWidgets(userData)
+        setWidgets(defaultWidgets)
+        setShowWelcome(true)
+        trackDashboardCustomization('dashboard_initialized', { role: userData.role })
+      }
     } catch (error) {
       console.error('Error parsing user data:', error)
       router.push('/auth/login')
@@ -149,11 +188,64 @@ export default function DashboardPage() {
     router.push('/')
   }
 
+  const handleWidgetUpdate = (updatedWidgets: any[]) => {
+    setWidgets(updatedWidgets)
+    trackDashboardCustomization('widgets_reordered', { count: updatedWidgets.length })
+  }
+
+  const handleResetDashboard = () => {
+    if (user && confirm('Reset dashboard to default layout? This will remove all customizations.')) {
+      resetToDefaults(user)
+      trackDashboardCustomization('dashboard_reset', { role: user.role })
+    }
+  }
+
+  const handleRefreshData = async () => {
+    setIsLoading(true)
+    await loadDashboardData()
+    trackDashboardCustomization('data_refreshed')
+  }
+
+  const handleMarkAsRead = (notificationId: string) => {
+    setNotificationList(prev => 
+      prev.map(notif => 
+        notif.id === notificationId ? { ...notif, read: true } : notif
+      )
+    )
+  }
+
+  const handleMarkAllAsRead = () => {
+    setNotificationList(prev => 
+      prev.map(notif => ({ ...notif, read: true }))
+    )
+  }
+
+  const handleDismissNotification = (notificationId: string) => {
+    setNotificationList(prev => 
+      prev.filter(notif => notif.id !== notificationId)
+    )
+  }
+
+  useEffect(() => {
+    setNotificationList(notifications)
+  }, [notifications])
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
+    )
+  }
+
+  // Render mobile view if on mobile device
+  if (shouldUseMobileView) {
+    return (
+      <MobileDashboard
+        user={user}
+        widgets={widgets}
+        onWidgetUpdate={handleWidgetUpdate}
+      />
     )
   }
 
@@ -344,112 +436,135 @@ export default function DashboardPage() {
       
       <div className="flex-1 overflow-auto">
         <div className="p-4 sm:p-6 lg:p-8">
-          {/* Header */}
+          {/* Enhanced Header */}
           <div className="mb-6 lg:mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-              Welcome back, {user.name.split(' ')[0]}
-            </h1>
-            <p className="text-gray-600 mt-2">{getWelcomeMessage()}</p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center">
+                  Welcome back, {user.name.split(' ')[0]}
+                  {showWelcome && (
+                    <Sparkles className="ml-2 h-6 w-6 text-yellow-500 animate-pulse" />
+                  )}
+                </h1>
+                <p className="text-gray-600 mt-2">{getWelcomeMessage()}</p>
+              </div>
+              
+              <div className="flex items-center space-x-2 mt-4 sm:mt-0">
+                <NotificationCenter
+                  user={user}
+                  notifications={notificationList}
+                  onMarkAsRead={handleMarkAsRead}
+                  onMarkAllAsRead={handleMarkAllAsRead}
+                  onDismiss={handleDismissNotification}
+                />
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshData}
+                  disabled={isLoading}
+                  className="flex items-center space-x-1"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetDashboard}
+                  className="flex items-center space-x-1 text-gray-600"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Reset</span>
+                </Button>
+              </div>
+            </div>
           </div>
 
-          {/* Role-Specific Stats Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 lg:mb-8">
-            {getRoleSpecificStats().map((stat, index) => {
-              const IconComponent = stat.icon
-              return (
-                <Card key={index}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-xs sm:text-sm font-medium">{stat.label}</CardTitle>
-                    <IconComponent className={`h-3 w-3 sm:h-4 sm:w-4 ${stat.color}`} />
-                  </CardHeader>
-                  <CardContent>
-                    <div className={`text-lg sm:text-2xl font-bold ${stat.color}`}>{stat.value}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {stat.change}
+          {/* Welcome Banner for New Users */}
+          {showWelcome && (
+            <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-blue-900 mb-1">
+                      Welcome to your personalized dashboard! 
+                    </h3>
+                    <p className="text-blue-700 text-sm">
+                      Your dashboard has been customized for your role as {user.role.replace('_', ' ').toLowerCase()}. 
+                      You can drag widgets to reorder them and click 'Customize' to hide/show widgets.
                     </p>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>
-                  Latest updates and notifications
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentActivity.map((activity) => (
-                    <div key={activity.id} className="flex items-start space-x-3">
-                      <div className="flex-shrink-0">
-                        {activity.status === 'success' && (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                        )}
-                        {activity.status === 'warning' && (
-                          <AlertCircle className="h-5 w-5 text-orange-500" />
-                        )}
-                        {activity.status === 'info' && (
-                          <FileText className="h-5 w-5 text-blue-500" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">
-                          {activity.title}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {activity.description}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {activity.timestamp.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4">
-                  <Button variant="outline" className="w-full">
-                    View All Activity
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowWelcome(false)}
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    <X className="h-4 w-4" />
                   </Button>
                 </div>
               </CardContent>
             </Card>
+          )}
 
-            {/* Role-Specific Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>
-                  {user.role === UserRole.SUPER_ADMIN ? 'System management and oversight' :
-                   user.role === UserRole.ORGANIZATION_ADMIN ? 'Team and organization management' :
-                   user.role === UserRole.GRANT_WRITER ? 'Application and grant management' :
-                   'Grant discovery and monitoring'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {getRoleSpecificActions().map((action, index) => {
-                    const IconComponent = action.icon
-                    return (
-                      <Button 
-                        key={index}
-                        className={`w-full justify-start ${action.color} text-white`}
-                        onClick={() => router.push(action.href)}
-                      >
-                        <IconComponent className="mr-2 h-4 w-4" />
-                        {action.title}
-                      </Button>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+          {/* PWA Install Prompt */}
+          {showPrompt && (
+            <div className="mb-6">
+              <InstallPrompt
+                onInstall={handleInstall}
+                onDismiss={hidePrompt}
+              />
+            </div>
+          )}
+
+          {/* Quick Actions Bar */}
+          <div className="mb-6">
+            <QuickActionsBar user={user} compact={false} />
           </div>
+
+          {/* Enhanced Dashboard with Widgets */}
+          <DashboardGrid
+            user={user}
+            widgets={widgets}
+            onWidgetUpdate={handleWidgetUpdate}
+            onWidgetConfig={(widgetId) => {
+              console.log('Configure widget:', widgetId)
+              // TODO: Implement widget configuration modal
+            }}
+          />
+
+          {/* Legacy Stats for Context (will be integrated into widgets) */}
+          {preferences.compactMode && (
+            <div className="mt-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">System Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">{stats.totalGrants}</div>
+                      <div className="text-gray-500">Total Grants</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">{stats.activeApplications}</div>
+                      <div className="text-gray-500">Active Applications</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-orange-600">{stats.upcomingDeadlines}</div>
+                      <div className="text-gray-500">Upcoming Deadlines</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-600">€{(stats.fundingSecured / 1000).toFixed(0)}K</div>
+                      <div className="text-gray-500">Funding Secured</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </div>
     </div>

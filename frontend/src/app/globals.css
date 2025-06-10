@@ -62,11 +62,61 @@
 @layer base {
   * {
     border-color: hsl(var(--border));
+    -webkit-tap-highlight-color: transparent;
   }
   
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
+  /* PWA and Mobile Optimizations */
+  html {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* Touch target improvements */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+  }
+  
+  /* Prevent zoom on input focus (iOS) */
+  input, select, textarea {
+    font-size: 16px;
+  }
+  
+  /* Safe area handling for devices with notches */
+  .safe-area-inset {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  /* Improved scrolling areas */
+  .scroll-area {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+  }
+  
+  .scroll-area::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  .scroll-area::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scroll-area::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 2px;
   }
 }
 
@@ -88,7 +138,28 @@
   }
   
   .card-interactive {
-    @apply bg-card/90 backdrop-blur-sm border border-border/50 rounded-2xl p-6 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-2 hover:border-primary/30;
+    @apply bg-card/90 backdrop-blur-sm border border-border/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-1 hover:border-primary/30 active:scale-[0.98];
+  }
+  
+  /* Mobile-specific overrides */
+  @media (hover: none) and (pointer: coarse) {
+    .card-interactive {
+      @apply hover:translate-y-0 hover:shadow-lg active:shadow-xl;
+    }
+    
+    .btn {
+      @apply hover:scale-100 active:scale-[0.96];
+    }
+  }
+  
+  /* Mobile-first navigation */
+  .mobile-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-white border-t safe-area-inset z-50;
+  }
+  
+  /* Touch-friendly spacing */
+  .spacing-touch {
+    @apply p-4 gap-4;
   }
   
   .gradient-text {

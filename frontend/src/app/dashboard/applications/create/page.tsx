@@ -10,6 +10,7 @@ import { Badge } from "../../../../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../components/ui/tabs"
 import { Sidebar } from "../../../../components/layout/Sidebar"
 import { ApplicationChecklist } from "../../../../components/applications/ApplicationChecklist"
+import { IntelligentApplicationAssistant } from "../../../../components/ai/IntelligentApplicationAssistant"
 import { 
   ArrowLeft, 
   Save, 
@@ -1101,79 +1102,15 @@ Are you sure you want to submit with this ${budgetTotal > applicationData.reques
             </TabsContent>
 
             <TabsContent value="ai-assist">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bot className="h-5 w-5" />
-                    AI Writing Assistant
-                  </CardTitle>
-                  <CardDescription>
-                    Let AI help you write compelling grant application content
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button
-                      onClick={() => generateAIContent('project_description')}
-                      disabled={isGeneratingAI}
-                      variant="outline"
-                      className="h-20 flex-col"
-                    >
-                      {isGeneratingAI ? (
-                        <Loader2 className="w-6 h-6 animate-spin mb-2" />
-                      ) : (
-                        <Zap className="w-6 h-6 mb-2" />
-                      )}
-                      Generate Project Description
-                    </Button>
-                    
-                    <Button
-                      onClick={() => generateAIContent('application_data.technical_approach')}
-                      disabled={isGeneratingAI}
-                      variant="outline"
-                      className="h-20 flex-col"
-                    >
-                      {isGeneratingAI ? (
-                        <Loader2 className="w-6 h-6 animate-spin mb-2" />
-                      ) : (
-                        <FileText className="w-6 h-6 mb-2" />
-                      )}
-                      Generate Technical Approach
-                    </Button>
-                    
-                    <Button
-                      onClick={() => generateAIContent('application_data.sustainability_plan')}
-                      disabled={isGeneratingAI}
-                      variant="outline"
-                      className="h-20 flex-col"
-                    >
-                      {isGeneratingAI ? (
-                        <Loader2 className="w-6 h-6 animate-spin mb-2" />
-                      ) : (
-                        <Target className="w-6 h-6 mb-2" />
-                      )}
-                      Generate Sustainability Plan
-                    </Button>
-                    
-                    <Button
-                      onClick={() => setActiveTab('checklist')}
-                      variant="outline"
-                      className="h-20 flex-col"
-                    >
-                      <CheckCircle className="w-6 h-6 mb-2" />
-                      View Requirements
-                      <span className="text-xs">Checklist</span>
-                    </Button>
-                  </div>
-                  
-                  {isGeneratingAI && (
-                    <div className="text-center py-4">
-                      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                      <p className="text-sm text-gray-600">AI is generating content...</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <IntelligentApplicationAssistant
+                user={user}
+                applicationId={undefined}
+                grantData={selectedGrant}
+                onSave={(content) => {
+                  console.log('AI Assistant saved application:', content)
+                  // Could sync with the main application form
+                }}
+              />
             </TabsContent>
 
             <TabsContent value="preview">

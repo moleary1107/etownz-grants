@@ -8,6 +8,7 @@ import { Input } from "../../../components/ui/input"
 import { Badge } from "../../../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs"
 import { Sidebar } from "../../../components/layout/Sidebar"
+import { SmartDeadlineManager } from "../../../components/deadlines/SmartDeadlineManager"
 import { 
   Clock, 
   Calendar, 
@@ -342,11 +343,27 @@ export default function DeadlinesPage() {
             </Card>
           </div>
 
-          <Tabs defaultValue="grant-deadlines" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs defaultValue="smart-manager" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="smart-manager">Smart Manager</TabsTrigger>
               <TabsTrigger value="grant-deadlines">Grant Deadlines</TabsTrigger>
               <TabsTrigger value="my-applications">My Applications</TabsTrigger>
             </TabsList>
+
+            {/* Smart Deadline Manager Tab */}
+            <TabsContent value="smart-manager">
+              <SmartDeadlineManager
+                user={user}
+                onDeadlineUpdate={(deadline) => {
+                  console.log('Deadline updated:', deadline)
+                  // Could sync with backend or update local state
+                }}
+                onReminderCreate={(reminder) => {
+                  console.log('Reminder created:', reminder)
+                  // Could trigger notification system
+                }}
+              />
+            </TabsContent>
 
             {/* Grant Deadlines Tab */}
             <TabsContent value="grant-deadlines" className="space-y-6">

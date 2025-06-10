@@ -75,6 +75,12 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       permission: null // Available to all
     },
     {
+      name: "AI Grant Matching",
+      href: "/dashboard/ai-matching",
+      icon: Brain,
+      permission: null // Available to all
+    },
+    {
       name: "Semantic Search",
       href: "/dashboard/semantic-search",
       icon: Brain,

@@ -2,12 +2,19 @@
   "name": "eTownz Grants - AI-Powered Grant Discovery",
   "short_name": "eTownz Grants",
   "description": "Discover and apply for grants in Ireland 10x faster with AI-powered platform",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
   "orientation": "portrait-primary",
   "scope": "/",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
@@ -60,5 +67,72 @@
   ],
   "categories": ["business", "productivity", "finance"],
   "lang": "en-IE",
-  "dir": "ltr"
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "New Application",
+      "short_name": "New App",
+      "description": "Create a new grant application",
+      "url": "/dashboard/applications/create",
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Find Grants",
+      "short_name": "Find",
+      "description": "Discover funding opportunities",
+      "url": "/dashboard/grants",
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "My Applications",
+      "short_name": "Apps",
+      "description": "View your applications",
+      "url": "/dashboard/applications",
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Deadlines",
+      "short_name": "Deadlines",
+      "description": "Check upcoming deadlines",
+      "url": "/dashboard/deadlines",
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/dashboard.png",
+      "type": "image/png",
+      "sizes": "1280x720",
+      "form_factor": "wide",
+      "label": "Dashboard view showing personalized widgets and quick actions"
+    },
+    {
+      "src": "/screenshots/mobile-dashboard.png", 
+      "type": "image/png",
+      "sizes": "390x844",
+      "form_factor": "narrow",
+      "label": "Mobile dashboard with touch-optimized interface"
+    }
+  ]
 }
