@@ -87,6 +87,12 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       permission: null // Available to all
     },
     {
+      name: "AI Document Analysis",
+      href: "/dashboard/ai-document-analysis",
+      icon: FileText,
+      permission: null // Available to all
+    },
+    {
       name: "Grant Intelligence",
       href: "/dashboard/grant-intelligence",
       icon: Brain,
