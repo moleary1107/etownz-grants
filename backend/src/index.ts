@@ -71,6 +71,7 @@ import aiEditorRoutes from './routes/aiEditor';
 import grantIntelligenceRoutes from './routes/grantIntelligence';
 import templatesRoutes from './routes/templates';
 import databaseSyncRoutes from './routes/databaseSync';
+import reviewApprovalRoutes from './routes/reviewApproval';
 // import partnerCoordinationRoutes from './routes/partnerCoordination';
 
 // Import database service
@@ -174,6 +175,10 @@ const swaggerOptions = {
       {
         name: 'AI Monitoring',
         description: 'AI system monitoring, metrics collection, and performance analytics'
+      },
+      {
+        name: 'Review & Approval',
+        description: 'Comprehensive review workflows, approval management, and process automation'
       }
     ],
     servers: [
@@ -284,6 +289,7 @@ app.use('/ai/editor', aiEditorRoutes);
 app.use('/grant-intelligence', grantIntelligenceRoutes);
 app.use('/templates', templatesRoutes);
 app.use('/database-sync', databaseSyncRoutes);
+app.use('/review-approval', reviewApprovalRoutes);
 // app.use('/partner-coordination', partnerCoordinationRoutes);
 
 // 404 handler
