@@ -14,7 +14,6 @@ import {
   AlertCircle
 } from "lucide-react"
 import { User as AuthUser, hasPermission } from "../../../../../lib/auth"
-import { generateSlug } from "../../../../../lib/utils"
 
 interface Application {
   id: string
@@ -245,7 +244,7 @@ export default function EditApplicationPage() {
     }
   }
 
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: string, value: string | number) => {
     if (!application) return
     
     setApplication(prev => ({
@@ -255,7 +254,7 @@ export default function EditApplicationPage() {
     setHasChanges(true)
   }
 
-  const updateApplicationData = (field: string, value: any) => {
+  const updateApplicationData = (field: string, value: string | number | string[]) => {
     if (!application) return
     
     setApplication(prev => ({
@@ -268,20 +267,20 @@ export default function EditApplicationPage() {
     setHasChanges(true)
   }
 
-  const updateBudgetBreakdown = (path: string, value: any) => {
+  const updateBudgetBreakdown = (path: string, value: string | number | { description: string; amount: number }[]) => {
     if (!application) return
     
     setApplication(prev => {
       const newApplication = { ...prev! }
       const pathArray = path.split('.')
-      let current: any = newApplication.application_data.budget_breakdown
+      let current: Record<string, unknown> = newApplication.application_data.budget_breakdown as Record<string, unknown>
       
       // Navigate to the parent of the target property
       for (let i = 0; i < pathArray.length - 1; i++) {
         if (!current[pathArray[i]]) {
           current[pathArray[i]] = {}
         }
-        current = current[pathArray[i]]
+        current = current[pathArray[i]] as Record<string, unknown>
       }
       
       // Set the final value
@@ -322,7 +321,7 @@ export default function EditApplicationPage() {
               {error || 'Application not found'}
             </h2>
             <p className="text-gray-600 mb-4">
-              The application you're trying to edit doesn't exist or cannot be modified.
+              The application you&apos;re trying to edit doesn&apos;t exist or cannot be modified.
             </p>
             <Button onClick={() => router.push('/dashboard/applications')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -381,6 +380,16 @@ export default function EditApplicationPage() {
                 <Eye className="h-4 w-4 mr-2" />
                 Preview
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/dashboard/ai-editor-fullpage?applicationId=${application?.id}&section=main`)}
+                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+              >
+                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                AI Editor
+              </Button>
               <Button 
                 onClick={handleSave}
                 disabled={isSaving || !hasChanges}
@@ -397,7 +406,7 @@ export default function EditApplicationPage() {
                 <AlertCircle className="h-5 w-5 text-yellow-600" />
                 <span className="text-sm font-medium text-yellow-800">
                   Budget mismatch: Requested amount (€{application.requested_amount.toLocaleString()}) 
-                  doesn't match budget breakdown total (€{totalBudget.toLocaleString()})
+                  doesn&apos;t match budget breakdown total (€{totalBudget.toLocaleString()})
                 </span>
               </div>
             </div>
@@ -475,7 +484,20 @@ export default function EditApplicationPage() {
             {/* Technical Approach */}
             <Card>
               <CardHeader>
-                <CardTitle>Technical Approach</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Technical Approach</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/dashboard/ai-editor-fullpage?applicationId=${application?.id}&section=technical_approach`)}
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    AI Editor
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <Textarea
@@ -797,7 +819,20 @@ export default function EditApplicationPage() {
             {/* Sustainability Plan */}
             <Card>
               <CardHeader>
-                <CardTitle>Sustainability Plan</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Sustainability Plan</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/dashboard/ai-editor-fullpage?applicationId=${application?.id}&section=sustainability_plan`)}
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    AI Editor
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <Textarea
