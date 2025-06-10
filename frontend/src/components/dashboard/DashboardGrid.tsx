@@ -17,7 +17,10 @@ import {
   Target,
   Zap,
   Bell,
-  Calendar
+  Calendar,
+  Sparkles,
+  ArrowRight,
+  Star
 } from 'lucide-react'
 import { User, UserRole } from '../../lib/auth'
 
@@ -393,24 +396,73 @@ function UpcomingDeadlinesWidget({ user }: { user: User }) {
 
 function GrantRecommendationsWidget({ user }: { user: User }) {
   const grants = [
-    { title: 'Innovation Fund 2024', match: 95, amount: '€50K' },
-    { title: 'Research Excellence', match: 87, amount: '€25K' },
-    { title: 'Community Impact', match: 72, amount: '€15K' }
+    { 
+      title: 'Enterprise Ireland HPSU Fund', 
+      match: 95, 
+      amount: '€500K',
+      urgency: 'high',
+      deadline: '15 days'
+    },
+    { 
+      title: 'SFI Discover Programme', 
+      match: 87, 
+      amount: '€50K',
+      urgency: 'medium',
+      deadline: '28 days'
+    },
+    { 
+      title: 'Horizon Europe EIC', 
+      match: 82, 
+      amount: '€2.5M',
+      urgency: 'low',
+      deadline: '45 days'
+    }
   ]
 
   return (
     <div className="space-y-3">
       {grants.map((grant, index) => (
-        <div key={index} className="border rounded p-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-medium truncate">{grant.title}</span>
-            <span className="text-xs bg-green-100 text-green-700 px-1 rounded">
-              {grant.match}%
-            </span>
+        <div key={index} className="border rounded-lg p-3 hover:shadow-sm transition-shadow">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-medium text-gray-900 truncate">
+                {grant.title}
+              </h4>
+              <div className="flex items-center space-x-2 mt-1">
+                <span className="text-xs text-gray-500">{grant.amount}</span>
+                <span className="text-xs text-gray-400">•</span>
+                <span className="text-xs text-gray-500">{grant.deadline}</span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-1">
+              <Star className="h-3 w-3 text-yellow-500" />
+              <span className="text-xs font-medium text-gray-700">
+                {grant.match}%
+              </span>
+            </div>
           </div>
-          <div className="text-xs text-gray-500">{grant.amount}</div>
+          <div className="flex items-center justify-between">
+            <span className={`text-xs px-2 py-1 rounded-full ${
+              grant.urgency === 'high' ? 'bg-red-100 text-red-700' :
+              grant.urgency === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+              'bg-green-100 text-green-700'
+            }`}>
+              {grant.urgency === 'high' ? 'Urgent' : 
+               grant.urgency === 'medium' ? 'Soon' : 'Later'}
+            </span>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+              View
+              <ArrowRight className="h-3 w-3 ml-1" />
+            </Button>
+          </div>
         </div>
       ))}
+      <div className="pt-2 border-t">
+        <Button variant="outline" size="sm" className="w-full text-xs">
+          <Sparkles className="h-3 w-3 mr-1" />
+          View All Recommendations
+        </Button>
+      </div>
     </div>
   )
 }

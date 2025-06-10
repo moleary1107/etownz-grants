@@ -22,7 +22,8 @@ import {
   Shield,
   Calculator,
   Brain,
-  Database
+  Database,
+  Sparkles
 } from "lucide-react"
 import { Button } from "../ui/button"
 import { UserRole, hasPermission, User } from "../../lib/auth"
@@ -90,6 +91,12 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       name: "AI Document Analysis",
       href: "/dashboard/ai-document-analysis",
       icon: FileText,
+      permission: null // Available to all
+    },
+    {
+      name: "Personalized Recommendations",
+      href: "/dashboard/personalized-recommendations",
+      icon: Sparkles,
       permission: null // Available to all
     },
     {
