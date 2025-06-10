@@ -17,8 +17,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile.dev
-    command: node dist/index.js
+      dockerfile: Dockerfile
     environment:
       - NODE_ENV=production
       - NODE_TLS_REJECT_UNAUTHORIZED=0
