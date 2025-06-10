@@ -102,6 +102,17 @@ export type {
   VideoCallSession
 } from '../../types/collaboration'
 
+// Workflow Services
+export { WorkflowService } from './workflowService'
+export type {
+  WorkflowTemplate,
+  WorkflowInstance,
+  WorkflowTaskInstance,
+  AutomationRule,
+  WorkflowAnalytics,
+  WorkflowMetrics
+} from '../../types/workflow'
+
 // Central API configuration
 export const API_CONFIG = {
   baseUrl: process.env.NODE_ENV === 'production' 

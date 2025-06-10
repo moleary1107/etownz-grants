@@ -25,7 +25,8 @@ import {
   Database,
   Sparkles,
   Edit,
-  MessageSquare
+  MessageSquare,
+  Workflow
 } from "lucide-react"
 import { Button } from "../ui/button"
 import { UserRole, hasPermission, User } from "../../lib/auth"
@@ -63,6 +64,12 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       name: "Team Collaboration",
       href: "/dashboard/collaboration",
       icon: MessageSquare,
+      permission: null // Available to all
+    },
+    {
+      name: "Workflow Automation",
+      href: "/dashboard/workflow-automation",
+      icon: Workflow,
       permission: null // Available to all
     },
     {
