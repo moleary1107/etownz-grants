@@ -408,7 +408,7 @@ export function PersonalizedGrantRecommendations({
 
   // Filter and sort recommendations
   const filteredRecommendations = useMemo(() => {
-    let filtered = recommendations.filter(rec => {
+    const filtered = recommendations.filter(rec => {
       // Search filter
       if (searchQuery) {
         const searchLower = searchQuery.toLowerCase()

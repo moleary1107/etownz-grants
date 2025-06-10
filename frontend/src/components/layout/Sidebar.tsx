@@ -24,7 +24,8 @@ import {
   Brain,
   Database,
   Sparkles,
-  Edit
+  Edit,
+  MessageSquare
 } from "lucide-react"
 import { Button } from "../ui/button"
 import { UserRole, hasPermission, User } from "../../lib/auth"
@@ -57,6 +58,12 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       href: "/dashboard/applications",
       icon: FileText,
       permission: "canViewApplications"
+    },
+    {
+      name: "Team Collaboration",
+      href: "/dashboard/collaboration",
+      icon: MessageSquare,
+      permission: null // Available to all
     },
     {
       name: "Compliance Checker",

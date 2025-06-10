@@ -88,6 +88,20 @@ export type {
   PerformanceDashboard
 } from './aiMonitoringService'
 
+// Collaboration Services
+export { collaborationService, default as CollaborationService } from './collaborationService'
+export type {
+  TeamMember,
+  ActivityItem,
+  Comment,
+  Task,
+  Message,
+  DocumentSection,
+  FileUpload,
+  NotificationItem,
+  VideoCallSession
+} from '../../types/collaboration'
+
 // Central API configuration
 export const API_CONFIG = {
   baseUrl: process.env.NODE_ENV === 'production' 

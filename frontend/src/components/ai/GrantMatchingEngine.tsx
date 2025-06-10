@@ -211,7 +211,7 @@ export function GrantMatchingEngine({
       }
 
       // 4. Historical Success Probability (15% weight)
-      let historicalScore = Math.min(100, grant.historicalData.successRate * 2)
+      const historicalScore = Math.min(100, grant.historicalData.successRate * 2)
       if (grant.historicalData.successRate > 30) {
         reasoning.push(`High historical success rate (${grant.historicalData.successRate}%)`)
       } else if (grant.historicalData.successRate > 15) {
