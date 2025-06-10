@@ -23,7 +23,8 @@ import {
   Calculator,
   Brain,
   Database,
-  Sparkles
+  Sparkles,
+  Edit
 } from "lucide-react"
 import { Button } from "../ui/button"
 import { UserRole, hasPermission, User } from "../../lib/auth"
@@ -97,6 +98,12 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       name: "Personalized Recommendations",
       href: "/dashboard/personalized-recommendations",
       icon: Sparkles,
+      permission: null // Available to all
+    },
+    {
+      name: "Advanced AI Writing",
+      href: "/dashboard/ai-writing-advanced",
+      icon: Edit,
       permission: null // Available to all
     },
     {
