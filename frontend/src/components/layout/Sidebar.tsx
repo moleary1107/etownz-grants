@@ -26,7 +26,8 @@ import {
   Sparkles,
   Edit,
   MessageSquare,
-  Workflow
+  Workflow,
+  GitBranch
 } from "lucide-react"
 import { Button } from "../ui/button"
 import { UserRole, hasPermission, User } from "../../lib/auth"
@@ -70,6 +71,12 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       name: "Workflow Automation",
       href: "/dashboard/workflow-automation",
       icon: Workflow,
+      permission: null // Available to all
+    },
+    {
+      name: "Version Control",
+      href: "/dashboard/version-control",
+      icon: GitBranch,
       permission: null // Available to all
     },
     {

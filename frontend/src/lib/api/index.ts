@@ -113,6 +113,18 @@ export type {
   WorkflowMetrics
 } from '../../types/workflow'
 
+// Version Control Services
+export { VersionControlService } from './versionControlService'
+export type {
+  DocumentRepository,
+  DocumentBranch,
+  DocumentCommit,
+  PullRequest,
+  MergeOperation,
+  ComparisonResult,
+  VersionControlAnalytics
+} from '../../types/versionControl'
+
 // Central API configuration
 export const API_CONFIG = {
   baseUrl: process.env.NODE_ENV === 'production' 
