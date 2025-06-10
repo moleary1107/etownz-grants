@@ -6,7 +6,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Progress } from '../ui/progress';
-import { toast } from '../ui/toast';
+import { toast } from '../../lib/hooks/use-toast';
 
 interface ReviewWorkflow {
   id: number;
