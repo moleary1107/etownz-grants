@@ -237,7 +237,7 @@ export default function AIEditor({
     let textContent = '';
     
     editorState.read(() => {
-      htmlContent = $generateHtmlFromNodes(editorState._nodeMap.get('root')!, null);
+      htmlContent = $generateHtmlFromNodes(editor, null);
       textContent = $getRoot().getTextContent();
     });
     

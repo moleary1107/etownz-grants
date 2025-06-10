@@ -191,9 +191,24 @@ export default function BudgetOptimizationPage() {
         {/* Budget Optimizer */}
         <div className="lg:col-span-2">
           <BudgetOptimizer 
-            onOptimizationComplete={(result) => {
-              // Refresh data after optimization
-              fetchData();
+            projectScope={{
+              title: "Sample Project",
+              description: "Project description",
+              duration: 12,
+              teamSize: 5,
+              projectType: "research",
+              industry: "Technology",
+              location: "Ireland",
+              objectives: []
+            }}
+            fundingRules={{
+              fundingBody: "Enterprise Ireland",
+              grantScheme: "R&D Fund",
+              maxBudget: 250000,
+              eligibleCategories: [],
+              categoryLimits: {},
+              costTypes: {},
+              restrictions: []
             }}
           />
         </div>

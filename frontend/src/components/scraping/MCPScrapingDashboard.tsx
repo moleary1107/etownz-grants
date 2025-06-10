@@ -12,8 +12,10 @@ import { mcpScrapingService, GrantSource, MCPFetchResult } from '../../lib/api/m
 import { AlertCircle, CheckCircle, Clock, Globe, Zap, Search, Download, RefreshCw } from 'lucide-react';
 
 interface ServiceStatus {
-  mcpServer: boolean;
-  firecrawl: boolean;
+  services: {
+    mcpServer: boolean;
+    firecrawl: boolean;
+  };
   overall: 'healthy' | 'degraded';
   timestamp: string;
 }
@@ -133,25 +135,25 @@ export default function MCPScrapingDashboard() {
           {serviceStatus && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-center gap-2">
-                {serviceStatus.mcpServer ? (
+                {serviceStatus.services.mcpServer ? (
                   <CheckCircle className="h-5 w-5 text-green-500" />
                 ) : (
                   <AlertCircle className="h-5 w-5 text-red-500" />
                 )}
                 <span>MCP Server</span>
-                <Badge variant={serviceStatus.mcpServer ? "default" : "destructive"}>
-                  {serviceStatus.mcpServer ? "Online" : "Offline"}
+                <Badge variant={serviceStatus.services.mcpServer ? "default" : "destructive"}>
+                  {serviceStatus.services.mcpServer ? "Online" : "Offline"}
                 </Badge>
               </div>
               <div className="flex items-center gap-2">
-                {serviceStatus.firecrawl ? (
+                {serviceStatus.services.firecrawl ? (
                   <CheckCircle className="h-5 w-5 text-green-500" />
                 ) : (
                   <AlertCircle className="h-5 w-5 text-red-500" />
                 )}
                 <span>Firecrawl</span>
-                <Badge variant={serviceStatus.firecrawl ? "default" : "destructive"}>
-                  {serviceStatus.firecrawl ? "Online" : "Offline"}
+                <Badge variant={serviceStatus.services.firecrawl ? "default" : "destructive"}>
+                  {serviceStatus.services.firecrawl ? "Online" : "Offline"}
                 </Badge>
               </div>
               <div className="flex items-center gap-2">

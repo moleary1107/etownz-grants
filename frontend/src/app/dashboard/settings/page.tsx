@@ -136,9 +136,11 @@ export default function SettingsPage() {
       await new Promise(resolve => setTimeout(resolve, 1000))
       
       // Update user in localStorage
-      const updatedUser = { ...user, ...profile }
-      localStorage.setItem('user', JSON.stringify(updatedUser))
-      setUser(updatedUser)
+      if (user) {
+        const updatedUser = { ...user, ...profile }
+        localStorage.setItem('user', JSON.stringify(updatedUser))
+        setUser(updatedUser)
+      }
       
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 3000)

@@ -27,24 +27,7 @@ import {
 } from "lucide-react"
 import { User } from "../../../../lib/auth"
 import { useApplications } from "../../../../lib/store/aiStore"
-import { grantsService } from "../../../../lib/api"
-
-interface Grant {
-  id: string
-  title: string
-  description: string
-  funder: string
-  amount_min: number
-  amount_max: number
-  currency: string
-  deadline: string
-  categories: string[]
-  eligibility_criteria: Record<string, unknown>
-  required_documents: string[]
-  application_process: string
-  url: string
-  is_active: boolean
-}
+import { grantsService, Grant } from "../../../../lib/api"
 
 interface ChecklistItem {
   id: string
@@ -213,7 +196,7 @@ function CreateApplicationContent() {
           if (!updatedSections[sectionName]) {
             updatedSections[sectionName] = {}
           }
-          updatedSections[sectionName][fieldName] = value
+          (updatedSections[sectionName] as Record<string, any>)[fieldName] = value
           
           updateApplication(currentApplication.id, {
             sections: updatedSections
@@ -502,16 +485,20 @@ Are you sure you want to submit with this ${budgetTotal > applicationData.reques
                     <h3 className="font-medium">{grant.title}</h3>
                     <Badge variant="outline">{grant.funder}</Badge>
                   </div>
-                  <p className="text-sm text-gray-600 mb-2">{grant.description.substring(0, 150)}...</p>
+                  <p className="text-sm text-gray-600 mb-2">{grant.description?.substring(0, 150)}...</p>
                   <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <DollarSign className="h-4 w-4" />
-                      {grant.amount_min.toLocaleString()} - {grant.amount_max.toLocaleString()} {grant.currency}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      {new Date(grant.deadline).toLocaleDateString()}
-                    </span>
+                    {grant.amount_min && grant.amount_max && (
+                      <span className="flex items-center gap-1">
+                        <DollarSign className="h-4 w-4" />
+                        {grant.amount_min.toLocaleString()} - {grant.amount_max.toLocaleString()} {grant.currency}
+                      </span>
+                    )}
+                    {grant.deadline && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        {new Date(grant.deadline).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -559,9 +546,11 @@ Are you sure you want to submit with this ${budgetTotal > applicationData.reques
                   max={selectedGrant.amount_max}
                   className={errors.requested_amount ? 'border-red-500' : ''}
                 />
-                <p className="text-sm text-gray-500 mt-1">
-                  Range: {selectedGrant.amount_min.toLocaleString()} - {selectedGrant.amount_max.toLocaleString()}
-                </p>
+                {selectedGrant.amount_min && selectedGrant.amount_max && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Range: {selectedGrant.amount_min.toLocaleString()} - {selectedGrant.amount_max.toLocaleString()}
+                  </p>
+                )}
                 {errors.requested_amount && <p className="text-red-500 text-sm mt-1">{errors.requested_amount}</p>}
               </div>
 
@@ -1104,9 +1093,9 @@ Are you sure you want to submit with this ${budgetTotal > applicationData.reques
             <TabsContent value="checklist">
               <ApplicationChecklist
                 grantId={selectedGrant?.id || ''}
-                grantDetails={selectedGrant}
+                grantDetails={selectedGrant as Record<string, unknown> | null}
                 organizationProfile={{ name: user?.name, id: user?.id }}
-                applicationData={applicationData}
+                applicationData={applicationData as unknown as Record<string, unknown>}
                 onUpdateChecklist={setChecklistItems}
               />
             </TabsContent>

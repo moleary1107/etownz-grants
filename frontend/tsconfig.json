@@ -36,6 +36,11 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "sanity/**/*",
+    "sanity.config.ts",
+    "src/__tests__/**/*",
+    "**/*.test.tsx",
+    "**/*.test.ts"
   ]
 }

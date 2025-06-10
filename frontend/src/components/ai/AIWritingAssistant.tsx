@@ -247,9 +247,7 @@ export const AIWritingAssistant: React.FC<AIWritingAssistantProps> = ({
 
   return (
     <AITransparencyWrapper
-      operation="content_generation"
       model="gpt-4"
-      processingTime={0}
       confidence={confidence}
     >
       <Card className={`p-6 ${className}`}>

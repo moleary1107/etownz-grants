@@ -234,7 +234,17 @@ export default function CompliancePage() {
           {selectedApplication ? (
             <ComplianceChecker
               applicationId={selectedApplication}
-              grantSchemeId={applications.find(a => a.id === selectedApplication)?.grantSchemeId || ''}
+              grantScheme={{
+                name: "Sample Grant Scheme",
+                rules: [] as any[],
+                requirements: {}
+              }}
+              applicationData={{
+                sections: {},
+                budget: {},
+                organization: {},
+                documents: []
+              }}
               onComplianceUpdate={(report) => {
                 // Update the application in the list
                 setApplications(prev => 
@@ -243,9 +253,9 @@ export default function CompliancePage() {
                       ? {
                           ...app,
                           complianceScore: report.overallScore,
-                          complianceStatus: report.criticalIssuesCount > 0 ? 'failed' : 
-                                           report.majorIssuesCount > 0 ? 'warning' : 'passed',
-                          lastComplianceCheck: report.checkedAt
+                          complianceStatus: report.overallScore < 50 ? 'failed' : 
+                                           report.overallScore < 80 ? 'warning' : 'passed',
+                          lastComplianceCheck: report.timestamp
                         }
                       : app
                   )

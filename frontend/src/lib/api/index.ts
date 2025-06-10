@@ -97,6 +97,28 @@ export const API_CONFIG = {
   retries: 3
 }
 
+// Generic API service for components that need basic HTTP client
+export const apiService = {
+  async get(endpoint: string) {
+    const response = await fetch(`${API_CONFIG.baseUrl}${endpoint}`, {
+      headers: apiUtils.getAuthHeaders()
+    });
+    return { data: await response.json() };
+  },
+  
+  async post(endpoint: string, data: any) {
+    const response = await fetch(`${API_CONFIG.baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers: apiUtils.getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+    return { data: await response.json() };
+  }
+}
+
+// Also export as apiClient for backward compatibility
+export const apiClient = apiService
+
 // Utility functions for API interactions
 export const apiUtils = {
   /**

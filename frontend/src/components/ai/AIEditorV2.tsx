@@ -439,7 +439,7 @@ export default function AIEditorV2({
             setWordCount(words.length);
             setCharacterCount(newContent.length);
             onContentChange?.(newContent);
-            scheduleAutoSave();
+            scheduleAutoSave(null, newContent);
           }}
           placeholder={`Start writing your ${sectionType} section...`}
           minHeight={fullPage ? '400px' : '200px'}

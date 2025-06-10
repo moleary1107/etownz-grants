@@ -29,6 +29,23 @@ export interface Organization {
   createdAt: Date
 }
 
+export type Permission = 
+  | 'canViewAllOrganizations'
+  | 'canManageAllUsers' 
+  | 'canAccessAnalytics'
+  | 'canManageSystem'
+  | 'canViewAllGrants'
+  | 'canCreateGrants'
+  | 'canEditGrants'
+  | 'canDeleteGrants'
+  | 'canSubmitApplications'
+  | 'canViewApplications'
+  | 'canManageApplications'
+  | 'canManageOrganizationUsers'
+  | 'canEditOrganization'
+  | 'canDraftApplications'
+  | 'canEditDraftApplications'
+
 export const ROLE_PERMISSIONS = {
   [UserRole.SUPER_ADMIN]: {
     canViewAllOrganizations: true,
@@ -88,7 +105,7 @@ export const ROLE_PERMISSIONS = {
   },
 }
 
-export function hasPermission(user: User, permission: keyof typeof ROLE_PERMISSIONS[UserRole]) {
+export function hasPermission(user: User, permission: Permission) {
   return ROLE_PERMISSIONS[user.role][permission] || false
 }
 

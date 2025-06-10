@@ -32,7 +32,7 @@ export default function AIEditorTestPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar user={user} onLogout={handleLogout} />
+      {user && <Sidebar user={user} onLogout={handleLogout} />}
       
       <div className="flex-1 overflow-auto">
         <div className="p-8">

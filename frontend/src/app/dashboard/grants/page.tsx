@@ -128,7 +128,7 @@ export default function GrantsPage() {
             model: response.aiModel || 'gpt-4o-mini',
             confidence: response.metadata?.confidence
           },
-          organizationProfile: orgProfile,
+          organizationProfile: orgProfile as Record<string, unknown>,
           filters: { categories: selectedCategory !== 'all' ? [selectedCategory] : undefined }
         }
         addSearchResult(searchResult)

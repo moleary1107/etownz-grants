@@ -814,7 +814,7 @@ export default function EditApplicationPage() {
           <div className="flex justify-end mt-8 space-x-3">
             <Button 
               variant="outline"
-              onClick={() => router.push(`/dashboard/applications/${applicationId}`)}
+              onClick={() => router.push(`/dashboard/applications/${application?.id}`)}
             >
               Cancel
             </Button>

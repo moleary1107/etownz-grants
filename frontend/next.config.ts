@@ -4,12 +4,12 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   
-  // Disable ESLint and TypeScript errors during builds for faster deployment
+  // Enable strict checking for better code quality
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   
   experimental: {
