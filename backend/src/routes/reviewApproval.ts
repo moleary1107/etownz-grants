@@ -2,11 +2,11 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { ReviewApprovalService } from '../services/reviewApprovalService';
 import { DatabaseService } from '../services/database';
-import logger from '../services/logger';
+import { logger } from '../services/logger';
 
 const router = express.Router();
 const databaseService = new DatabaseService();
-const reviewService = new ReviewApprovalService(databaseService.pool);
+const reviewService = new ReviewApprovalService(databaseService.getPool());
 
 /**
  * @swagger

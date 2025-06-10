@@ -103,15 +103,16 @@ export class MCPFirecrawlService extends EventEmitter {
 
     const result = await response.json();
     
+    const resultData = result as any; // Type assertion for MCP result
     return {
       url,
-      content: result.content,
-      markdown: options.convertToMarkdown ? result.markdown : undefined,
+      content: resultData.content,
+      markdown: options.convertToMarkdown ? resultData.markdown : undefined,
       metadata: {
-        title: result.title,
-        description: result.description,
-        statusCode: result.statusCode,
-        contentType: result.contentType,
+        title: resultData.title,
+        description: resultData.description,
+        statusCode: resultData.statusCode,
+        contentType: resultData.contentType,
         timestamp: new Date().toISOString(),
         responseTime: Date.now() - Date.now()
       }

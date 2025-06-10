@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import logger from './logger';
+import { logger } from './logger';
 
 interface ReviewWorkflow {
   id?: number;
@@ -283,7 +283,7 @@ export class ReviewApprovalService {
     offset?: number;
   } = {}): Promise<{ requests: ReviewRequest[]; total: number }> {
     try {
-      let whereConditions = [];
+      let whereConditions: string[] = [];
       let values: any[] = [];
       let paramCount = 0;
 
@@ -701,7 +701,7 @@ export class ReviewApprovalService {
   private async updateRequestStatus(requestId: number, status: string, finalDecision?: string): Promise<void> {
     try {
       let query = 'UPDATE review_requests SET status = $1';
-      const values = [status];
+      const values: any[] = [status];
 
       if (finalDecision) {
         query += ', final_decision = $2, completed_at = NOW()';
