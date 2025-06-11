@@ -27,7 +27,8 @@ import {
   Edit,
   MessageSquare,
   Workflow,
-  GitBranch
+  GitBranch,
+  CheckCircle
 } from "lucide-react"
 import { Button } from "../ui/button"
 import { UserRole, hasPermission, User } from "../../lib/auth"
@@ -78,6 +79,18 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       href: "/dashboard/version-control",
       icon: GitBranch,
       permission: null // Available to all
+    },
+    {
+      name: "Review & Approval",
+      href: "/dashboard/review-approval",
+      icon: CheckCircle,
+      permission: "canAccessAnalytics" // Require higher permission for admin workflow features
+    },
+    {
+      name: "Workflow Management",
+      href: "/dashboard/workflow-management",
+      icon: Settings,
+      permission: "canAccessAnalytics" // Admin-level workflow configuration
     },
     {
       name: "Compliance Checker",

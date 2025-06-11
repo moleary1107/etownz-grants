@@ -20,9 +20,11 @@ import {
   Calendar,
   Sparkles,
   ArrowRight,
-  Star
+  Star,
+  CheckCircle
 } from 'lucide-react'
 import { User, UserRole } from '../../lib/auth'
+import ReviewApprovalWidget from './ReviewApprovalWidget'
 
 // Widget Types
 export interface DashboardWidget {
@@ -48,6 +50,7 @@ export type WidgetType =
   | 'funding_tracker'
   | 'compliance_status'
   | 'analytics_dashboard'
+  | 'review_approval'
 
 interface DashboardGridProps {
   user: User
@@ -67,13 +70,15 @@ const WIDGET_ICONS: Record<WidgetType, React.ElementType> = {
   ai_insights: Zap,
   funding_tracker: DollarSign,
   compliance_status: FileText,
-  analytics_dashboard: TrendingUp
+  analytics_dashboard: TrendingUp,
+  review_approval: CheckCircle
 }
 
 const DEFAULT_WIDGETS_BY_ROLE: Record<UserRole, Partial<DashboardWidget>[]> = {
   [UserRole.SUPER_ADMIN]: [
     { type: 'stats_overview', title: 'Platform Overview', size: 'large' },
     { type: 'analytics_dashboard', title: 'Interactive Analytics', size: 'large' },
+    { type: 'review_approval', title: 'Review & Approval', size: 'medium' },
     { type: 'performance_chart', title: 'System Performance', size: 'medium' },
     { type: 'team_activity', title: 'User Activity', size: 'medium' },
     { type: 'recent_activity', title: 'System Events', size: 'medium' }
@@ -81,6 +86,7 @@ const DEFAULT_WIDGETS_BY_ROLE: Record<UserRole, Partial<DashboardWidget>[]> = {
   [UserRole.ORGANIZATION_ADMIN]: [
     { type: 'stats_overview', title: 'Organization Stats', size: 'large' },
     { type: 'analytics_dashboard', title: 'Team Analytics', size: 'large' },
+    { type: 'review_approval', title: 'Review & Approval', size: 'medium' },
     { type: 'team_activity', title: 'Team Performance', size: 'medium' },
     { type: 'funding_tracker', title: 'Funding Overview', size: 'medium' },
     { type: 'upcoming_deadlines', title: 'Team Deadlines', size: 'small' },
@@ -307,6 +313,8 @@ function WidgetContent({ widget, user }: { widget: DashboardWidget; user: User }
       return <AIInsightsWidget user={user} />
     case 'analytics_dashboard':
       return <AnalyticsDashboardWidget user={user} />
+    case 'review_approval':
+      return <ReviewApprovalWidget />
     default:
       return (
         <div className="text-center py-4">

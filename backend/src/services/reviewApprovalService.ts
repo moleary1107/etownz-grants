@@ -770,6 +770,97 @@ export class ReviewApprovalService {
       throw error;
     }
   }
+
+  async updateWorkflow(workflowId: number, updates: {
+    name?: string;
+    description?: string;
+    isActive?: boolean;
+    requiredApprovers?: number;
+    sequentialApproval?: boolean;
+    updatedBy?: string;
+  }): Promise<any> {
+    try {
+      const setParts: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (updates.name !== undefined) {
+        setParts.push(`name = $${paramIndex++}`);
+        values.push(updates.name);
+      }
+      if (updates.description !== undefined) {
+        setParts.push(`description = $${paramIndex++}`);
+        values.push(updates.description);
+      }
+      if (updates.isActive !== undefined) {
+        setParts.push(`is_active = $${paramIndex++}`);
+        values.push(updates.isActive);
+      }
+      if (updates.requiredApprovers !== undefined) {
+        setParts.push(`required_approvers = $${paramIndex++}`);
+        values.push(updates.requiredApprovers);
+      }
+      if (updates.sequentialApproval !== undefined) {
+        setParts.push(`sequential_approval = $${paramIndex++}`);
+        values.push(updates.sequentialApproval);
+      }
+
+      setParts.push(`updated_at = NOW()`);
+      values.push(workflowId);
+
+      const query = `
+        UPDATE review_workflows 
+        SET ${setParts.join(', ')}
+        WHERE id = $${paramIndex}
+        RETURNING *
+      `;
+
+      const result = await this.db.query(query, values);
+      
+      if (result.rows.length === 0) {
+        throw new Error('Workflow not found');
+      }
+
+      logger.info('Workflow updated', { workflowId, updates });
+      return result.rows[0];
+    } catch (error) {
+      logger.error('Error updating workflow', { error, workflowId, updates });
+      throw error;
+    }
+  }
+
+  async deleteWorkflow(workflowId: number): Promise<void> {
+    try {
+      // Check if workflow has any active requests
+      const activeRequestsQuery = `
+        SELECT COUNT(*) as count 
+        FROM review_requests 
+        WHERE workflow_id = $1 AND status NOT IN ('approved', 'rejected', 'cancelled')
+      `;
+      const activeRequestsResult = await this.db.query(activeRequestsQuery, [workflowId]);
+      
+      if (parseInt(activeRequestsResult.rows[0].count) > 0) {
+        throw new Error('Cannot delete workflow with active requests. Please complete or cancel all pending requests first.');
+      }
+
+      // Delete the workflow (this will cascade to related records)
+      const deleteQuery = `
+        DELETE FROM review_workflows 
+        WHERE id = $1
+      `;
+      
+      const result = await this.db.query(deleteQuery, [workflowId]);
+      
+      if (result.rowCount === 0) {
+        throw new Error('Workflow not found');
+      }
+
+      logger.info('Workflow deleted', { workflowId });
+    } catch (error) {
+      logger.error('Error deleting workflow', { error, workflowId });
+      throw error;
+    }
+  }
 }
 
 export default ReviewApprovalService;

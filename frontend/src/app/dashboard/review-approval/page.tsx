@@ -1,17 +1,60 @@
-'use client';
+"use client"
 
-import React from 'react';
-import { Metadata } from 'next';
-import ReviewApprovalDashboard from '../../../components/review/ReviewApprovalDashboard';
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Sidebar } from "../../../components/layout/Sidebar"
+import ReviewApprovalDashboard from "../../../components/review/ReviewApprovalDashboard"
+import { User } from "../../../lib/auth"
 
 export default function ReviewApprovalPage() {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <ReviewApprovalDashboard />
-    </div>
-  );
-}
+  const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
 
-// Note: This would normally be exported as a const, but since we're using 'use client'
-// directive for this page, we can't export metadata from client components.
-// The metadata would need to be handled by a parent server component if needed.
+  useEffect(() => {
+    // Check authentication
+    const token = localStorage.getItem('token')
+    const userStr = localStorage.getItem('user')
+    
+    if (!token || !userStr) {
+      router.push('/auth/login')
+      return
+    }
+
+    try {
+      const userData = JSON.parse(userStr)
+      setUser(userData)
+    } catch (error) {
+      console.error('Error parsing user data:', error)
+      router.push('/auth/login')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [router])
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    router.push('/')
+  }
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col lg:flex-row h-screen bg-gray-50">
+      <Sidebar user={user} onLogout={handleLogout} />
+      
+      <div className="flex-1 overflow-auto">
+        <div className="p-4 sm:p-6 lg:p-8">
+          <ReviewApprovalDashboard />
+        </div>
+      </div>
+    </div>
+  )
+}

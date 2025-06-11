@@ -8,6 +8,48 @@ const router = express.Router();
 const databaseService = new DatabaseService();
 const reviewService = new ReviewApprovalService(databaseService.getPool());
 
+// Dashboard endpoint for summary data
+router.get('/dashboard', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    
+    // Get pending approvals
+    const pendingApprovals = await reviewService.getUserPendingApprovals(userId);
+    
+    // Get recent requests
+    const recentRequests = await reviewService.getReviewRequests({
+      limit: 20,
+      offset: 0
+    });
+    
+    // Get workflow count
+    const workflows = await reviewService.getWorkflows();
+    
+    // Calculate summary metrics
+    const summary = {
+      pendingCount: pendingApprovals.length,
+      recentCount: recentRequests.total,
+      workflowCount: workflows.length
+    };
+    
+    res.json({
+      success: true,
+      data: {
+        summary,
+        pendingApprovals: pendingApprovals.slice(0, 5), // Latest 5 for widget
+        recentRequests: recentRequests.requests.slice(0, 5), // Latest 5 for widget
+        workflows: workflows.slice(0, 3) // Top 3 workflows
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching dashboard data:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch dashboard data'
+    });
+  }
+});
+
 /**
  * @swagger
  * components:
@@ -729,6 +771,220 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch dashboard data'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/review-approval/workflows/{id}:
+ *   put:
+ *     summary: Update a workflow
+ *     tags: [Review & Approval]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               isActive:
+ *                 type: boolean
+ *               requiredApprovers:
+ *                 type: integer
+ *               sequentialApproval:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Workflow updated successfully
+ */
+router.put('/workflows/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, isActive, requiredApprovers, sequentialApproval } = req.body;
+    const user = (req as any).user;
+
+    const updatedWorkflow = await reviewService.updateWorkflow(parseInt(id), {
+      name,
+      description,
+      isActive,
+      requiredApprovers,
+      sequentialApproval,
+      updatedBy: user.id
+    });
+
+    res.json({
+      success: true,
+      data: updatedWorkflow
+    });
+  } catch (error) {
+    logger.error('Error updating workflow', { error, workflowId: req.params.id });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update workflow'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/review-approval/workflows/{id}:
+ *   delete:
+ *     summary: Delete a workflow
+ *     tags: [Review & Approval]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Workflow deleted successfully
+ */
+router.delete('/workflows/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await reviewService.deleteWorkflow(parseInt(id));
+
+    res.json({
+      success: true,
+      message: 'Workflow deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Error deleting workflow', { error, workflowId: req.params.id });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete workflow'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/review-approval/approvals/{id}/approve:
+ *   post:
+ *     summary: Approve a specific approval request
+ *     tags: [Review & Approval]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               comments:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Approval processed successfully
+ */
+router.post('/approvals/:id/approve', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comments } = req.body;
+    const userId = (req as any).user.id;
+
+    await reviewService.processApproval(
+      parseInt(id),
+      'approve',
+      userId,
+      comments
+    );
+
+    res.json({
+      success: true,
+      message: 'Approval processed successfully'
+    });
+  } catch (error) {
+    logger.error('Error processing approval', { error, approvalId: req.params.id });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process approval'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/review-approval/approvals/{id}/reject:
+ *   post:
+ *     summary: Reject a specific approval request
+ *     tags: [Review & Approval]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               comments:
+ *                 type: string
+ *                 required: true
+ *     responses:
+ *       200:
+ *         description: Rejection processed successfully
+ */
+router.post('/approvals/:id/reject', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comments } = req.body;
+    const userId = (req as any).user.id;
+
+    if (!comments || comments.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Comments are required for rejection'
+      });
+    }
+
+    await reviewService.processApproval(
+      parseInt(id),
+      'reject',
+      userId,
+      comments
+    );
+
+    res.json({
+      success: true,
+      message: 'Rejection processed successfully'
+    });
+  } catch (error) {
+    logger.error('Error processing rejection', { error, approvalId: req.params.id });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process rejection'
     });
   }
 });
