@@ -61,8 +61,8 @@ class AIService {
 
   constructor() {
     this.baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://grants.etownz.com' 
-      : 'http://localhost:8000'
+      ? 'https://grants.etownz.com/api' 
+      : 'http://localhost:8001'
   }
 
   /**

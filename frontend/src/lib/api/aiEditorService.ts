@@ -6,8 +6,8 @@
 import axios from 'axios';
 
 const API_BASE = process.env.NODE_ENV === 'production' 
-  ? 'https://grants.etownz.com' 
-  : 'http://localhost:8000';
+  ? 'https://grants.etownz.com/api' 
+  : 'http://localhost:8001';
 
 // Types for AI Editor
 export interface EditorSession {

@@ -28,6 +28,7 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
+      - PORT=8000
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/etownz_grants
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=dev_secret_key

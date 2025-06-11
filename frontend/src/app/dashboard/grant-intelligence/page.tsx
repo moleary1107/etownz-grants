@@ -84,8 +84,8 @@ export default function GrantIntelligencePage() {
     try {
       // Load grants and organizations
       const [grantsResponse, orgsResponse] = await Promise.all([
-        fetch('http://localhost:8000/grants'),
-        fetch('http://localhost:8000/organizations')
+        fetch(process.env.NODE_ENV === 'production' ? 'https://grants.etownz.com/api/grants' : 'http://localhost:8001/grants'),
+        fetch(process.env.NODE_ENV === 'production' ? 'https://grants.etownz.com/api/organizations' : 'http://localhost:8001/organizations')
       ]);
       
       if (grantsResponse.ok) {
@@ -113,7 +113,7 @@ export default function GrantIntelligencePage() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8000/grant-intelligence/extract-requirements', {
+      const response = await fetch(process.env.NODE_ENV === 'production' ? 'https://grants.etownz.com/api/grant-intelligence/extract-requirements' : 'http://localhost:8001/grant-intelligence/extract-requirements', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +151,7 @@ export default function GrantIntelligencePage() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8000/grant-intelligence/extract-org-intelligence', {
+      const response = await fetch(process.env.NODE_ENV === 'production' ? 'https://grants.etownz.com/api/grant-intelligence/extract-org-intelligence' : 'http://localhost:8001/grant-intelligence/extract-org-intelligence', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -190,7 +190,7 @@ export default function GrantIntelligencePage() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8000/grant-intelligence/assess-compliance', {
+      const response = await fetch(process.env.NODE_ENV === 'production' ? 'https://grants.etownz.com/api/grant-intelligence/assess-compliance' : 'http://localhost:8001/grant-intelligence/assess-compliance', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -227,7 +227,7 @@ export default function GrantIntelligencePage() {
     setError(null);
 
     try {
-      const response = await fetch(`http://localhost:8000/grant-intelligence/find-matches/${selectedOrg}?minMatchScore=40`, {
+      const response = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://grants.etownz.com/api' : 'http://localhost:8001'}/grant-intelligence/find-matches/${selectedOrg}?minMatchScore=40`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

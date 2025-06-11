@@ -36,11 +36,11 @@ export default function AutoGenerateButton({
       setIsGenerating(true);
 
       // First, fetch real grant data from the backend
-      const grantResponse = await fetch(`http://localhost:8000/grants/${grantId}`);
+      const grantResponse = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://grants.etownz.com/api' : 'http://localhost:8001'}/grants/${grantId}`);
       const grantData = grantResponse.ok ? await grantResponse.json() : null;
 
       // Fetch organization data from the backend
-      const orgResponse = await fetch(`http://localhost:8000/organizations/${organizationId}`);
+      const orgResponse = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://grants.etownz.com/api' : 'http://localhost:8001'}/organizations/${organizationId}`);
       const organizationData = orgResponse.ok ? await orgResponse.json() : null;
 
       // Use the real AI service to generate content

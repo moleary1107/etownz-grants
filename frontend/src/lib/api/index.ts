@@ -128,8 +128,8 @@ export type {
 // Central API configuration
 export const API_CONFIG = {
   baseUrl: process.env.NODE_ENV === 'production' 
-    ? 'https://grants.etownz.com' 
-    : 'http://localhost:8000',
+    ? 'https://grants.etownz.com/api' 
+    : 'http://localhost:8001',
   timeout: 30000,
   retries: 3
 }
