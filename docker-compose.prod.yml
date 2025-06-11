@@ -6,6 +6,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - NODE_ENV=production
+      - PORT=3001
       - NEXT_PUBLIC_API_URL=https://grants.etownz.com/api
       - NEXT_PUBLIC_SANITY_PROJECT_ID=hpmuagfn
       - NEXT_PUBLIC_SANITY_DATASET=production
