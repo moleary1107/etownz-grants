@@ -15,6 +15,9 @@
     "lint:fix": "eslint src/**/*.ts --fix",
     "docs": "swagger-jsdoc -d swaggerDef.js -o ./docs/swagger.json src/routes/*.ts",
     "migrate": "node src/scripts/run-migrations.js",
+    "migrate:enhanced": "ts-node src/scripts/enhanced-migration-runner.ts",
+    "migrate:validate": "ts-node src/scripts/migration-validator.ts",
+    "migrate:test": "jest --testPathPattern=migration",
     "seed:demo": "ts-node src/scripts/seed-demo-users.ts"
   },
   "dependencies": {

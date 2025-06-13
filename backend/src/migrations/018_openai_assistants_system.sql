@@ -25,7 +25,7 @@ CREATE TABLE openai_threads (
     thread_id VARCHAR(100) UNIQUE NOT NULL, -- OpenAI Thread ID
     assistant_id VARCHAR(100) NOT NULL, -- References openai_assistants.assistant_id
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    grant_application_id UUID REFERENCES grant_applications(id) ON DELETE CASCADE,
+    grant_application_id UUID REFERENCES applications(id) ON DELETE CASCADE,
     title VARCHAR(255),
     metadata JSONB DEFAULT '{}'::jsonb,
     status VARCHAR(20) DEFAULT 'active',
@@ -80,7 +80,7 @@ CREATE TABLE assistant_files (
     mime_type VARCHAR(100),
     purpose VARCHAR(50) DEFAULT 'assistants', -- OpenAI file purpose
     upload_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    grant_application_id UUID REFERENCES grant_applications(id) ON DELETE CASCADE,
+    grant_application_id UUID REFERENCES applications(id) ON DELETE CASCADE,
     status VARCHAR(20) DEFAULT 'active',
     metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -251,7 +251,7 @@ GROUP BY a.assistant_key, a.name;
 
 CREATE VIEW daily_assistant_metrics AS
 SELECT 
-    DATE(created_at) as date,
+    DATE(i.created_at) as date,
     assistant_key,
     COUNT(*) as interactions,
     SUM(tokens_used) as tokens,
@@ -260,8 +260,8 @@ SELECT
     AVG(processing_time_ms) as avg_processing_time
 FROM openai_assistant_interactions i
 JOIN openai_assistants a ON i.assistant_id = a.assistant_id
-WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
-GROUP BY DATE(created_at), assistant_key
+WHERE i.created_at >= CURRENT_DATE - INTERVAL '30 days'
+GROUP BY DATE(i.created_at), assistant_key
 ORDER BY date DESC, assistant_key;
 
 -- Add comments for documentation

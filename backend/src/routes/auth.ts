@@ -61,10 +61,10 @@ const usersRepo = new UsersRepository();
 function generateToken(user: any): string {
   return jwt.sign(
     { 
-      userId: user.id, 
+      id: user.id, 
       email: user.email, 
       role: user.role,
-      orgId: user.org_id 
+      organizationId: user.org_id 
     },
     process.env.JWT_SECRET || 'dev_secret_key',
     { expiresIn: '24h' }

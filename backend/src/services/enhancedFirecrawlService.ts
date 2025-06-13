@@ -104,6 +104,48 @@ export class EnhancedFirecrawlService {
     });
   }
 
+  /**
+   * Retry wrapper for API calls with exponential backoff
+   */
+  private async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    initialDelay: number = 1000
+  ): Promise<T> {
+    let lastError: Error;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error as Error;
+        
+        // Check if error is retryable
+        const errorMessage = lastError.message?.toLowerCase() || '';
+        const isRetryable = errorMessage.includes('502') || 
+                           errorMessage.includes('timeout') || 
+                           errorMessage.includes('bad gateway') ||
+                           errorMessage.includes('service unavailable') ||
+                           errorMessage.includes('network');
+        
+        if (!isRetryable || attempt === maxRetries - 1) {
+          throw lastError;
+        }
+        
+        const delay = initialDelay * Math.pow(2, attempt);
+        logger.warn(`Firecrawl API call failed, retrying in ${delay}ms`, {
+          attempt: attempt + 1,
+          maxRetries,
+          error: errorMessage
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw lastError!;
+  }
+
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
@@ -262,22 +304,28 @@ export class EnhancedFirecrawlService {
     try {
       logger.info('Starting enhanced crawl job', { jobId: job.id, sourceUrl: job.source_url });
 
-      // Configure Firecrawl v1 API options
-      const crawlOptions = {
-        includePaths: job.configuration.include_patterns,
-        excludePaths: job.configuration.exclude_patterns,
+      // Configure Firecrawl v1 API options (removed deprecated parameters)
+      const crawlOptions: any = {
         maxDepth: job.configuration.max_depth,
-        limit: 100,
-        allowBackwardCrawling: false,
-        allowExternalContentLinks: job.configuration.follow_external_links,
-        formats: ['markdown', 'html'],
-        onlyMainContent: true,
-        screenshot: job.configuration.capture_screenshots,
-        waitFor: 2000
+        limit: 100
       };
 
-      // Start the crawl
-      const crawlResult = await this.firecrawl.crawlUrl(job.source_url, crawlOptions as any);
+      // Only add includePaths if they're not the default wildcard
+      if (job.configuration.include_patterns && 
+          job.configuration.include_patterns.length > 0 && 
+          !job.configuration.include_patterns.includes('*')) {
+        crawlOptions.includePaths = job.configuration.include_patterns;
+      }
+
+      // Only add excludePaths if they exist
+      if (job.configuration.exclude_patterns && job.configuration.exclude_patterns.length > 0) {
+        crawlOptions.excludePaths = job.configuration.exclude_patterns;
+      }
+
+      // Start the crawl with retry logic
+      const crawlResult = await this.retryWithBackoff(
+        () => this.firecrawl.crawlUrl(job.source_url, crawlOptions as any)
+      );
 
       if (!crawlResult.success) {
         throw new Error(`Firecrawl failed: ${crawlResult.error || 'Unknown error'}`);
@@ -409,11 +457,12 @@ export class EnhancedFirecrawlService {
   private async processDocument(url: string, pageId: string, job: CrawlJobExtended): Promise<ScrapedDocument> {
     const fileType = this.getFileTypeFromUrl(url);
     
-    // Scrape document with Firecrawl v1 API
-    const docResult = await this.firecrawl.scrapeUrl(url, {
-      formats: ['markdown', 'html'],
-      onlyMainContent: true
-    });
+    // Scrape document with Firecrawl v1 API (removed deprecated parameters)
+    const docResult = await this.retryWithBackoff(
+      () => this.firecrawl.scrapeUrl(url, {
+        // Only basic parameters supported in v1
+      })
+    );
 
     if (!docResult.success) {
       throw new Error(`Failed to scrape document: ${docResult.error}`);
@@ -450,15 +499,141 @@ export class EnhancedFirecrawlService {
   }
 
   private async extractGrantDataFromDocument(content: string, fileType: string): Promise<any> {
-    // This would use OpenAI or similar AI service to extract grant information
-    // For now, return mock data
-    return {
-      grants: [],
-      contacts: [],
-      dates: [],
-      amounts: [],
-      confidence: 0.7
-    };
+    try {
+      // Import OpenAI service
+      const { openaiService } = await import('./openaiService');
+      
+      const prompt = `
+        Analyze the following document content and extract any grant-related information.
+        Return a JSON object with the following structure:
+        {
+          "grants": [
+            {
+              "title": "Grant name",
+              "description": "Grant description",
+              "amount_min": number or null,
+              "amount_max": number or null,
+              "currency": "EUR" or "USD" or null,
+              "deadline": "YYYY-MM-DD" or null,
+              "funder": "Organization name",
+              "eligibility": "Brief eligibility description",
+              "categories": ["category1", "category2"],
+              "url": "Application URL if found"
+            }
+          ],
+          "contacts": [
+            {
+              "name": "Contact name",
+              "email": "email@example.com",
+              "phone": "phone number",
+              "role": "role/title"
+            }
+          ],
+          "dates": [
+            {
+              "type": "deadline" | "opening" | "info_session",
+              "date": "YYYY-MM-DD",
+              "description": "Event description"
+            }
+          ],
+          "confidence": 0.0-1.0
+        }
+        
+        If no grant information is found, return empty arrays but include a confidence score.
+        
+        Document content:
+        ${content.substring(0, 8000)} // Limit to avoid token limits
+      `;
+
+      const response = await openaiService.chatCompletion(
+        [
+          {
+            role: 'system',
+            content: 'You are an expert at extracting grant and funding information from documents. Always respond with valid JSON.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        {
+          model: 'gpt-4o-mini',
+          maxTokens: 1500,
+          temperature: 0.1
+        }
+      );
+
+      try {
+        const extractedData = JSON.parse(response.content);
+        logger.info('Successfully extracted grant data', { 
+          grantsFound: extractedData.grants?.length || 0,
+          confidence: extractedData.confidence
+        });
+        return extractedData;
+      } catch (parseError) {
+        logger.warn('Failed to parse AI response as JSON', { response: response.content });
+        return {
+          grants: [],
+          contacts: [],
+          dates: [],
+          confidence: 0.1
+        };
+      }
+
+    } catch (error) {
+      logger.error('Failed to extract grant data using AI', { error: error instanceof Error ? error.message : String(error) });
+      
+      // Fallback: Try simple text analysis for grant indicators
+      const grantIndicators = this.simpleGrantExtraction(content);
+      return {
+        grants: grantIndicators.grants,
+        contacts: grantIndicators.contacts,
+        dates: grantIndicators.dates,
+        confidence: 0.3
+      };
+    }
+  }
+
+  private simpleGrantExtraction(content: string): { grants: any[], contacts: any[], dates: any[] } {
+    const grants: any[] = [];
+    const contacts: any[] = [];
+    const dates: any[] = [];
+
+    // Simple regex patterns for grant detection
+    const grantPatterns = [
+      /(?:grant|funding|award|scheme|programme?)\s+(?:for|of|to)\s+([^.]{10,100})/gi,
+      /(?:€|EUR|USD|\$)\s*([0-9,]+(?:\.[0-9]{2})?)/gi,
+      /deadline\s*:?\s*([^.]{5,50})/gi
+    ];
+
+    let match;
+    while ((match = grantPatterns[0].exec(content)) !== null) {
+      grants.push({
+        title: match[1].trim(),
+        description: null,
+        amount_min: null,
+        amount_max: null,
+        currency: null,
+        deadline: null,
+        funder: null,
+        eligibility: null,
+        categories: [],
+        url: null
+      });
+    }
+
+    // Extract email addresses
+    const emailPattern = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+    while ((match = emailPattern.exec(content)) !== null) {
+      contacts.push({
+        name: null,
+        email: match[1],
+        phone: null,
+        role: null
+      });
+    }
+
+    return { grants: grants.slice(0, 3), contacts: contacts.slice(0, 3), dates };
   }
 
   private async extractStructuredData(page: ScrapedPage): Promise<void> {
@@ -824,21 +999,23 @@ export class EnhancedFirecrawlService {
       logger.info('Starting website crawl', { url, options });
 
       // Configure crawl options for Firecrawl v1 API
-      const crawlOptions = {
-        includePaths: includePatterns,
-        excludePaths: excludePatterns,
+      const crawlOptions: any = {
         maxDepth: 2,
-        limit: maxPages,
-        allowBackwardCrawling: false,
-        allowExternalContentLinks: !followInternalLinks,
-        formats: ['markdown', extractMetadata ? 'html' : 'markdown'],
-        onlyMainContent: true,
-        screenshot: false,
-        waitFor: 2000
+        limit: maxPages
       };
 
-      // Execute crawl
-      const crawlResult = await this.firecrawl.crawlUrl(url, crawlOptions);
+      // Only add paths if they're actual path patterns, not wildcards
+      if (includePatterns && includePatterns.length > 0 && !includePatterns.includes('*')) {
+        crawlOptions.includePaths = includePatterns;
+      }
+      if (excludePatterns && excludePatterns.length > 0) {
+        crawlOptions.excludePaths = excludePatterns;
+      }
+
+      // Execute crawl with retry logic
+      const crawlResult = await this.retryWithBackoff(
+        () => this.firecrawl.crawlUrl(url, crawlOptions)
+      );
 
       if (!crawlResult.success) {
         return {
@@ -861,10 +1038,11 @@ export class EnhancedFirecrawlService {
           const docLinks = this.extractDocumentLinks(page.content);
           for (const docUrl of docLinks.slice(0, 3)) { // Limit to 3 documents per page
             try {
-              const docResult = await this.firecrawl.scrapeUrl(docUrl, {
-                formats: ['markdown'],
-                onlyMainContent: true
-              });
+              const docResult = await this.retryWithBackoff(
+                () => this.firecrawl.scrapeUrl(docUrl, {
+                  // Basic v1 API call
+                })
+              );
 
               if (docResult.success) {
                 const docData = (docResult as any).data || docResult;

@@ -80,7 +80,7 @@ import { db } from './services/database';
 // TODO: Add Sentry integration in production
 
 const app = express();
-const PORT = parseInt(process.env.PORT || '8000');
+const PORT = parseInt(process.env.PORT || '8001');
 
 // Swagger configuration
 const swaggerOptions = {
@@ -185,7 +185,7 @@ const swaggerOptions = {
       {
         url: process.env.NODE_ENV === 'production' 
           ? 'https://grants.etownz.com/api' 
-          : 'http://localhost:8000',
+          : 'http://localhost:8001',
         description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server'
       }
     ],

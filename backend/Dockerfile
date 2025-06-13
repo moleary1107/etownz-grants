@@ -39,7 +39,7 @@ COPY src/scripts ./src/scripts
 RUN chmod +x /app/src/scripts/start-with-migrations.sh
 
 # Expose port
-EXPOSE 8000
+EXPOSE 3001
 
 # Start with migrations
 CMD ["/app/src/scripts/start-with-migrations.sh"]

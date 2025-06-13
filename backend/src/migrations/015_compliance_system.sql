@@ -4,7 +4,7 @@
 -- Table to store compliance rules for different grant schemes
 CREATE TABLE IF NOT EXISTS compliance_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    grant_scheme_id UUID REFERENCES grant_schemes(id) ON DELETE CASCADE,
+    grant_scheme_id UUID REFERENCES grants(id) ON DELETE CASCADE,
     rule_category VARCHAR(50) NOT NULL DEFAULT 'general',
     rule_description TEXT NOT NULL,
     severity VARCHAR(20) NOT NULL CHECK (severity IN ('critical', 'major', 'minor')),
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS compliance_rules (
 -- Table to store compliance check results
 CREATE TABLE IF NOT EXISTS compliance_checks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    application_id UUID NOT NULL REFERENCES grant_applications(id) ON DELETE CASCADE,
+    application_id UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
     rule_id UUID REFERENCES compliance_rules(id) ON DELETE SET NULL,
     status VARCHAR(20) NOT NULL CHECK (status IN ('pass', 'fail', 'warning')),
     ai_confidence DECIMAL(3,2) CHECK (ai_confidence >= 0.00 AND ai_confidence <= 1.00),
@@ -29,22 +29,23 @@ CREATE TABLE IF NOT EXISTS compliance_checks (
     processing_time_ms INTEGER
 );
 
--- Enhanced grant_applications table with compliance tracking
-ALTER TABLE grant_applications 
+-- Enhanced applications table with compliance tracking
+ALTER TABLE applications 
 ADD COLUMN IF NOT EXISTS compliance_score DECIMAL(5,2) DEFAULT 0.00,
 ADD COLUMN IF NOT EXISTS last_compliance_check TIMESTAMP WITH TIME ZONE,
 ADD COLUMN IF NOT EXISTS compliance_status VARCHAR(20) DEFAULT 'pending' CHECK (compliance_status IN ('pending', 'passed', 'failed', 'warning'));
 
 -- Enhanced grant_sections table with AI metadata
-ALTER TABLE grant_sections 
-ADD COLUMN IF NOT EXISTS ai_generated BOOLEAN DEFAULT false,
-ADD COLUMN IF NOT EXISTS ai_confidence DECIMAL(3,2) CHECK (ai_confidence >= 0.00 AND ai_confidence <= 1.00),
-ADD COLUMN IF NOT EXISTS human_edited BOOLEAN DEFAULT false,
-ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1,
-ADD COLUMN IF NOT EXISTS word_count INTEGER DEFAULT 0;
+-- SKIPPED: grant_sections table does not exist in current schema
+-- ALTER TABLE grant_sections 
+-- ADD COLUMN IF NOT EXISTS ai_generated BOOLEAN DEFAULT false,
+-- ADD COLUMN IF NOT EXISTS ai_confidence DECIMAL(3,2) CHECK (ai_confidence >= 0.00 AND ai_confidence <= 1.00),
+-- ADD COLUMN IF NOT EXISTS human_edited BOOLEAN DEFAULT false,
+-- ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1,
+-- ADD COLUMN IF NOT EXISTS word_count INTEGER DEFAULT 0;
 
--- Enhanced ai_grant_interactions table for compliance tracking
-ALTER TABLE ai_grant_interactions 
+-- Enhanced ai_interactions table for compliance tracking
+ALTER TABLE ai_interactions 
 ADD COLUMN IF NOT EXISTS interaction_metadata JSONB DEFAULT '{}'::jsonb,
 ADD COLUMN IF NOT EXISTS success BOOLEAN DEFAULT true,
 ADD COLUMN IF NOT EXISTS error_message TEXT;
@@ -59,13 +60,14 @@ CREATE INDEX IF NOT EXISTS idx_compliance_checks_rule ON compliance_checks(rule_
 CREATE INDEX IF NOT EXISTS idx_compliance_checks_status ON compliance_checks(status);
 CREATE INDEX IF NOT EXISTS idx_compliance_checks_checked_at ON compliance_checks(checked_at);
 
-CREATE INDEX IF NOT EXISTS idx_grant_applications_compliance_status ON grant_applications(compliance_status);
-CREATE INDEX IF NOT EXISTS idx_grant_applications_compliance_score ON grant_applications(compliance_score);
+CREATE INDEX IF NOT EXISTS idx_applications_compliance_status ON applications(compliance_status);
+CREATE INDEX IF NOT EXISTS idx_applications_compliance_score ON applications(compliance_score);
 
-CREATE INDEX IF NOT EXISTS idx_grant_sections_ai_generated ON grant_sections(ai_generated);
-CREATE INDEX IF NOT EXISTS idx_grant_sections_application_type ON grant_sections(application_id, section_type);
+-- SKIPPED: grant_sections table does not exist
+-- CREATE INDEX IF NOT EXISTS idx_grant_sections_ai_generated ON grant_sections(ai_generated);
+-- CREATE INDEX IF NOT EXISTS idx_grant_sections_application_type ON grant_sections(application_id, section_type);
 
-CREATE INDEX IF NOT EXISTS idx_ai_interactions_type_success ON ai_grant_interactions(interaction_type, success);
+CREATE INDEX IF NOT EXISTS idx_ai_interactions_type_success ON ai_interactions(interaction_type, success);
 
 -- Insert default compliance rules for common Irish grant schemes
 INSERT INTO compliance_rules (grant_scheme_id, rule_category, rule_description, severity, automated_check, check_query)
@@ -87,7 +89,7 @@ CREATE OR REPLACE FUNCTION update_compliance_score()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Calculate compliance score based on recent checks
-    UPDATE grant_applications 
+    UPDATE applications 
     SET 
         compliance_score = (
             SELECT COALESCE(
@@ -150,11 +152,12 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger to update word counts
-DROP TRIGGER IF EXISTS trigger_update_word_count ON grant_sections;
-CREATE TRIGGER trigger_update_word_count
-    BEFORE INSERT OR UPDATE OF content ON grant_sections
-    FOR EACH ROW
-    EXECUTE FUNCTION update_word_count();
+-- SKIPPED: grant_sections table does not exist
+-- DROP TRIGGER IF EXISTS trigger_update_word_count ON grant_sections;
+-- CREATE TRIGGER trigger_update_word_count
+--     BEFORE INSERT OR UPDATE OF content ON grant_sections
+--     FOR EACH ROW
+--     EXECUTE FUNCTION update_word_count();
 
 -- Create a view for compliance dashboard statistics
 CREATE OR REPLACE VIEW compliance_dashboard_stats AS
@@ -169,7 +172,7 @@ SELECT
     COUNT(CASE WHEN cc.status = 'fail' AND cr.severity = 'critical' THEN 1 END) as critical_issues,
     COUNT(CASE WHEN cc.status = 'fail' AND cr.severity = 'major' THEN 1 END) as major_issues,
     COUNT(CASE WHEN cc.status = 'fail' AND cr.severity = 'minor' THEN 1 END) as minor_issues
-FROM grant_applications ga
+FROM applications ga
 LEFT JOIN compliance_checks cc ON ga.id = cc.application_id
 LEFT JOIN compliance_rules cr ON cc.rule_id = cr.id
 WHERE ga.created_at >= NOW() - INTERVAL '30 days'

@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS form_field_interactions (
 -- Progressive disclosure rules
 CREATE TABLE IF NOT EXISTS form_disclosure_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    grant_scheme_id UUID REFERENCES grant_schemes(id) ON DELETE CASCADE,
+    grant_scheme_id UUID REFERENCES grants(id) ON DELETE CASCADE,
     rule_name VARCHAR(100) NOT NULL,
     trigger_field VARCHAR(100) NOT NULL,
     trigger_condition JSONB NOT NULL, -- { "operator": "equals", "value": "research", "logic": "and" }
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS form_field_recommendations (
 -- Form completion optimization metrics
 CREATE TABLE IF NOT EXISTS form_optimization_metrics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    grant_scheme_id UUID REFERENCES grant_schemes(id) ON DELETE CASCADE,
+    grant_scheme_id UUID REFERENCES grants(id) ON DELETE CASCADE,
     date_period DATE NOT NULL,
     total_sessions INTEGER DEFAULT 0,
     completed_sessions INTEGER DEFAULT 0,
@@ -120,7 +120,7 @@ INSERT INTO form_disclosure_rules (grant_scheme_id, rule_name, trigger_field, tr
 (NULL, 'Commercial Project Fields', 'project_type', '{"operator": "equals", "value": "commercial"}', ARRAY['market_analysis', 'revenue_model', 'competitive_advantage'], 'show', 100, '{"description": "Show commercial fields for business projects"}'),
 (NULL, 'Large Budget Fields', 'requested_amount', '{"operator": "greater_than", "value": 100000}', ARRAY['detailed_budget', 'financial_management', 'audit_requirements'], 'show', 90, '{"description": "Show detailed financial fields for large budget requests"}'),
 (NULL, 'Partnership Fields', 'has_partners', '{"operator": "equals", "value": true}', ARRAY['partner_details', 'collaboration_agreement', 'ip_management'], 'show', 95, '{"description": "Show partnership fields when collaboration is involved"}'),
-(NULL, 'Environmental Impact', 'project_category', '{"operator": "contains", "value": "environment"}', ARRAY['environmental_impact', 'sustainability_metrics', 'carbon_footprint'], 'show', 85, '{"description": "Show environmental fields for green projects"}'');
+(NULL, 'Environmental Impact', 'project_category', '{"operator": "contains", "value": "environment"}', ARRAY['environmental_impact', 'sustainability_metrics', 'carbon_footprint'], 'show', 85, '{"description": "Show environmental fields for green projects"}');
 
 -- Update triggers for updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -129,7 +129,7 @@ BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_form_disclosure_rules_updated_at 
     BEFORE UPDATE ON form_disclosure_rules 

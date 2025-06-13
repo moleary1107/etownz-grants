@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS budget_optimizations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    application_id UUID REFERENCES grant_applications(id) ON DELETE SET NULL,
+    application_id UUID REFERENCES applications(id) ON DELETE SET NULL,
     project_scope JSONB NOT NULL,
     funding_rules JSONB NOT NULL,
     original_budget JSONB DEFAULT '[]'::jsonb,
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS historical_budget_data (
     industry VARCHAR(100),
     data_source VARCHAR(100) DEFAULT 'manual',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    embedding VECTOR(1536) -- For vector similarity search
+    embedding real[] -- For vector similarity search (1536 dimensions)
 );
 
 -- Table to store budget analysis results
@@ -79,15 +79,15 @@ CREATE TABLE IF NOT EXISTS budget_analyses (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enhanced grant_applications table with budget optimization tracking
-ALTER TABLE grant_applications 
+-- Enhanced applications table with budget optimization tracking
+ALTER TABLE applications 
 ADD COLUMN IF NOT EXISTS budget_optimization_id UUID REFERENCES budget_optimizations(id) ON DELETE SET NULL,
 ADD COLUMN IF NOT EXISTS budget_status VARCHAR(20) DEFAULT 'draft' CHECK (budget_status IN ('draft', 'optimized', 'approved', 'rejected')),
 ADD COLUMN IF NOT EXISTS budget_confidence_score DECIMAL(3,2) CHECK (budget_confidence_score >= 0.00 AND budget_confidence_score <= 1.00),
 ADD COLUMN IF NOT EXISTS last_budget_optimization TIMESTAMP WITH TIME ZONE;
 
--- Enhanced grant_schemes table with funding rules
-ALTER TABLE grant_schemes 
+-- Enhanced grants table with funding rules
+ALTER TABLE grants 
 ADD COLUMN IF NOT EXISTS funding_rules JSONB DEFAULT '{}'::jsonb,
 ADD COLUMN IF NOT EXISTS budget_template_id UUID REFERENCES budget_templates(id) ON DELETE SET NULL,
 ADD COLUMN IF NOT EXISTS typical_budget_range JSONB DEFAULT '{"min": 0, "max": 0}'::jsonb;
@@ -109,13 +109,14 @@ CREATE INDEX IF NOT EXISTS idx_historical_budget_project_type ON historical_budg
 CREATE INDEX IF NOT EXISTS idx_historical_budget_success ON historical_budget_data(success_status);
 CREATE INDEX IF NOT EXISTS idx_historical_budget_year ON historical_budget_data(year);
 CREATE INDEX IF NOT EXISTS idx_historical_budget_amount ON historical_budget_data(total_budget);
-CREATE INDEX IF NOT EXISTS idx_historical_budget_embedding ON historical_budget_data USING ivfflat (embedding vector_cosine_ops);
+-- Note: Using standard GIN index for array similarity instead of pgvector
+CREATE INDEX IF NOT EXISTS idx_historical_budget_embedding ON historical_budget_data USING gin (embedding);
 
 CREATE INDEX IF NOT EXISTS idx_budget_analyses_optimization ON budget_analyses(optimization_id);
 CREATE INDEX IF NOT EXISTS idx_budget_analyses_type ON budget_analyses(analysis_type);
 
-CREATE INDEX IF NOT EXISTS idx_grant_applications_budget_status ON grant_applications(budget_status);
-CREATE INDEX IF NOT EXISTS idx_grant_applications_budget_optimization ON grant_applications(budget_optimization_id);
+CREATE INDEX IF NOT EXISTS idx_applications_budget_status ON applications(budget_status);
+CREATE INDEX IF NOT EXISTS idx_applications_budget_optimization ON applications(budget_optimization_id);
 
 -- Create triggers for automatic updates
 CREATE OR REPLACE FUNCTION update_budget_optimization_timestamp()
@@ -141,7 +142,7 @@ CREATE OR REPLACE FUNCTION update_grant_budget_status()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Update the related grant application
-    UPDATE grant_applications 
+    UPDATE applications 
     SET 
         budget_optimization_id = NEW.id,
         budget_status = CASE 
