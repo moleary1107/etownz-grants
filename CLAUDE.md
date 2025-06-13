@@ -17,7 +17,7 @@ A comprehensive grants management platform for Ireland with AI-powered features,
 npm run dev
 
 # Start individual services
-cd backend && npm run dev          # Backend on port 3000
+cd backend && npm run dev          # Backend on port 3001
 cd frontend && npm run dev         # Frontend on port 3001
 cd crawler && npm run dev          # Crawler service
 
@@ -44,7 +44,10 @@ npm run test:vector          # Vector database tests
 npm run test:openai          # OpenAI service tests
 
 # Database operations
-npm run migrate              # Run database migrations
+npm run migrate              # Run database migrations (legacy)
+npm run migrate:enhanced     # Enhanced migration runner with rollback
+npm run migrate:validate     # Validate migration dependencies
+npm run migrate:test         # Run migration tests
 npm run seed:demo            # Seed demo users
 
 # Code quality
@@ -268,7 +271,7 @@ SENDGRID_API_KEY=...
 # App Configuration
 JWT_SECRET=...
 NODE_ENV=development|production
-PORT=3000
+PORT=3001
 ```
 
 ## Deployment

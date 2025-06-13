@@ -6,7 +6,7 @@ This document provides comprehensive documentation for the eTownz Grants platfor
 
 ## Base URLs
 
-- **Development**: `http://localhost:3001/api` (Frontend) → `http://localhost:8000` (Backend)
+- **Development**: `http://localhost:3001/api` (Frontend) → `http://localhost:3001` (Backend)
 - **Production**: `https://grants.etownz.com/api` (Frontend) → `https://api.grants.etownz.com` (Backend)
 
 ## Authentication

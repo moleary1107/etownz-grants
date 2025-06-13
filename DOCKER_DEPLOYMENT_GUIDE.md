@@ -31,7 +31,7 @@ We now have `docker-compose.prod-local.yml` that:
 All services include health checks:
 ```yaml
 healthcheck:
-  test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+  test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/api/health"]
   interval: 30s
   timeout: 10s
   retries: 3
@@ -83,7 +83,7 @@ GitHub Actions workflow checks:
    # Verify
    docker-compose -f docker-compose.prod-local.yml ps
    curl http://localhost:3001  # Frontend
-   curl http://localhost:8000/health  # Backend
+   curl http://localhost:3001/health  # Backend
    ```
 
 ## Troubleshooting

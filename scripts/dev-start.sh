@@ -20,8 +20,8 @@ docker-compose ps
 
 echo "✅ Development environment ready!"
 echo "📱 Frontend: http://localhost:3001"
-echo "🔧 Backend API: http://localhost:8000"
-echo "📚 API Docs: http://localhost:8000/docs"
+echo "🔧 Backend API: http://localhost:3001"
+echo "📚 API Docs: http://localhost:3001/docs"
 echo "🕷️ Crawler: http://localhost:8001"
 echo "🤖 AI Pipeline: http://localhost:8002"
 echo "📝 MCP Docs: http://localhost:9000"

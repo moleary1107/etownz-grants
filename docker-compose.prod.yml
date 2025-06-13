@@ -22,6 +22,7 @@ services:
     environment:
       - NODE_ENV=production
       - NODE_TLS_REJECT_UNAUTHORIZED=0
+      - PORT=8001
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
       - JWT_SECRET=${JWT_SECRET}
@@ -44,7 +45,7 @@ services:
       - ELASTIC_EMAIL_FROM_EMAIL=${ELASTIC_EMAIL_FROM_EMAIL}
       - MCP_FETCH_SERVER_URL=http://localhost:9001
     ports:
-      - "8000:8000"
+      - "8001:8001"
     depends_on:
       - postgres
       - redis
