@@ -48,7 +48,7 @@ export function ApplicationChecklist({
   grantId,
   grantDetails,
   organizationProfile,
-  // applicationData,
+  applicationData: _applicationData, // eslint-disable-line @typescript-eslint/no-unused-vars
   onUpdateChecklist,
   className = ""
 }: ApplicationChecklistProps) {
@@ -213,8 +213,8 @@ export function ApplicationChecklist({
       setChecklist(mockChecklist)
       onUpdateChecklist?.(mockChecklist)
       
-    } catch (error) {
-      console.error('Error generating checklist:', error)
+    } catch (_error) {
+      console.error('Error generating checklist:', _error)
       setError('Failed to generate checklist. Please try again.')
     } finally {
       setIsGenerating(false)
@@ -225,7 +225,7 @@ export function ApplicationChecklist({
     if (grantDetails && organizationProfile) {
       generateChecklist()
     }
-  }, [grantId, grantDetails, organizationProfile])
+  }, [grantId, grantDetails, organizationProfile, generateChecklist])
 
   const toggleItemCompletion = (itemId: string) => {
     const updatedChecklist = checklist.map(item =>

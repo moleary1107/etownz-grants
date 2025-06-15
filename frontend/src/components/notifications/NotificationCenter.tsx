@@ -7,16 +7,14 @@ import { Badge } from '../ui/badge'
 import { 
   Bell, 
   CheckCircle, 
-  AlertCircle, 
+ 
   Info, 
   X, 
   Clock, 
   FileText,
   DollarSign,
   Users,
-  Target,
   Zap,
-  Calendar
 } from 'lucide-react'
 import { User } from '../../lib/auth'
 
@@ -30,7 +28,7 @@ export interface Notification {
   read: boolean
   actionUrl?: string
   actionText?: string
-  data?: Record<string, any>
+  data?: Record<string, unknown>
 }
 
 interface NotificationCenterProps {
@@ -66,7 +64,6 @@ const PRIORITY_BORDERS = {
 }
 
 export function NotificationCenter({ 
-  user, 
   notifications, 
   onMarkAsRead, 
   onMarkAllAsRead, 
@@ -183,7 +180,7 @@ export function NotificationCenter({
                     key={key}
                     variant={filter === key ? "default" : "ghost"}
                     size="sm"
-                    onClick={() => setFilter(key as any)}
+                    onClick={() => setFilter(key as 'all' | 'unread' | 'urgent')}
                     className="text-xs"
                   >
                     {label} {count > 0 && <span className="ml-1">({count})</span>}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
@@ -8,11 +8,11 @@ import 'jspdf-autotable'
 // Declare module augmentation for jsPDF
 declare module 'jspdf' {
   interface jsPDF {
-    autoTable: (options: any) => jsPDF;
+    autoTable: (options: unknown) => jsPDF;
   }
 }
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "../../../../components/ui/card"
 import { Button } from "../../../../components/ui/button"
 import { Sidebar } from "../../../../components/layout/Sidebar"
 import { 
@@ -159,7 +159,7 @@ export default function ApplicationDetailPage() {
     })
     
     // Expected Outcomes
-    yPos = (doc as any).previousAutoTable.finalY + 20
+    yPos = (doc as jsPDF & { previousAutoTable: { finalY: number } }).previousAutoTable.finalY + 20
     doc.setFontSize(14)
     doc.text('Expected Outcomes', 20, yPos)
     doc.setFontSize(12)
@@ -280,9 +280,9 @@ export default function ApplicationDetailPage() {
       console.error('Error parsing user data:', error)
       router.push('/auth/login')
     }
-  }, [router, applicationSlug])
+  }, [router, applicationSlug, loadApplication])
 
-  const loadApplication = async () => {
+  const loadApplication = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -588,7 +588,7 @@ export default function ApplicationDetailPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [applicationSlug])
 
   const handleLogout = () => {
     localStorage.removeItem('token')
@@ -663,7 +663,7 @@ export default function ApplicationDetailPage() {
               {error || 'Application not found'}
             </h2>
             <p className="text-gray-600 mb-4">
-              The application you're looking for doesn't exist or you don't have permission to view it.
+              The application you&apos;re looking for doesn&apos;t exist or you don&apos;t have permission to view it.
             </p>
             <Button onClick={() => router.push('/dashboard/applications')}>
               <ArrowLeft className="h-4 w-4 mr-2" />

@@ -418,7 +418,7 @@ class CollaborationService {
   }
 
   // Version history
-  async getVersionHistory(documentId: string): Promise<any[]> {
+  async getVersionHistory(documentId: string): Promise<Record<string, unknown>[]> {
     try {
       const response = await fetch(`${this.baseUrl}/api/collaboration/documents/${documentId}/versions`);
       if (!response.ok) throw new Error('Failed to fetch version history');

@@ -13,7 +13,6 @@ import {
   TrendingDown, 
   AlertTriangle, 
   CheckCircle, 
-  DollarSign,
   Loader2,
   Download,
   RefreshCw,
@@ -39,6 +38,10 @@ interface ProjectScope {
   objectives: string[];
 }
 
+interface CostType {
+  [key: string]: unknown
+}
+
 interface FundingRules {
   fundingBody: string;
   grantScheme: string;
@@ -46,16 +49,28 @@ interface FundingRules {
   minBudget?: number;
   eligibleCategories: string[];
   categoryLimits: Record<string, { maxPercentage?: number; minPercentage?: number; maxAmount?: number }>;
-  costTypes: any;
+  costTypes: CostType;
   restrictions: string[];
+}
+
+interface BudgetWarning {
+  severity: 'low' | 'medium' | 'high'
+  message: string
+  [key: string]: unknown
+}
+
+interface BudgetJustification {
+  category: string
+  reason: string
+  [key: string]: unknown
 }
 
 interface OptimizedBudget {
   categories: BudgetCategory[];
   totalAmount: number;
   eligiblePercentage: number;
-  warnings: any[];
-  justifications: any[];
+  warnings: BudgetWarning[];
+  justifications: BudgetJustification[];
   recommendations: string[];
   confidenceScore: number;
   comparisonWithSimilar: {
@@ -85,6 +100,7 @@ export const BudgetOptimizer: React.FC<BudgetOptimizerProps> = ({
   const [optimizedBudget, setOptimizedBudget] = useState<OptimizedBudget | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
@@ -160,6 +176,7 @@ export const BudgetOptimizer: React.FC<BudgetOptimizerProps> = ({
     }
   }, [currentBudget, projectScope, fundingRules, initializeThread, onBudgetChange, toast]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addCategory = useCallback((category: BudgetCategory) => {
     setCurrentBudget(prev => [...prev, category]);
   }, []);
@@ -201,7 +218,7 @@ export const BudgetOptimizer: React.FC<BudgetOptimizerProps> = ({
 
   const getTotalBudget = () => currentBudget.reduce((sum, cat) => sum + cat.amount, 0);
 
-  const getWarningLevel = (warnings: any[]): 'success' | 'warning' | 'error' => {
+  const getWarningLevel = (warnings: BudgetWarning[]): 'success' | 'warning' | 'error' => {
     if (!warnings || warnings.length === 0) return 'success';
     if (warnings.some(w => w.severity === 'high')) return 'error';
     if (warnings.some(w => w.severity === 'medium')) return 'warning';
@@ -440,7 +457,7 @@ export const BudgetOptimizer: React.FC<BudgetOptimizerProps> = ({
             ) : (
               <Card className="p-8 text-center">
                 <p className="text-muted-foreground">
-                  No recommendations available. Click "Optimize Budget" to get AI-powered suggestions.
+                  No recommendations available. Click &quot;Optimize Budget&quot; to get AI-powered suggestions.
                 </p>
               </Card>
             )}
@@ -454,8 +471,8 @@ export const BudgetOptimizer: React.FC<BudgetOptimizerProps> = ({
                     <div className="flex items-start gap-3">
                       <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5" />
                       <div className="space-y-1">
-                        <p className="text-sm font-medium">{warning.title}</p>
-                        <p className="text-sm text-muted-foreground">{warning.description}</p>
+                        <p className="text-sm font-medium">{warning.severity}</p>
+                        <p className="text-sm text-muted-foreground">{warning.message}</p>
                       </div>
                     </div>
                   </Card>

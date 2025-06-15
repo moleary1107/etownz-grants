@@ -236,7 +236,7 @@ export default function CompliancePage() {
               applicationId={selectedApplication}
               grantScheme={{
                 name: "Sample Grant Scheme",
-                rules: [] as any[],
+                rules: [],
                 requirements: {}
               }}
               applicationData={{

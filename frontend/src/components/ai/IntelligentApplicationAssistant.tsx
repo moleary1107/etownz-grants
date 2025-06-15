@@ -10,12 +10,10 @@ import {
   Brain,
   Lightbulb, 
   CheckCircle,
-  AlertTriangle,
   Info,
   Sparkles,
   Wand2,
   FileText,
-  Clock,
   Target,
   TrendingUp,
   BookOpen,
@@ -24,8 +22,6 @@ import {
   RefreshCw,
   Save,
   Eye,
-  ThumbsUp,
-  ThumbsDown,
   Copy
 } from 'lucide-react'
 import { User } from '../../lib/auth'
@@ -73,17 +69,26 @@ interface ApplicationForm {
   }
 }
 
+interface GrantData {
+  requirements?: string[]
+  deadlines?: Record<string, unknown>
+  [key: string]: unknown
+}
+
 interface IntelligentApplicationAssistantProps {
   user: User
   applicationId?: string
-  grantData?: any
+  grantData?: GrantData
   onSave?: (content: ApplicationForm) => void
   className?: string
 }
 
 export function IntelligentApplicationAssistant({ 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   user, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   applicationId, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   grantData,
   onSave,
   className = "" 
@@ -579,7 +584,7 @@ export function IntelligentApplicationAssistant({
                   <div className="text-center py-4">
                     <Sparkles className="h-8 w-8 mx-auto text-gray-400 mb-2" />
                     <p className="text-sm text-gray-500">
-                      Click "AI Assist" to get smart suggestions for this section
+                      Click &quot;AI Assist&quot; to get smart suggestions for this section
                     </p>
                   </div>
                 )}

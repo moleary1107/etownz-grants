@@ -16,10 +16,38 @@ export interface Grant {
   currency?: string
   url?: string
   categories?: string[]
-  eligibility_criteria?: Record<string, any>
+  eligibility_criteria?: {
+    min_amount?: number
+    max_amount?: number
+    geographic_restrictions?: string[]
+    organization_type?: string[]
+    sector_requirements?: string[]
+    experience_level?: string
+    legal_status?: string[]
+    additional_criteria?: string[]
+    [key: string]: unknown
+  }
   required_documents?: string[]
   application_process?: string
-  contact_info?: Record<string, any>
+  contact_info?: {
+    email?: string
+    phone?: string
+    website?: string
+    address?: {
+      street?: string
+      city?: string
+      state?: string
+      postal_code?: string
+      country?: string
+    }
+    contact_person?: {
+      name?: string
+      title?: string
+      email?: string
+      phone?: string
+    }
+    [key: string]: unknown
+  }
   is_active?: boolean
   created_at?: Date
   updated_at?: Date
@@ -102,7 +130,15 @@ class GrantsService {
     const data = await response.json()
     
     // Convert date strings back to Date objects
-    data.grants = data.grants.map((grant: any) => ({
+    data.grants = data.grants.map((grant: {
+      id: string
+      title: string
+      description?: string
+      deadline?: string
+      created_at?: string
+      updated_at?: string
+      [key: string]: unknown
+    }) => ({
       ...grant,
       deadline: grant.deadline ? new Date(grant.deadline) : undefined,
       created_at: grant.created_at ? new Date(grant.created_at) : undefined,
@@ -131,7 +167,15 @@ class GrantsService {
       throw new Error(error.message || `Failed to fetch grant: ${response.status}`)
     }
 
-    const grant = await response.json()
+    const grant = await response.json() as {
+      id: string
+      title: string
+      description?: string
+      deadline?: string
+      created_at?: string
+      updated_at?: string
+      [key: string]: unknown
+    }
     
     // Convert date strings back to Date objects
     return {

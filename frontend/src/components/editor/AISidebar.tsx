@@ -7,7 +7,6 @@ import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Progress } from '../ui/progress';
 import { useAIEditorStore } from '../../lib/store/aiEditorStore';
-import { aiEditorService } from '../../lib/api/aiEditorService';
 
 interface AISidebarProps {
   applicationId: string;
@@ -124,7 +123,7 @@ function SuggestionsPanel() {
               <div className="text-xs">
                 <span className="text-gray-500">Replace:</span>
                 <div className="bg-red-50 border-l-2 border-red-200 pl-2 mt-1 text-gray-700">
-                  "{suggestion.originalText}"
+                  &quot;{suggestion.originalText}&quot;
                 </div>
               </div>
             )}
@@ -135,7 +134,7 @@ function SuggestionsPanel() {
                 {suggestion.originalText ? 'With:' : 'Suggestion:'}
               </span>
               <div className="bg-green-50 border-l-2 border-green-200 pl-2 mt-1 text-gray-700">
-                "{suggestion.content}"
+                &quot;{suggestion.content}&quot;
               </div>
             </div>
 
@@ -178,7 +177,7 @@ function SuggestionsPanel() {
 }
 
 // Chat Panel
-function ChatPanel({ applicationId }: { applicationId: string }) {
+function ChatPanel({ }: { applicationId: string }) {
   const { 
     chat, 
     sendChatMessage, 
@@ -560,7 +559,7 @@ function AnalyticsPanel() {
           </div>
         ) : (
           <div className="text-center py-4">
-            <p className="text-xs text-gray-500">Click "Analyze" to assess content quality</p>
+            <p className="text-xs text-gray-500">Click &quot;Analyze&quot; to assess content quality</p>
           </div>
         )}
       </Card>
@@ -572,7 +571,6 @@ function AnalyticsPanel() {
 export default function AISidebar({
   applicationId,
   grantId,
-  currentSection,
   className = ''
 }: AISidebarProps) {
   const { 
@@ -621,7 +619,7 @@ export default function AISidebar({
 
       {/* Tabs */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)} className="flex flex-col h-full">
+        <Tabs value={activeTab} onValueChange={(value: string) => setActiveTab(value)} className="flex flex-col h-full">
           <div className="px-4 pt-2">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="suggestions" className="text-xs">

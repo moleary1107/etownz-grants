@@ -60,14 +60,14 @@ export const DocumentUploadInterface: React.FC = () => {
     
     const files = Array.from(e.dataTransfer.files);
     handleFileSelection(files);
-  }, []);
+  }, [handleFileSelection]);
 
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
       handleFileSelection(files);
     }
-  }, []);
+  }, [handleFileSelection]);
 
   const handleFileSelection = async (files: File[]) => {
     const validFiles = files.filter(file => {
@@ -130,10 +130,10 @@ export const DocumentUploadInterface: React.FC = () => {
       // Start monitoring processing
       monitorProcessing(result.document.id, uploadFile.id);
 
-    } catch (error) {
+    } catch (_error) {
       setUploadedFiles(prev => prev.map(f => 
         f.id === uploadFile.id 
-          ? { ...f, status: 'failed', error: error instanceof Error ? error.message : 'Upload failed' }
+          ? { ...f, status: 'failed', error: _error instanceof Error ? _error.message : 'Upload failed' }
           : f
       ));
     }
@@ -193,8 +193,8 @@ export const DocumentUploadInterface: React.FC = () => {
         if (attempts < maxAttempts) {
           setTimeout(checkStatus, 5000);
         }
-      } catch (error) {
-        console.error('Status check failed:', error);
+      } catch (_error) {
+        console.error('Status check failed:', _error);
       }
     };
 

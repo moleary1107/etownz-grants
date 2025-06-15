@@ -15,7 +15,7 @@ export interface AIInteraction {
   userRating?: number
   userFeedback?: string
   status?: 'pending' | 'processing' | 'completed' | 'failed'
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
   createdAt?: string
   updatedAt?: string
 }
@@ -73,10 +73,10 @@ export interface DocumentAnalysisResult {
   documentType?: string
   analysisType: string
   extractedText?: string
-  keyRequirements?: any[]
+  keyRequirements?: unknown[]
   complianceScore?: number
   summary?: string
-  insights?: Record<string, any>
+  insights?: Record<string, unknown>
   processingStatus?: 'pending' | 'processing' | 'completed' | 'failed'
   aiModelUsed?: string
   confidenceScore?: number
@@ -171,7 +171,7 @@ class AITransparencyService {
     sectionName: string,
     promptText: string,
     modelUsed: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<string> {
     const { interactionId } = await this.createInteraction({
       applicationId,
@@ -382,7 +382,7 @@ export const useAITracking = () => {
     type: string,
     modelUsed: string,
     applicationId?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<string> => {
     return aiTransparencyService.createInteraction({
       interactionType: type,

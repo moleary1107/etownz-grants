@@ -37,7 +37,7 @@ interface ComplianceAssessment {
   overallScore: number;
   eligibilityStatus: string;
   strengths: string[];
-  gapsIdentified: any[];
+  gapsIdentified: Array<{ type: string; requirement: string }>;
   recommendations: string[];
 }
 
@@ -134,7 +134,7 @@ export default function GrantIntelligencePage() {
       } else {
         setError(data.error || 'Failed to extract requirements');
       }
-    } catch (error) {
+    } catch {
       setError('Network error extracting requirements');
     } finally {
       setLoading(false);
@@ -173,7 +173,7 @@ export default function GrantIntelligencePage() {
       } else {
         setError(data.error || 'Failed to extract intelligence');
       }
-    } catch (error) {
+    } catch {
       setError('Network error extracting intelligence');
     } finally {
       setLoading(false);
@@ -210,7 +210,7 @@ export default function GrantIntelligencePage() {
       } else {
         setError(data.error || 'Failed to assess compliance');
       }
-    } catch (error) {
+    } catch {
       setError('Network error assessing compliance');
     } finally {
       setLoading(false);
@@ -241,7 +241,7 @@ export default function GrantIntelligencePage() {
       } else {
         setError(data.error || 'Failed to find matches');
       }
-    } catch (error) {
+    } catch {
       setError('Network error finding matches');
     } finally {
       setLoading(false);
@@ -350,7 +350,7 @@ export default function GrantIntelligencePage() {
               <div className="mt-6">
                 <h4 className="font-semibold mb-3">Extracted Requirements ({requirements.length})</h4>
                 <div className="space-y-3">
-                  {requirements.map((req, index) => (
+                  {requirements.map((req) => (
                     <Card key={req.id} className="p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -518,7 +518,7 @@ export default function GrantIntelligencePage() {
             {matches.length > 0 && (
               <div className="space-y-4">
                 <h4 className="font-semibold">Found {matches.length} Matching Grants</h4>
-                {matches.map((match, index) => (
+                {matches.map((match) => (
                   <Card key={match.grantId} className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2">

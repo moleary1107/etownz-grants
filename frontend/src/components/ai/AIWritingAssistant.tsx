@@ -19,8 +19,7 @@ import {
   Volume2,
   Copy,
   Check,
-  StopCircle,
-  Play
+  StopCircle
 } from 'lucide-react';
 
 interface AIWritingAssistantProps {
@@ -187,7 +186,7 @@ export const AIWritingAssistant: React.FC<AIWritingAssistantProps> = ({
         title: "Copied to clipboard",
         description: "Content has been copied to your clipboard"
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Copy failed",
         description: "Failed to copy content to clipboard",

@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Progress } from '../ui/progress';
 import { mcpScrapingService, GrantSource, MCPFetchResult } from '../../lib/api/mcpScrapingService';
@@ -27,7 +26,7 @@ export default function MCPScrapingDashboard() {
   const [customUrls, setCustomUrls] = useState<string>('');
   const [extractionPrompt, setExtractionPrompt] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  const [scanResults, setScanResults] = useState<any>(null);
+  const [scanResults, setScanResults] = useState<Record<string, unknown> | null>(null);
   const [batchProgress, setBatchProgress] = useState(0);
   const [recentResults, setRecentResults] = useState<MCPFetchResult[]>([]);
 

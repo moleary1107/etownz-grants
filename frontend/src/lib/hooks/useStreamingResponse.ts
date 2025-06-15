@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 
 interface StreamingState {
   isStreaming: boolean;
@@ -10,11 +10,22 @@ interface StreamingState {
   abortController: AbortController | null;
 }
 
+interface StreamingMetadata {
+  type: string;
+  usage?: {
+    total_tokens?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
+  model?: string;
+  [key: string]: unknown;
+}
+
 interface StreamingOptions {
   onChunk?: (chunk: string) => void;
   onComplete?: (fullText: string) => void;
   onError?: (error: string) => void;
-  onMetadata?: (metadata: any) => void;
+  onMetadata?: (metadata: StreamingMetadata) => void;
 }
 
 export const useStreamingResponse = () => {
@@ -38,7 +49,7 @@ export const useStreamingResponse = () => {
 
   const startStream = useCallback(async (
     url: string,
-    requestBody: any,
+    requestBody: Record<string, unknown>,
     options: StreamingOptions = {}
   ) => {
     // Cancel any existing stream
@@ -113,7 +124,7 @@ export const useStreamingResponse = () => {
               } else if (data.type === 'error') {
                 throw new Error(data.message || 'Streaming error');
               }
-            } catch (parseError) {
+            } catch {
               console.warn('Failed to parse SSE data:', line);
             }
           }

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Progress } from '../ui/progress'
@@ -15,52 +15,25 @@ import {
   Check,
   X,
   RefreshCw,
-  Copy,
   Save,
   Download,
-  Upload,
-  Zap,
   Lightbulb,
   Target,
   TrendingUp,
-  Star,
-  MessageSquare,
-  Clock,
-  Users,
-  Settings,
   Eye,
   EyeOff,
-  ChevronRight,
-  ChevronDown,
-  Plus,
-  Minus,
-  RotateCcw,
-  RotateCw,
-  Type,
-  AlignLeft,
-  AlignCenter,
   Bold,
   Italic,
   Underline,
   List,
   CheckSquare,
   Quote,
-  Code,
   Link,
-  Image,
-  Hash,
   Sparkles,
-  BookOpen,
-  Award,
-  AlertTriangle,
-  Info,
-  ThumbsUp,
-  ThumbsDown,
   Volume2,
   VolumeX,
   Play,
-  Pause,
-  Headphones
+  Pause
 } from 'lucide-react'
 import { User } from '../../lib/auth'
 
@@ -155,31 +128,38 @@ interface Comment {
   position?: { start: number; end: number }
 }
 
+interface GrantData {
+  categories?: string[]
+  [key: string]: unknown
+}
+
 interface AdvancedAIWritingAssistantProps {
   user: User
   projectId?: string
-  grantData?: any
+  grantData?: GrantData
   onSave?: (project: WritingProject) => void
   onExport?: (project: WritingProject, format: 'pdf' | 'docx' | 'txt') => void
   className?: string
 }
 
 export function AdvancedAIWritingAssistant({ 
-  user, 
+  user: _user, 
   projectId, 
   grantData,
   onSave,
   onExport,
   className = "" 
 }: AdvancedAIWritingAssistantProps) {
+  // Note: user prop is available for future use
+  void _user; // Suppress unused warning
   const [project, setProject] = useState<WritingProject>(createMockProject())
   const [activeSection, setActiveSection] = useState<string>('')
-  const [selectedText, setSelectedText] = useState<string>('')
+  // const [selectedText, setSelectedText] = useState<string>('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [currentView, setCurrentView] = useState<'editor' | 'suggestions' | 'alternatives' | 'analytics'>('editor')
   const [showAIPanel, setShowAIPanel] = useState(true)
-  const [autoSave, setAutoSave] = useState(true)
+  const [autoSave] = useState(true)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [textToSpeech, setTextToSpeech] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -190,11 +170,11 @@ export function AdvancedAIWritingAssistant({
   // Initialize project
   useEffect(() => {
     if (projectId) {
-      loadProject(projectId)
+      loadProject()
     } else {
       setActiveSection(project.content.sections[0]?.id || '')
     }
-  }, [projectId])
+  }, [projectId, loadProject])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-save functionality
   useEffect(() => {
@@ -209,13 +189,14 @@ export function AdvancedAIWritingAssistant({
         }
       }
     }
-  }, [autoSave, project])
+  }, [autoSave, project, saveProject])
 
-  const loadProject = async (id: string) => {
+  const loadProject = useCallback(async () => {
     // Mock loading - in real implementation would fetch from API
-    setProject(createMockProject())
-    setActiveSection(project.content.sections[0]?.id || '')
-  }
+    const mockProject = createMockProject()
+    setProject(mockProject)
+    setActiveSection(mockProject.content.sections[0]?.id || '')
+  }, [])
 
   const saveProject = useCallback(async () => {
     setLastSaved(new Date())
@@ -225,7 +206,7 @@ export function AdvancedAIWritingAssistant({
     console.log('Project auto-saved:', project)
   }, [project, onSave])
 
-  const generateContent = async (sectionId: string, prompt: string) => {
+  const generateContent = async (sectionId: string) => {
     setIsGenerating(true)
     
     // Simulate AI content generation
@@ -300,7 +281,7 @@ export function AdvancedAIWritingAssistant({
     setIsAnalyzing(false)
   }
 
-  const generateSuggestions = async (text: string, sectionId: string) => {
+  const generateSuggestions = async (text: string) => {
     // Mock AI suggestions generation
     const suggestions: AISuggestion[] = [
       {
@@ -358,7 +339,7 @@ export function AdvancedAIWritingAssistant({
     }))
   }
 
-  const updateSectionAnalysis = (sectionId: string, analysis: any) => {
+  const updateSectionAnalysis = (sectionId: string, analysis: WritingSection['aiAnalysis']) => {
     setProject(prev => ({
       ...prev,
       content: {
@@ -589,7 +570,7 @@ export function AdvancedAIWritingAssistant({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => generateContent(activeSection_data.id, '')}
+                    onClick={() => generateContent(activeSection_data.id)}
                     disabled={isGenerating}
                   >
                     <Wand2 className={`h-4 w-4 mr-1 ${isGenerating ? 'animate-spin' : ''}`} />
@@ -669,9 +650,9 @@ export function AdvancedAIWritingAssistant({
                         e.target.selectionStart, 
                         e.target.selectionEnd
                       )
-                      setSelectedText(selected)
+                      // setSelectedText(selected)
                       if (selected.length > 20) {
-                        generateSuggestions(selected, activeSection_data.id)
+                        generateSuggestions(selected)
                       }
                     }
                   }}
@@ -788,7 +769,7 @@ export function AdvancedAIWritingAssistant({
             </CardHeader>
           </Card>
 
-          <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as any)}>
+          <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as 'editor' | 'suggestions' | 'alternatives' | 'analytics')}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>

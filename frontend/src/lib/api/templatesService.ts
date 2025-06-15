@@ -32,13 +32,20 @@ export interface SectionTemplate {
   updated_at: string;
 }
 
+export interface ValidationRule {
+  min?: number;
+  max?: number;
+  pattern?: string;
+  allowed_values?: string[];
+}
+
 export interface TemplateVariable {
   name: string;
   type: 'text' | 'number' | 'date' | 'organization' | 'grant' | 'list';
   description: string;
   required: boolean;
-  default_value?: any;
-  validation_rules?: any;
+  default_value?: string | number | string[];
+  validation_rules?: ValidationRule;
 }
 
 export interface GeneratedSection {
@@ -47,7 +54,7 @@ export interface GeneratedSection {
   word_count: number;
   metadata: {
     template_used: string;
-    variables_filled: Record<string, any>;
+    variables_filled: Record<string, string | number | string[]>;
     generation_time: number;
     confidence_score: number;
   };
@@ -148,7 +155,7 @@ class TemplatesService {
    */
   async generateSectionContent(
     sectionId: string,
-    variables: Record<string, any>,
+    variables: Record<string, string | number | string[]>,
     organizationId?: string,
     grantId?: string
   ): Promise<GeneratedSection> {
@@ -167,7 +174,7 @@ class TemplatesService {
    */
   async generateApplication(
     templateId: string,
-    variables: Record<string, any>,
+    variables: Record<string, string | number | string[]>,
     organizationId?: string,
     grantId?: string
   ): Promise<GeneratedApplication> {
@@ -235,35 +242,46 @@ class TemplatesService {
   /**
    * Validate template variables
    */
-  validateVariables(variables: Record<string, any>, templateVariables: TemplateVariable[]): {
+  validateVariables(variables: Record<string, unknown>, templateVariables: TemplateVariable[]): {
     isValid: boolean;
     errors: string[];
   } {
     const errors: string[] = [];
 
     for (const templateVar of templateVariables) {
-      if (templateVar.required && (!variables[templateVar.name] || variables[templateVar.name] === '')) {
+      const value = variables[templateVar.name];
+      
+      if (templateVar.required && (value === undefined || value === null || value === '')) {
         errors.push(`${templateVar.description} is required`);
       }
 
-      if (variables[templateVar.name]) {
-        const value = variables[templateVar.name];
-        
+      if (value !== undefined && value !== null && value !== '') {
         switch (templateVar.type) {
           case 'number':
-            if (isNaN(Number(value))) {
+            if (typeof value !== 'number' && isNaN(Number(value))) {
               errors.push(`${templateVar.description} must be a valid number`);
             }
             break;
           case 'date':
-            if (isNaN(Date.parse(value))) {
+            if (typeof value === 'string' && isNaN(Date.parse(value))) {
               errors.push(`${templateVar.description} must be a valid date`);
+            } else if (typeof value !== 'string') {
+              errors.push(`${templateVar.description} must be a valid date string`);
             }
             break;
           case 'list':
             if (!Array.isArray(value) && typeof value === 'string') {
               // Convert comma-separated string to array
               variables[templateVar.name] = value.split(',').map(item => item.trim()).filter(item => item);
+            } else if (!Array.isArray(value) && typeof value !== 'string') {
+              errors.push(`${templateVar.description} must be a list or comma-separated string`);
+            }
+            break;
+          case 'text':
+          case 'organization':
+          case 'grant':
+            if (typeof value !== 'string') {
+              errors.push(`${templateVar.description} must be a string`);
             }
             break;
         }

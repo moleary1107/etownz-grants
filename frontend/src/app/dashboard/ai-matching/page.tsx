@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Sidebar } from "../../../components/layout/Sidebar"
 import { GrantMatchingEngine } from "../../../components/ai/GrantMatchingEngine"
@@ -9,7 +9,6 @@ import { Button } from "../../../components/ui/button"
 import { 
   Brain,
   Settings,
-  RefreshCw,
   AlertTriangle,
   CheckCircle,
   Users,
@@ -205,7 +204,7 @@ const mockOrganizationProfile = {
 export default function AIMatchingPage() {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [organizationProfile, setOrganizationProfile] = useState(mockOrganizationProfile)
+  const [organizationProfile] = useState(mockOrganizationProfile)
   const [profileComplete, setProfileComplete] = useState(false)
   const router = useRouter()
 
@@ -229,13 +228,13 @@ export default function AIMatchingPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [router])
+  }, [router, checkProfileCompleteness])
 
-  const checkProfileCompleteness = () => {
+  const checkProfileCompleteness = useCallback(() => {
     const requiredFields = ['type', 'employees', 'sectors', 'location']
     const complete = requiredFields.every(field => organizationProfile[field as keyof typeof organizationProfile])
     setProfileComplete(complete)
-  }
+  }, [organizationProfile])
 
   const handleLogout = () => {
     localStorage.removeItem('token')
@@ -243,7 +242,7 @@ export default function AIMatchingPage() {
     router.push('/')
   }
 
-  const handleMatchesFound = (matches: any[]) => {
+  const handleMatchesFound = (matches: unknown[]) => {
     console.log('Grant matches found:', matches)
     // Could trigger notifications, save to database, etc.
   }

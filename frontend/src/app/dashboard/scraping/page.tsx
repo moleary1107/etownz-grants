@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,10 +15,8 @@ import {
   Pause, 
   Eye, 
   Download, 
-  Trash2, 
   RefreshCw,
   Search,
-  Filter,
   Plus,
   AlertCircle,
   CheckCircle,
@@ -26,9 +24,7 @@ import {
   Activity,
   Upload,
   Link,
-  Archive,
   Star,
-  Calendar,
   MapPin,
   Tag,
   ExternalLink,
@@ -158,9 +154,9 @@ export default function ScrapingDashboard() {
     }, 30000);
     
     return () => clearInterval(interval);
-  }, [activeTab]);
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       switch (activeTab) {
@@ -180,9 +176,9 @@ export default function ScrapingDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadJobs = async () => {
+  const loadJobs = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (statusFilter) params.append('status', statusFilter);
@@ -196,9 +192,9 @@ export default function ScrapingDashboard() {
     } catch (error) {
       console.error('Failed to load jobs:', error);
     }
-  };
+  }, [statusFilter, typeFilter]);
 
-  const loadGrants = async () => {
+  const loadGrants = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
@@ -212,9 +208,9 @@ export default function ScrapingDashboard() {
     } catch (error) {
       console.error('Failed to load grants:', error);
     }
-  };
+  }, [searchTerm, typeFilter]);
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     try {
       const response = await fetch('/api/scraping/documents');
       if (response.ok) {
@@ -224,9 +220,9 @@ export default function ScrapingDashboard() {
     } catch (error) {
       console.error('Failed to load documents:', error);
     }
-  };
+  }, []);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const response = await fetch('/api/scraping/stats');
       if (response.ok) {
@@ -236,9 +232,9 @@ export default function ScrapingDashboard() {
     } catch (error) {
       console.error('Failed to load stats:', error);
     }
-  };
+  }, []);
 
-  const startNewJob = async (sourceUrl: string, jobType: string, config: any) => {
+  const startNewJob = async (sourceUrl: string, jobType: string, config: Record<string, unknown>) => {
     try {
       const response = await fetch('/api/scraping/jobs', {
         method: 'POST',
@@ -266,7 +262,7 @@ export default function ScrapingDashboard() {
     }
   };
 
-  const uploadManualContent = async (data: any) => {
+  const uploadManualContent = async (data: unknown) => {
     try {
       const endpoint = uploadType === 'url' ? '/api/scraping/manual/url' : '/api/scraping/manual/document';
       const response = await fetch(endpoint, {
@@ -951,7 +947,7 @@ export default function ScrapingDashboard() {
 // Enhanced New Job Modal Component
 function NewJobModal({ onClose, onSubmit }: { 
   onClose: () => void; 
-  onSubmit: (url: string, type: string, config: any) => void; 
+  onSubmit: (url: string, type: string, config: Record<string, unknown>) => void; 
 }) {
   const [url, setUrl] = useState('');
   const [jobType, setJobType] = useState('full_crawl');
@@ -1067,7 +1063,7 @@ function NewJobModal({ onClose, onSubmit }: {
 function ManualUploadModal({ uploadType, onClose, onSubmit }: {
   uploadType: 'url' | 'document';
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: unknown) => void;
 }) {
   const [url, setUrl] = useState('');
   const [file, setFile] = useState<File | null>(null);

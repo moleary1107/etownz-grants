@@ -28,7 +28,7 @@ export default function GrantSourcesPage() {
   const [sources, setSources] = useState<GrantSource[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [showAddForm, setShowAddForm] = useState(false)
+  const [, setShowAddForm] = useState(false)
   const [crawlingStatus, setCrawlingStatus] = useState<Record<string, boolean>>({})
 
   useEffect(() => {

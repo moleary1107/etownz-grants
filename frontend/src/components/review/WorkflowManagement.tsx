@@ -59,7 +59,7 @@ export default function WorkflowManagement() {
 
   useEffect(() => {
     fetchWorkflows();
-  }, []);
+  }, [fetchWorkflows]);
 
   const fetchWorkflows = async () => {
     try {
@@ -133,7 +133,7 @@ export default function WorkflowManagement() {
         throw new Error(error.error || 'Failed to create workflow');
       }
 
-      const result = await response.json();
+      await response.json();
       
       toast({
         title: 'Success',
@@ -144,10 +144,10 @@ export default function WorkflowManagement() {
       setCreateMode(false);
       resetForm();
       await fetchWorkflows();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to create workflow',
+        description: error instanceof Error ? error.message : 'Failed to create workflow',
         variant: 'destructive'
       });
     }
@@ -182,10 +182,10 @@ export default function WorkflowManagement() {
       setSelectedWorkflow(null);
       resetForm();
       await fetchWorkflows();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to update workflow',
+        description: error instanceof Error ? error.message : 'Failed to update workflow',
         variant: 'destructive'
       });
     }
@@ -218,10 +218,10 @@ export default function WorkflowManagement() {
       });
 
       await fetchWorkflows();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to delete workflow',
+        description: error instanceof Error ? error.message : 'Failed to delete workflow',
         variant: 'destructive'
       });
     }
@@ -305,7 +305,7 @@ export default function WorkflowManagement() {
                 <label className="block text-sm font-medium mb-2">Type</label>
                 <select 
                   value={formData.type}
-                  onChange={(e) => setFormData({...formData, type: e.target.value as any})}
+                  onChange={(e) => setFormData({...formData, type: e.target.value as 'application' | 'document' | 'budget' | 'compliance'})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="application">Application</option>

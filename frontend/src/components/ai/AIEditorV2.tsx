@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import dynamic from 'next/dynamic';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -9,7 +8,7 @@ import AutoGenerateButton from './AutoGenerateButton';
 import LexicalEditor from './LexicalEditor';
 import { aiEditorService } from '@/lib/api/aiEditorServiceV2';
 import type { EditorSession, AISuggestion, ChatMessage } from '@/lib/api/aiEditorServiceV2';
-import { Lightbulb, MessageCircle, Save, Loader2, AlertCircle, CheckCircle, Users, Send, Brain } from 'lucide-react';
+import { Lightbulb, MessageCircle, Loader2, AlertCircle, CheckCircle, Send, Brain } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/lib/hooks/use-toast';
@@ -104,7 +103,7 @@ export default function AIEditorV2({
     }
   }, [isClient, initializeSession, applicationId, grantId]);
 
-  const scheduleAutoSave = useCallback((editorState: any, textContent: string) => {
+  const scheduleAutoSave = useCallback((editorState: unknown, textContent: string) => {
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
     }
@@ -129,45 +128,6 @@ export default function AIEditorV2({
     }, 2000);
   }, [session, onSave]);
 
-  const handleContentChange = useCallback((editorState: any) => {
-    try {
-      // Get text content safely without using HTML generation
-      let textContent = '';
-      
-      editorState.read(() => {
-        try {
-          // Try to get root node safely
-          const root = editorState._nodeMap?.get?.('root') || editorState.getRootNode?.();
-          if (root && typeof root.getTextContent === 'function') {
-            textContent = root.getTextContent();
-          } else {
-            // Fallback to current content
-            textContent = content || '';
-          }
-        } catch (innerError) {
-          console.warn('Error reading editor state:', innerError);
-          textContent = content || '';
-        }
-      });
-      
-      setContent(textContent);
-      onContentChange?.(textContent);
-      
-      // Update word and character counts
-      const words = textContent.split(/\s+/).filter((word: string) => word.length > 0);
-      setWordCount(words.length);
-      setCharacterCount(textContent.length);
-      
-      // Schedule auto-save
-      scheduleAutoSave(editorState, textContent);
-    } catch (error) {
-      console.warn('Error updating content:', error);
-      // Fallback: just update with current text
-      const textContent = content || '';
-      setWordCount(textContent.split(/\s+/).filter(word => word.length > 0).length);
-      setCharacterCount(textContent.length);
-    }
-  }, [content, onContentChange, scheduleAutoSave]);
 
   const generateSuggestions = useCallback(async () => {
     if (!session || !content.trim()) {
@@ -557,9 +517,9 @@ export default function AIEditorV2({
               <div className="mt-4 space-y-2">
                 <p className="text-xs font-medium">Try asking:</p>
                 <div className="space-y-1 text-xs">
-                  <p>• "What should I include in this section?"</p>
-                  <p>• "How can I make this more compelling?"</p>
-                  <p>• "What are common mistakes to avoid?"</p>
+                  <p>• &quot;What should I include in this section?&quot;</p>
+                  <p>• &quot;How can I make this more compelling?&quot;</p>
+                  <p>• &quot;What are common mistakes to avoid?&quot;</p>
                 </div>
               </div>
             </div>

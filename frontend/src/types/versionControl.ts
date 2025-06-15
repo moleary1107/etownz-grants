@@ -204,7 +204,7 @@ export interface BranchTag {
   createdBy: string
   createdAt: Date
   protected: boolean
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
 }
 
 export interface PullRequest {

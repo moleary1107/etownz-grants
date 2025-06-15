@@ -13,15 +13,12 @@ import {
   Shield, 
   Key,
   Building,
-  Palette,
-  Globe,
   Save,
-  AlertCircle,
   CheckCircle,
   Eye,
   EyeOff
 } from "lucide-react"
-import { User, UserRole, hasPermission } from "../../../lib/auth"
+import { User, hasPermission } from "../../../lib/auth"
 
 interface NotificationSettings {
   emailDeadlines: boolean
@@ -320,7 +317,7 @@ export default function SettingsPage() {
                     Notification Preferences
                   </CardTitle>
                   <CardDescription>
-                    Choose how you'd like to be notified about important updates
+                    Choose how you&apos;d like to be notified about important updates
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -507,7 +504,7 @@ export default function SettingsPage() {
                       Organization Settings
                     </CardTitle>
                     <CardDescription>
-                      Manage your organization's information and settings
+                      Manage your organization&apos;s information and settings
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">

@@ -38,7 +38,7 @@ export default function WorkflowAutomationPage() {
     router.push('/')
   }
 
-  const handleWorkflowCreate = (workflow: any) => {
+  const handleWorkflowCreate = (workflow: unknown) => {
     console.log('Workflow created:', workflow)
     // Could sync with backend API
   }

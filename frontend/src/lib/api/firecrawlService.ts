@@ -223,7 +223,12 @@ export class FirecrawlService {
   async extractWithPrompt(url: string, extractionPrompt: string, screenshot = false): Promise<{
     jobId: string;
     status: string;
-    results?: any;
+    results?: {
+      extractedData?: Record<string, unknown>
+      content?: string
+      metadata?: Record<string, unknown>
+      screenshots?: string[]
+    };
     message?: string;
   }> {
     const response = await fetch(`${this.baseUrl}/extract`, {
@@ -246,12 +251,24 @@ export class FirecrawlService {
     return response.json();
   }
 
-  subscribeToJobUpdates(jobId: string, onUpdate: (event: any) => void): () => void {
+  subscribeToJobUpdates(jobId: string, onUpdate: (event: {
+    type: 'progress' | 'complete' | 'error' | 'status_change'
+    jobId: string
+    data?: Record<string, unknown>
+    message?: string
+    timestamp: string
+  }) => void): () => void {
     const eventSource = new EventSource(`${this.baseUrl}/jobs/${jobId}/subscribe`);
     
     eventSource.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const data = JSON.parse(event.data) as {
+          type: 'progress' | 'complete' | 'error' | 'status_change'
+          jobId: string
+          data?: Record<string, unknown>
+          message?: string
+          timestamp: string
+        };
         onUpdate(data);
       } catch (error) {
         console.error('Failed to parse SSE data:', error);
@@ -350,7 +367,27 @@ export class FirecrawlService {
       id: string;
       data_source: string;
       intelligence_type: string;
-      extracted_data: any;
+      extracted_data: {
+        grants?: Array<{
+          title: string
+          description?: string
+          amount?: { min?: number; max?: number; currency?: string }
+          deadline?: string
+          eligibility?: string[]
+          contact?: Record<string, unknown>
+        }>
+        content?: {
+          text: string
+          sections: Array<{ title: string; content: string }>
+          links: string[]
+        }
+        metadata?: {
+          title?: string
+          description?: string
+          keywords?: string[]
+        }
+        [key: string]: unknown
+      };
       summary: string;
       keywords: string[];
       relevance_tags: string[];

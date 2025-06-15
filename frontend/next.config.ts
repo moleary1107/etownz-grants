@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
     optimizeCss: false, // Disable CSS optimization that might break Tailwind 4
   },
   images: {
-    domains: ['images.unsplash.com', 'via.placeholder.com'],
+    domains: ['images.unsplash.com', 'via.placeholder.com', 'cdn.sanity.io'],
     formats: ['image/webp', 'image/avif']
   },
   async rewrites() {

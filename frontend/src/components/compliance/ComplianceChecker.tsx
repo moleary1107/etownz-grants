@@ -49,15 +49,15 @@ interface ComplianceCheckerProps {
   grantScheme: {
     name: string;
     fundingBody: string;
-    requirements: any[];
-    eligibilityCriteria: any[];
-    budgetRules: any;
+    requirements: unknown[];
+    eligibilityCriteria: unknown[];
+    budgetRules: unknown;
   };
   applicationData: {
-    sections?: Record<string, any>;
-    budget?: any;
-    organization?: any;
-    documents?: any[];
+    sections?: Record<string, unknown>;
+    budget?: unknown;
+    organization?: unknown;
+    documents?: unknown[];
   };
   onComplianceUpdate?: (report: ComplianceReport) => void;
   className?: string;
@@ -100,7 +100,7 @@ export const ComplianceChecker: React.FC<ComplianceCheckerProps> = ({
 
       return () => clearTimeout(debounceTimer);
     }
-  }, [applicationData, threadId, autoCheckEnabled]);
+  }, [applicationData, threadId, autoCheckEnabled, checkCompliance]);
 
   const checkCompliance = useCallback(async () => {
     if (!threadId) {
@@ -422,7 +422,7 @@ export const ComplianceChecker: React.FC<ComplianceCheckerProps> = ({
           <Card className="p-8 text-center">
             <FileCheck className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground">
-              No compliance check performed yet. Click "Check Now" to validate your application.
+              No compliance check performed yet. Click &quot;Check Now&quot; to validate your application.
             </p>
           </Card>
         )}

@@ -104,7 +104,7 @@ export const useAIWriting = () => {
       setIsGenerating(false);
       throw error;
     }
-  }, [startStream, streamedText]);
+  }, [startStream, streamedText, buildPrompt]);
 
   const generateSuggestions = useCallback(async (
     content: string,

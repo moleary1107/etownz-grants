@@ -1,5 +1,17 @@
 import { useState, useEffect } from 'react'
 
+interface NetworkConnection {
+  effectiveType?: string
+  type?: string
+}
+
+interface ExtendedNavigator extends Navigator {
+  connection?: NetworkConnection
+  mozConnection?: NetworkConnection
+  webkitConnection?: NetworkConnection
+  standalone?: boolean
+}
+
 interface MobileDetectionResult {
   isMobile: boolean
   isTablet: boolean
@@ -63,7 +75,6 @@ export function useMobileDetection(): MobileDetectionResult {
       // Screen size detection
       const isMobileWidth = width < 768
       const isTabletWidth = width >= 768 && width < 1024
-      const isDesktopWidth = width >= 1024
 
       // Final device classification
       const isMobile = isMobileUA || (isMobileWidth && isTouchDevice)
@@ -137,7 +148,7 @@ export function useMobileDetection(): MobileDetectionResult {
 
 // Hook for PWA installation prompt
 export function usePWAInstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null)
   const [isInstallable, setIsInstallable] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
 
@@ -145,7 +156,7 @@ export function usePWAInstallPrompt() {
     // Check if app is already installed
     const checkIfInstalled = () => {
       const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches
-      const isInWebAppMode = (window.navigator as any).standalone === true
+      const isInWebAppMode = (window.navigator as ExtendedNavigator).standalone === true
       setIsInstalled(isInStandaloneMode || isInWebAppMode)
     }
 
@@ -212,9 +223,9 @@ export function useNetworkStatus() {
       setIsOnline(navigator.onLine)
 
       // Detect connection type if available
-      const connection = (navigator as any).connection || 
-                       (navigator as any).mozConnection || 
-                       (navigator as any).webkitConnection
+      const connection = (navigator as ExtendedNavigator).connection || 
+                       (navigator as ExtendedNavigator).mozConnection || 
+                       (navigator as ExtendedNavigator).webkitConnection
 
       if (connection) {
         setConnectionType(connection.effectiveType || connection.type || 'unknown')
@@ -228,7 +239,7 @@ export function useNetworkStatus() {
     window.addEventListener('offline', updateNetworkStatus)
 
     // Listen for connection change if available
-    const connection = (navigator as any).connection
+    const connection = (navigator as ExtendedNavigator).connection
     if (connection) {
       connection.addEventListener('change', updateNetworkStatus)
     }
@@ -262,7 +273,7 @@ export function useMobileFeatures() {
       try {
         await navigator.clipboard.writeText(data.url || window.location.href)
         return { success: true, method: 'clipboard' }
-      } catch (error) {
+      } catch {
         return { success: false, error: 'Share not supported' }
       }
     }

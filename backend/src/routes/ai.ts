@@ -6,6 +6,7 @@ import { VectorDatabaseService } from '../services/vectorDatabase';
 import { UserPreferencesService } from '../services/userPreferencesService';
 import { ApplicationAssistanceService } from '../services/applicationAssistanceService';
 import { DatabaseService } from '../services/database';
+import { AITransparencyService } from '../services/aiTransparencyService';
 import { logger } from '../services/logger';
 
 const router = express.Router();
@@ -15,6 +16,7 @@ const vectorService = new VectorDatabaseService();
 const dbService = new DatabaseService();
 const userPreferencesService = new UserPreferencesService(dbService, vectorService, openaiService);
 const applicationAssistanceService = new ApplicationAssistanceService(dbService, openaiService, userPreferencesService);
+const aiTransparencyService = new AITransparencyService(dbService.getPool());
 
 /**
  * @swagger
@@ -201,6 +203,7 @@ const applicationAssistanceService = new ApplicationAssistanceService(dbService,
 router.post('/grants/match', asyncHandler(async (req, res) => {
   const startTime = Date.now();
   const { organizationProfile, filters = {}, limit = 10 } = req.body;
+  const userId = req.user?.id || 'anonymous';
 
   if (!organizationProfile || !organizationProfile.id || !organizationProfile.name) {
     return res.status(400).json({
@@ -209,8 +212,24 @@ router.post('/grants/match', asyncHandler(async (req, res) => {
     });
   }
 
+  // Create AI interaction record
+  const interactionId = await aiTransparencyService.createInteraction({
+    userId,
+    interactionType: 'grant_matching',
+    promptText: JSON.stringify({ organizationProfile, filters, limit }),
+    modelUsed: 'gpt-4o-mini',
+    status: 'processing',
+    metadata: {
+      organizationId: organizationProfile.id,
+      organizationName: organizationProfile.name,
+      filters,
+      requestedLimit: limit
+    }
+  });
+
   try {
     logger.info('AI grant matching request', {
+      interactionId,
       orgId: organizationProfile.id,
       orgName: organizationProfile.name,
       filters,
@@ -225,7 +244,18 @@ router.post('/grants/match', asyncHandler(async (req, res) => {
 
     const processingTime = Date.now() - startTime;
 
+    // Update interaction with results
+    await aiTransparencyService.updateInteraction(interactionId, {
+      responseText: JSON.stringify({ matchCount: matchResults.length }),
+      processingTimeMs: processingTime,
+      status: 'completed',
+      confidenceScore: matchResults.length > 0 
+        ? matchResults.reduce((sum, match) => sum + (match.matchScore || 0), 0) / matchResults.length 
+        : 0
+    });
+
     logger.info('AI grant matching completed', {
+      interactionId,
       orgId: organizationProfile.id,
       matchesFound: matchResults.length,
       processingTime
@@ -235,6 +265,7 @@ router.post('/grants/match', asyncHandler(async (req, res) => {
       matches: matchResults,
       processingTime,
       aiModel: 'gpt-4o-mini',
+      interactionId, // Include for frontend tracking
       metadata: {
         totalMatches: matchResults.length,
         averageScore: matchResults.length > 0 
@@ -244,14 +275,26 @@ router.post('/grants/match', asyncHandler(async (req, res) => {
       }
     });
   } catch (error) {
+    const errorProcessingTime = Date.now() - startTime;
+    
+    // Update interaction with failure
+    await aiTransparencyService.updateInteraction(interactionId, {
+      processingTimeMs: errorProcessingTime,
+      status: 'failed',
+      metadata: {
+        error: error instanceof Error ? error.message : String(error)
+      }
+    });
+
     logger.error('AI grant matching failed', {
+      interactionId,
       error: error instanceof Error ? error.message : String(error),
       orgId: organizationProfile.id,
-      processingTime: Date.now() - startTime
+      processingTime: errorProcessingTime
     });
     
     // Provide fallback mock data when AI services are unavailable
-    logger.info('Providing fallback mock grant data due to AI service unavailability');
+    logger.info('Providing fallback mock grant data due to AI service unavailability', { interactionId });
     
     const mockMatches = [
       {
@@ -331,12 +374,13 @@ router.post('/grants/match', asyncHandler(async (req, res) => {
       }
     ];
 
-    const processingTime = Date.now() - startTime;
+    const fallbackProcessingTime = Date.now() - startTime;
 
     res.json({
       matches: mockMatches,
-      processingTime,
+      processingTime: fallbackProcessingTime,
       aiModel: 'mock-fallback',
+      interactionId, // Include for tracking even with fallback
       metadata: {
         totalMatches: mockMatches.length,
         averageScore: mockMatches.reduce((sum, match) => sum + match.matchScore, 0) / mockMatches.length,
@@ -412,6 +456,7 @@ router.post('/grants/match', asyncHandler(async (req, res) => {
 router.post('/grants/search/semantic', asyncHandler(async (req, res) => {
   const startTime = Date.now();
   const { query, organizationId, filters = {}, limit = 10 } = req.body;
+  const userId = req.user?.id || 'anonymous';
 
   if (!query || typeof query !== 'string' || query.trim().length === 0) {
     return res.status(400).json({
@@ -420,8 +465,24 @@ router.post('/grants/search/semantic', asyncHandler(async (req, res) => {
     });
   }
 
+  // Create AI interaction record
+  const interactionId = await aiTransparencyService.createInteraction({
+    userId,
+    interactionType: 'semantic_search',
+    promptText: query.trim(),
+    modelUsed: 'text-embedding-ada-002',
+    status: 'processing',
+    metadata: {
+      organizationId,
+      filters,
+      requestedLimit: limit,
+      queryLength: query.trim().length
+    }
+  });
+
   try {
     logger.info('Semantic search request', {
+      interactionId,
       query: query.substring(0, 100),
       organizationId,
       limit
@@ -436,7 +497,21 @@ router.post('/grants/search/semantic', asyncHandler(async (req, res) => {
 
     const processingTime = Date.now() - startTime;
 
+    // Update interaction with results
+    await aiTransparencyService.updateInteraction(interactionId, {
+      responseText: JSON.stringify({ 
+        resultCount: searchResults.length,
+        topScores: searchResults.slice(0, 3).map(r => r.similarity)
+      }),
+      processingTimeMs: processingTime,
+      status: 'completed',
+      confidenceScore: searchResults.length > 0 
+        ? searchResults.reduce((sum, result) => sum + (result.similarity || 0), 0) / searchResults.length 
+        : 0
+    });
+
     logger.info('Semantic search completed', {
+      interactionId,
       query: query.substring(0, 100),
       resultsFound: searchResults.length,
       processingTime
@@ -447,6 +522,7 @@ router.post('/grants/search/semantic', asyncHandler(async (req, res) => {
       query: query.trim(),
       processingTime,
       totalResults: searchResults.length,
+      interactionId, // Include for frontend tracking
       metadata: {
         enhanced: !!organizationId,
         filters,
@@ -454,15 +530,28 @@ router.post('/grants/search/semantic', asyncHandler(async (req, res) => {
       }
     });
   } catch (error) {
+    const processingTime = Date.now() - startTime;
+    
+    // Update interaction with failure
+    await aiTransparencyService.updateInteraction(interactionId, {
+      processingTimeMs: processingTime,
+      status: 'failed',
+      metadata: {
+        error: error instanceof Error ? error.message : String(error)
+      }
+    });
+
     logger.error('Semantic search failed', {
+      interactionId,
       error: error instanceof Error ? error.message : String(error),
       query: query.substring(0, 100),
-      processingTime: Date.now() - startTime
+      processingTime
     });
     
     res.status(500).json({
       error: 'Semantic search failed',
       message: 'Unable to process search request',
+      interactionId, // Include for tracking even on failure
       details: process.env.NODE_ENV === 'development' 
         ? error instanceof Error ? error.message : String(error)
         : undefined
@@ -2052,6 +2141,407 @@ Please generate detailed, professional content for the ${sectionType} section.`;
     res.status(500).json({
       error: 'Application generation failed',
       message: 'Unable to generate complete application',
+      details: process.env.NODE_ENV === 'development' 
+        ? error instanceof Error ? error.message : String(error)
+        : undefined
+    });
+  }
+}));
+
+/**
+ * @swagger
+ * /ai/history:
+ *   get:
+ *     summary: Get user's AI interaction history
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *           default: 0
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [grant_matching, semantic_search, grant_analysis, content_generation]
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 30
+ *           default: 7
+ *     responses:
+ *       200:
+ *         description: AI interaction history retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 interactions:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       interactionType:
+ *                         type: string
+ *                       promptText:
+ *                         type: string
+ *                       responseText:
+ *                         type: string
+ *                       modelUsed:
+ *                         type: string
+ *                       confidenceScore:
+ *                         type: number
+ *                       processingTimeMs:
+ *                         type: number
+ *                       userRating:
+ *                         type: number
+ *                       status:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       metadata:
+ *                         type: object
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     offset:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ */
+router.get('/history', asyncHandler(async (req, res) => {
+  const userId = req.user?.id;
+  
+  if (!userId) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'User authentication required'
+    });
+  }
+
+  const { 
+    limit = 20, 
+    offset = 0, 
+    type, 
+    days = 7 
+  } = req.query;
+
+  try {
+    logger.info('Retrieving AI interaction history', {
+      userId,
+      limit,
+      offset,
+      type,
+      days
+    });
+
+    // Get interactions with optional filtering
+    let interactions;
+    if (type) {
+      // If specific type requested, we need a custom query
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(days as string));
+      
+      const query = `
+        SELECT * FROM ai_interactions 
+        WHERE user_id = $1 
+        AND interaction_type = $2 
+        AND created_at >= $3
+        ORDER BY created_at DESC 
+        LIMIT $4 OFFSET $5
+      `;
+      
+      const result = await dbService.query(query, [
+        userId, 
+        type, 
+        startDate.toISOString(), 
+        parseInt(limit as string), 
+        parseInt(offset as string)
+      ]);
+      
+      interactions = result.rows;
+    } else {
+      // Use the service method for general history
+      interactions = await aiTransparencyService.getUserInteractions(
+        userId,
+        parseInt(limit as string),
+        parseInt(offset as string)
+      );
+      
+      // Filter by days if specified
+      if (days && parseInt(days as string) < 30) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - parseInt(days as string));
+        interactions = interactions.filter(i => 
+          new Date(i.createdAt || i.created_at) >= cutoffDate
+        );
+      }
+    }
+
+    // Get total count for pagination
+    const countQuery = type
+      ? `SELECT COUNT(*) FROM ai_interactions WHERE user_id = $1 AND interaction_type = $2`
+      : `SELECT COUNT(*) FROM ai_interactions WHERE user_id = $1`;
+    
+    const countParams = type ? [userId, type] : [userId];
+    const countResult = await dbService.query(countQuery, countParams);
+    const total = parseInt(countResult.rows[0].count);
+
+    logger.info('AI interaction history retrieved', {
+      userId,
+      interactionsCount: interactions.length,
+      total
+    });
+
+    res.json({
+      interactions: interactions.map(interaction => ({
+        id: interaction.id,
+        interactionType: interaction.interaction_type || interaction.interactionType,
+        promptText: interaction.prompt_text || interaction.promptText,
+        responseText: interaction.response_text || interaction.responseText,
+        modelUsed: interaction.model_used || interaction.modelUsed,
+        confidenceScore: interaction.confidence_score || interaction.confidenceScore,
+        processingTimeMs: interaction.processing_time_ms || interaction.processingTimeMs,
+        userRating: interaction.user_rating || interaction.userRating,
+        userFeedback: interaction.user_feedback || interaction.userFeedback,
+        status: interaction.status,
+        createdAt: interaction.created_at || interaction.createdAt,
+        updatedAt: interaction.updated_at || interaction.updatedAt,
+        metadata: typeof interaction.metadata === 'string' 
+          ? JSON.parse(interaction.metadata) 
+          : interaction.metadata
+      })),
+      pagination: {
+        total,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string),
+        hasMore: (parseInt(offset as string) + parseInt(limit as string)) < total
+      },
+      metadata: {
+        daysFilter: parseInt(days as string),
+        typeFilter: type || 'all',
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to retrieve AI interaction history', {
+      error: error instanceof Error ? error.message : String(error),
+      userId
+    });
+
+    res.status(500).json({
+      error: 'Failed to retrieve history',
+      message: 'Unable to load AI interaction history',
+      details: process.env.NODE_ENV === 'development' 
+        ? error instanceof Error ? error.message : String(error)
+        : undefined
+    });
+  }
+}));
+
+/**
+ * @swagger
+ * /ai/interactions/{interactionId}/rating:
+ *   post:
+ *     summary: Submit user rating and feedback for AI interaction
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: interactionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - rating
+ *             properties:
+ *               rating:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 description: User rating (1-5 stars)
+ *               feedback:
+ *                 type: string
+ *                 description: Optional user feedback
+ *     responses:
+ *       200:
+ *         description: Rating submitted successfully
+ *       400:
+ *         description: Invalid rating value
+ *       404:
+ *         description: Interaction not found
+ */
+router.post('/interactions/:interactionId/rating', asyncHandler(async (req, res) => {
+  const { interactionId } = req.params;
+  const { rating, feedback } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'User authentication required'
+    });
+  }
+
+  if (!rating || rating < 1 || rating > 5) {
+    return res.status(400).json({
+      error: 'Invalid rating',
+      message: 'Rating must be between 1 and 5'
+    });
+  }
+
+  try {
+    // Verify interaction belongs to user
+    const interaction = await aiTransparencyService.getInteraction(interactionId);
+    
+    if (!interaction) {
+      return res.status(404).json({
+        error: 'Interaction not found',
+        message: 'The specified interaction does not exist'
+      });
+    }
+
+    if (interaction.userId !== userId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You can only rate your own interactions'
+      });
+    }
+
+    await aiTransparencyService.submitUserRating(interactionId, rating, feedback);
+
+    logger.info('User rating submitted', {
+      interactionId,
+      userId,
+      rating,
+      hasFeedback: !!feedback
+    });
+
+    res.json({
+      success: true,
+      message: 'Rating submitted successfully',
+      data: {
+        interactionId,
+        rating,
+        feedback,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to submit rating', {
+      error: error instanceof Error ? error.message : String(error),
+      interactionId,
+      userId
+    });
+
+    res.status(500).json({
+      error: 'Failed to submit rating',
+      message: 'Unable to process rating submission',
+      details: process.env.NODE_ENV === 'development' 
+        ? error instanceof Error ? error.message : String(error)
+        : undefined
+    });
+  }
+}));
+
+/**
+ * @swagger
+ * /ai/analytics/usage:
+ *   get:
+ *     summary: Get AI usage analytics for user
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: Usage analytics retrieved successfully
+ */
+router.get('/analytics/usage', asyncHandler(async (req, res) => {
+  const userId = req.user?.id;
+  
+  if (!userId) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'User authentication required'
+    });
+  }
+
+  const { startDate, endDate } = req.query;
+
+  try {
+    const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const end = endDate ? new Date(endDate as string) : new Date();
+
+    const usageStats = await aiTransparencyService.getAIUsageStats(userId, start, end);
+
+    logger.info('AI usage analytics retrieved', {
+      userId,
+      startDate: start,
+      endDate: end,
+      statsCount: usageStats.length
+    });
+
+    res.json({
+      analytics: usageStats,
+      period: {
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+        daysSpan: Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+      },
+      metadata: {
+        userId,
+        generatedAt: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to retrieve usage analytics', {
+      error: error instanceof Error ? error.message : String(error),
+      userId
+    });
+
+    res.status(500).json({
+      error: 'Failed to retrieve analytics',
+      message: 'Unable to load usage analytics',
       details: process.env.NODE_ENV === 'development' 
         ? error instanceof Error ? error.message : String(error)
         : undefined

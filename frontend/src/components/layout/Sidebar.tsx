@@ -17,7 +17,6 @@ import {
   Menu,
   X,
   Zap,
-  Plus,
   Bell,
   Shield,
   Calculator,
@@ -31,8 +30,6 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronRight,
-  Folder,
-  FolderOpen
 } from "lucide-react"
 import { Button } from "../ui/button"
 import { UserRole, hasPermission, User } from "../../lib/auth"

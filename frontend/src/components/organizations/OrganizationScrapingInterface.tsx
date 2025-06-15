@@ -6,10 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
 import { 
   Globe, 
-  FileText, 
+ 
   Play, 
   Eye, 
   RefreshCw,
@@ -17,7 +16,6 @@ import {
   Plus,
   AlertCircle,
   CheckCircle,
-  Clock,
   Activity,
   ExternalLink,
   Brain,
@@ -27,8 +25,6 @@ import {
   Target,
   Lightbulb,
   Database,
-  Download,
-  Settings
 } from 'lucide-react';
 import { firecrawlService } from '@/lib/api/firecrawlService';
 
@@ -55,7 +51,7 @@ interface OrganizationIntelligence {
   id: string;
   data_source: string;
   intelligence_type: string;
-  extracted_data: any;
+  extracted_data: Record<string, unknown>;
   summary: string;
   keywords: string[];
   relevance_tags: string[];
@@ -210,7 +206,7 @@ export default function OrganizationScrapingInterface() {
   };
 
   const getIntelligenceTypeIcon = (type: string) => {
-    const icons: Record<string, any> = {
+    const icons: Record<string, React.ReactElement> = {
       technical_capabilities: <Zap className="h-4 w-4" />,
       research_expertise: <Brain className="h-4 w-4" />,
       track_record: <TrendingUp className="h-4 w-4" />,
@@ -684,7 +680,7 @@ function NewOrganizationModal({ onClose, onSubmit }: {
                 <span className="text-sm font-medium text-blue-900">Auto-Analysis</span>
               </div>
               <p className="text-xs text-blue-700">
-                If a website is provided, we'll automatically analyze it to extract capabilities and intelligence
+                If a website is provided, we&apos;ll automatically analyze it to extract capabilities and intelligence
               </p>
             </div>
             

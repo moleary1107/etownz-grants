@@ -132,7 +132,7 @@ class MonitoringService {
       }
 
       return response.json()
-    } catch (error) {
+    } catch {
       // Return mock data if endpoint doesn't exist
       console.warn('Monitoring rules endpoint not available, using mock data')
       return {
@@ -282,7 +282,7 @@ class MonitoringService {
       }
 
       return response.json()
-    } catch (error) {
+    } catch {
       // Return mock stats if endpoint doesn't exist
       console.warn('Monitoring stats endpoint not available, using mock data')
       return {
@@ -384,7 +384,7 @@ class MonitoringService {
     }
 
     const createdRules = await Promise.all(
-      predefinedRules.map(rule => this.createRule(rule as any))
+      predefinedRules.map(rule => this.createRule(rule as Omit<MonitoringRule, 'id' | 'last_triggered' | 'trigger_count' | 'created_at' | 'updated_at'>))
     )
 
     return createdRules

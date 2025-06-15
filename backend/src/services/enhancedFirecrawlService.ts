@@ -653,7 +653,7 @@ export class EnhancedFirecrawlService {
     const structuredData: any[] = [];
     
     // Extract JSON-LD
-    const jsonLdRegex = /<script[^>]*type\s*=\s*[\"']application\/ld\+json[\"'][^>]*>(.*?)<\/script>/gis;
+    const jsonLdRegex = /<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>(.*?)<\/script>/gis;
     let match;
     
     while ((match = jsonLdRegex.exec(html)) !== null) {
@@ -670,7 +670,7 @@ export class EnhancedFirecrawlService {
 
   // Utility methods
   private extractLinks(content: string): string[] {
-    const linkRegex = /href\s*=\s*[\"']([^\"']+)[\"']/gi;
+    const linkRegex = /href\s*=\s*["']([^"']+)["']/gi;
     const links: string[] = [];
     let match;
 
@@ -685,7 +685,7 @@ export class EnhancedFirecrawlService {
   }
 
   private extractImages(content: string): string[] {
-    const imageRegex = /src\s*=\s*[\"']([^\"']+\.(jpg|jpeg|png|gif|webp|svg))[\"']/gi;
+    const imageRegex = /src\s*=\s*["']([^"']+\.(jpg|jpeg|png|gif|webp|svg))["']/gi;
     const images: string[] = [];
     let match;
 

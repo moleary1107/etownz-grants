@@ -20,9 +20,7 @@ import {
   Calendar,
   FileText,
   Target,
-  Bot,
   Loader2,
-  Zap,
   Eye,
   Download
 } from "lucide-react"
@@ -30,18 +28,6 @@ import { User } from "../../../../lib/auth"
 import { useApplications } from "../../../../lib/store/aiStore"
 import { grantsService, Grant } from "../../../../lib/api"
 
-interface ChecklistItem {
-  id: string
-  category: string
-  item: string
-  priority: 'high' | 'medium' | 'low'
-  mandatory: boolean
-  estimated_time: string
-  dependencies: string[]
-  description: string
-  completed?: boolean
-  aiGenerated?: boolean
-}
 
 interface ApplicationData {
   grant_id: string
@@ -106,12 +92,9 @@ function CreateApplicationContent() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [isGeneratingAI, setIsGeneratingAI] = useState(false)
   const [step, setStep] = useState(1)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState("form")
-  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
-  const [showBudgetWarning, setShowBudgetWarning] = useState(false)
   
   // AI Store hooks
   const {
@@ -170,11 +153,11 @@ function CreateApplicationContent() {
     }
   })
 
-  const updateApplicationData = useCallback((path: string, value: any) => {
+  const updateApplicationData = useCallback((path: string, value: unknown) => {
     setApplicationData(prev => {
       const newData = { ...prev }
       const keys = path.split('.')
-      let current: any = newData
+      let current: Record<string, unknown> = newData
       
       for (let i = 0; i < keys.length - 1; i++) {
         if (!current[keys[i]]) current[keys[i]] = {}
@@ -197,7 +180,7 @@ function CreateApplicationContent() {
           if (!updatedSections[sectionName]) {
             updatedSections[sectionName] = {}
           }
-          (updatedSections[sectionName] as Record<string, any>)[fieldName] = value
+          (updatedSections[sectionName] as Record<string, unknown>)[fieldName] = value
           
           updateApplication(currentApplication.id, {
             sections: updatedSections
@@ -268,27 +251,7 @@ function CreateApplicationContent() {
     }
   }, [router, grantId, loadSpecificGrant, initializeApplication, loadAvailableGrants])
 
-  const addArrayItem = (path: string, defaultValue: any) => {
-    const current = getNestedValue(applicationData, path) || []
-    updateApplicationData(path, [...current, defaultValue])
-  }
 
-  const removeArrayItem = (path: string, index: number) => {
-    const current = getNestedValue(applicationData, path) || []
-    const newArray = current.filter((_: any, i: number) => i !== index)
-    updateApplicationData(path, newArray)
-  }
-
-  const updateArrayItem = (path: string, index: number, value: any) => {
-    const current = getNestedValue(applicationData, path) || []
-    const newArray = [...current]
-    newArray[index] = value
-    updateApplicationData(path, newArray)
-  }
-
-  const getNestedValue = (obj: any, path: string) => {
-    return path.split('.').reduce((current, key) => current?.[key], obj)
-  }
 
   const validateStep = (stepNumber: number): boolean => {
     const newErrors: Record<string, string> = {}
@@ -392,43 +355,7 @@ Are you sure you want to submit with this ${budgetTotal > applicationData.reques
     }
   }
 
-  // AI Content Generation
-  const generateAIContent = async (fieldPath: string) => {
-    if (!selectedGrant || !user) return
-    
-    try {
-      setIsGeneratingAI(true)
-      
-      // Create context for AI generation
-      const context = {
-        grant: selectedGrant,
-        organization: { name: user.name },
-        fieldPath,
-        existingData: applicationData
-      }
 
-      // Mock AI content generation - replace with actual AI service call
-      const aiContent = await generateMockAIContent(fieldPath, context)
-      updateApplicationData(fieldPath, aiContent)
-      
-    } catch (error) {
-      console.error('Error generating AI content:', error)
-    } finally {
-      setIsGeneratingAI(false)
-    }
-  }
-
-  const generateMockAIContent = async (fieldPath: string, context: any): Promise<string> => {
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    const templates: Record<string, string> = {
-      'project_description': `This innovative project leverages cutting-edge technology to address critical challenges in ${selectedGrant?.categories?.[0] || 'the technology sector'}. Our solution combines proven methodologies with novel approaches to deliver measurable impact and sustainable outcomes.`,
-      'application_data.technical_approach': `Our technical approach follows industry best practices and incorporates the latest advancements in technology. We will utilize a phased implementation strategy that ensures quality deliverables while maintaining flexibility to adapt to changing requirements.`,
-      'application_data.sustainability_plan': `The project sustainability will be ensured through multiple revenue streams, strategic partnerships, and continued innovation. We have identified key stakeholders who will support the long-term viability of this initiative beyond the grant period.`
-    }
-    
-    return templates[fieldPath] || `AI-generated content for ${fieldPath}`
-  }
 
   const handleLogout = () => {
     localStorage.removeItem('token')

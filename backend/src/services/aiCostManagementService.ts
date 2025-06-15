@@ -313,8 +313,8 @@ export class AICostManagementService {
   }> {
     const optimizationsApplied: string[] = [];
     let optimizedModel = options.model || this.config.defaultModel;
-    let optimizedPrompt = prompt;
-    let optimizedOptions = { ...options };
+    const optimizedPrompt = prompt;
+    const optimizedOptions = { ...options };
 
     try {
       // Smart model selection based on complexity
@@ -671,7 +671,7 @@ export class AICostManagementService {
     const thresholdsToReset = Array.isArray(result) ? result : result.rows || [];
 
     for (const threshold of thresholdsToReset) {
-      let newResetDate = new Date();
+      const newResetDate = new Date();
       
       switch (threshold.type) {
         case 'daily':

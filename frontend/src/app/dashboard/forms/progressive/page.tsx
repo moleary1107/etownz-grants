@@ -226,10 +226,10 @@ const sampleFields = [
 ];
 
 export default function ProgressiveFormPage() {
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  const handleDataChange = (newData: Record<string, any>) => {
+  const handleDataChange = (newData: Record<string, unknown>) => {
     setFormData(newData);
   };
 
@@ -275,19 +275,19 @@ export default function ProgressiveFormPage() {
         <h3 className="text-lg font-semibold mb-4">Progressive Disclosure Examples</h3>
         <div className="space-y-3 text-sm">
           <div>
-            <strong>Research Fields:</strong> Select "Research" as project type to see methodology, research team, and publications fields
+            <strong>Research Fields:</strong> Select &quot;Research&quot; as project type to see methodology, research team, and publications fields
           </div>
           <div>
-            <strong>Commercial Fields:</strong> Select "Commercial" as project type to see market analysis, revenue model, and competitive advantage fields
+            <strong>Commercial Fields:</strong> Select &quot;Commercial&quot; as project type to see market analysis, revenue model, and competitive advantage fields
           </div>
           <div>
             <strong>Large Budget Fields:</strong> Enter amount &gt; €100,000 to see detailed budget, financial management, and audit requirement fields
           </div>
           <div>
-            <strong>Partnership Fields:</strong> Select "Yes" for partners to see partner details, collaboration agreement, and IP management fields
+            <strong>Partnership Fields:</strong> Select &quot;Yes&quot; for partners to see partner details, collaboration agreement, and IP management fields
           </div>
           <div>
-            <strong>Environmental Fields:</strong> Select "Environment" as project category to see environmental impact, sustainability metrics, and carbon footprint fields
+            <strong>Environmental Fields:</strong> Select &quot;Environment&quot; as project category to see environmental impact, sustainability metrics, and carbon footprint fields
           </div>
         </div>
       </div>

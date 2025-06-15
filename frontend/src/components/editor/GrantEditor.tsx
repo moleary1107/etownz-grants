@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { $getRoot, $getSelection, EditorState, LexicalEditor } from 'lexical';
+import { $getRoot, EditorState } from 'lexical';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
-import { PlainTextPlugin } from '@lexical/react/LexicalPlainTextPlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
@@ -21,7 +20,7 @@ import {
   CAN_REDO_COMMAND,
   CAN_UNDO_COMMAND
 } from 'lexical';
-import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
+import { $generateHtmlFromNodes } from '@lexical/html';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
@@ -53,7 +52,7 @@ function AISuggestionPlugin({ applicationId, grantId, section }: {
   section?: string; 
 }) {
   const [editor] = useLexicalComposerContext();
-  const { suggestions, isLoading, addSuggestion } = useAIEditorStore();
+  const { isLoading, addSuggestion } = useAIEditorStore();
 
   const handleSuggestionRequest = useCallback(async () => {
     if (!editor || isLoading) return;
@@ -125,7 +124,6 @@ function AutoSavePlugin({
   const handleChange = useCallback((editorState: EditorState) => {
     editorState.read(() => {
       const htmlContent = $generateHtmlFromNodes(editor, null);
-      const textContent = $getRoot().getTextContent();
       
       setContent(htmlContent);
       onContentChange?.(htmlContent, editorState);
@@ -420,9 +418,6 @@ export default function GrantEditor({
     loadContent();
   }, [applicationId, section, initialContent]);
 
-  const handleEditorError = (error: Error) => {
-    console.error('Editor error:', error);
-  };
 
   if (!isLoaded) {
     return (

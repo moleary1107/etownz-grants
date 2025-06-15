@@ -7,42 +7,23 @@ import { Progress } from '../ui/progress'
 import { Badge } from '../ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { 
-  Brain,
   Target,
-  TrendingUp,
-  Star,
   Clock,
   Calendar,
   DollarSign,
   Building,
-  Users,
-  Zap,
   RefreshCw,
-  Filter,
   Search,
-  Eye,
   Bookmark,
-  Heart,
   ThumbsUp,
   ThumbsDown,
-  ArrowRight,
-  Info,
-  Lightbulb,
-  Award,
-  MapPin,
-  Globe,
-  ChevronRight,
   Sparkles,
   BarChart3,
   Settings,
-  Bell,
   CheckCircle,
   AlertTriangle,
-  FileText,
-  ExternalLink,
-  Copy,
-  Share2,
-  Download
+  Award,
+  ExternalLink
 } from 'lucide-react'
 import { User } from '../../lib/auth'
 
@@ -155,7 +136,7 @@ export function PersonalizedGrantRecommendations({
   useEffect(() => {
     loadUserProfile()
     loadRecommendations()
-  }, [])
+  }, [loadRecommendations, loadUserProfile])
 
   const loadUserProfile = useCallback(async () => {
     // Mock user profile based on authenticated user
@@ -565,7 +546,7 @@ export function PersonalizedGrantRecommendations({
         </div>
       </div>
 
-      <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as any)} className="space-y-6">
+      <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as 'recommendations' | 'profile' | 'analytics')} className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
           <TabsTrigger value="profile">Profile & Preferences</TabsTrigger>
@@ -593,7 +574,7 @@ export function PersonalizedGrantRecommendations({
                 {/* Sort */}
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
+                  onChange={(e) => setSortBy(e.target.value as 'match_score' | 'deadline' | 'amount' | 'success_probability')}
                   className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="match_score">Best Match</option>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
@@ -50,14 +50,12 @@ export default function GrantsPage() {
   
   // AI Store hooks
   const {
-    searchHistory,
-    currentSearch,
     addSearchResult,
     setCurrentSearch,
     getSearchByQuery
   } = useSearchHistory()
   
-  const { addGrantAnalysis, getGrantAnalysis } = useGrantAnalyses()
+  const { } = useGrantAnalyses()
 
   useEffect(() => {
     // Check authentication
@@ -77,9 +75,9 @@ export default function GrantsPage() {
       console.error('Error parsing user data:', error)
       router.push('/auth/login')
     }
-  }, [router])
+  }, [router, loadGrants])
 
-  const loadGrants = async (useAI: boolean = false) => {
+  const loadGrants = useCallback(async (useAI: boolean = false) => {
     try {
       setIsLoading(true)
       setError(null)
@@ -142,7 +140,7 @@ export default function GrantsPage() {
         const filters = {
           search: searchTerm || undefined,
           categories: selectedCategory !== 'all' ? [selectedCategory] : undefined,
-          sort_by: sortBy as any,
+          sort_by: sortBy as string,
           limit: 50
         }
 
@@ -176,9 +174,9 @@ export default function GrantsPage() {
       setIsLoading(false)
       setAiProcessing(false)
     }
-  }
+  }, [selectedCategory, selectedProvider, sortBy, searchTerm, user, getSearchByQuery, addSearchResult, setCurrentSearch, transformAIResults])
   
-  const transformAIResults = (matches: any[]): Grant[] => {
+  const transformAIResults = (matches: Array<{ grant: Grant; score: number }>): Grant[] => {
     return matches.map(match => ({
       ...match.grant,
       provider: match.grant.funder || 'Unknown',
@@ -208,14 +206,14 @@ export default function GrantsPage() {
   }
 
   // Helper function to extract eligibility criteria
-  const extractEligibility = (criteria?: Record<string, any>): string[] => {
+  const extractEligibility = (criteria?: Record<string, unknown>): string[] => {
     if (!criteria) return []
     const eligibilityList: string[] = []
     
-    if (criteria.sector) eligibilityList.push(criteria.sector)
-    if (criteria.stage) eligibilityList.push(criteria.stage)
-    if (criteria.size) eligibilityList.push(criteria.size)
-    if (criteria.location) eligibilityList.push(criteria.location)
+    if (criteria.sector && typeof criteria.sector === 'string') eligibilityList.push(criteria.sector)
+    if (criteria.stage && typeof criteria.stage === 'string') eligibilityList.push(criteria.stage)
+    if (criteria.size && typeof criteria.size === 'string') eligibilityList.push(criteria.size)
+    if (criteria.location && typeof criteria.location === 'string') eligibilityList.push(criteria.location)
     
     return eligibilityList.length > 0 ? eligibilityList : ['General']
   }
@@ -343,8 +341,8 @@ export default function GrantsPage() {
     }
   }
   
-  const transformSemanticResults = (results: any[]): Grant[] => {
-    return results.map((result, index) => ({
+  const transformSemanticResults = (results: Array<{ id: string; title: string; content: string; score: number }>): Grant[] => {
+    return results.map((result) => ({
       id: result.id,
       title: result.title,
       description: result.content,

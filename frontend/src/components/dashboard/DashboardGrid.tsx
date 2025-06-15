@@ -9,7 +9,6 @@ import {
   X, 
   GripVertical,
   BarChart3,
-  FileText,
   Clock,
   Users,
   DollarSign,
@@ -17,12 +16,10 @@ import {
   Target,
   Zap,
   Bell,
-  Calendar,
   Sparkles,
   ArrowRight,
-  Star,
-  CheckCircle
-} from 'lucide-react'
+  Star
+} from '@/lib/icons'
 import { User, UserRole } from '../../lib/auth'
 import ReviewApprovalWidget from './ReviewApprovalWidget'
 
@@ -34,8 +31,8 @@ export interface DashboardWidget {
   size: 'small' | 'medium' | 'large'
   position: number
   visible: boolean
-  data?: any
-  config?: Record<string, any>
+  data?: Record<string, unknown>
+  config?: Record<string, unknown>
 }
 
 export type WidgetType = 
@@ -325,7 +322,7 @@ function WidgetContent({ widget, user }: { widget: DashboardWidget; user: User }
 }
 
 // Individual Widget Components
-function StatsOverviewWidget({ user }: { user: User }) {
+function StatsOverviewWidget({ }: { user: User }) {
   const stats = [
     { label: 'Active', value: '8', color: 'text-blue-600' },
     { label: 'Success Rate', value: '42%', color: 'text-green-600' },
@@ -344,7 +341,7 @@ function StatsOverviewWidget({ user }: { user: User }) {
   )
 }
 
-function RecentActivityWidget({ user }: { user: User }) {
+function RecentActivityWidget({ }: { user: User }) {
   const activities = [
     { title: 'Grant submitted', time: '2h ago', type: 'success' },
     { title: 'Deadline reminder', time: '4h ago', type: 'warning' },
@@ -379,7 +376,7 @@ function QuickActionsWidget({ user }: { user: User }) {
   )
 }
 
-function UpcomingDeadlinesWidget({ user }: { user: User }) {
+function UpcomingDeadlinesWidget({ }: { user: User }) {
   const deadlines = [
     { grant: 'SFI Discover', days: 3, urgent: true },
     { grant: 'Enterprise Ireland', days: 7, urgent: false },
@@ -402,7 +399,7 @@ function UpcomingDeadlinesWidget({ user }: { user: User }) {
   )
 }
 
-function GrantRecommendationsWidget({ user }: { user: User }) {
+function GrantRecommendationsWidget({ }: { user: User }) {
   const grants = [
     { 
       title: 'Enterprise Ireland HPSU Fund', 
@@ -475,7 +472,7 @@ function GrantRecommendationsWidget({ user }: { user: User }) {
   )
 }
 
-function AIInsightsWidget({ user }: { user: User }) {
+function AIInsightsWidget({ }: { user: User }) {
   const insights = [
     'Your application completion rate is 23% above average',
     'Consider applying to 2 more grants this month',
@@ -494,7 +491,7 @@ function AIInsightsWidget({ user }: { user: User }) {
   )
 }
 
-function AnalyticsDashboardWidget({ user }: { user: User }) {
+function AnalyticsDashboardWidget({ }: { user: User }) {
   // Simplified analytics widget for dashboard embedding
   const metrics = [
     { label: 'Success Rate', value: '42%', trend: '+5.2%', color: 'text-green-600' },

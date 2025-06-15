@@ -5,7 +5,6 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Progress } from '../ui/progress';
 import { toast } from '../../lib/hooks/use-toast';
 
 interface ReviewWorkflow {
@@ -273,16 +272,12 @@ export default function ReviewApprovalDashboard() {
       const token = localStorage.getItem('token');
       
       // Use specific approve/reject endpoints for cleaner API design
-      let endpoint = '';
-      let method = 'POST';
-      
-      if (decision === 'approve') {
-        endpoint = `/api/review-approval/approvals/${approvalId}/approve`;
-      } else if (decision === 'reject') {
-        endpoint = `/api/review-approval/approvals/${approvalId}/reject`;
-      } else {
-        endpoint = `/api/review-approval/approvals/${approvalId}/process`;
-      }
+      const endpoint = decision === 'approve' 
+        ? `/api/review-approval/approvals/${approvalId}/approve`
+        : decision === 'reject'
+        ? `/api/review-approval/approvals/${approvalId}/reject`
+        : `/api/review-approval/approvals/${approvalId}/process`;
+      const method = 'POST';
 
       const response = await fetch(endpoint, {
         method,
@@ -308,11 +303,11 @@ export default function ReviewApprovalDashboard() {
 
       // Refresh dashboard data
       await fetchDashboardData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error processing approval:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to process approval',
+        description: error instanceof Error ? error.message : 'Failed to process approval',
         variant: 'destructive'
       });
     } finally {

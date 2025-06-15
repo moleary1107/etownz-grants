@@ -556,8 +556,8 @@ export class RAGKnowledgeBaseService {
       const { page, limit } = pagination;
       const offset = (page - 1) * limit;
 
-      let whereConditions: string[] = [];
-      let queryParams: any[] = [];
+      const whereConditions: string[] = [];
+      const queryParams: any[] = [];
       let paramIndex = 1;
 
       if (searchTerm) {

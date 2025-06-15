@@ -37,10 +37,12 @@ export default function AutoGenerationPanel({
   applicationId,
   onSectionGenerated
 }: AutoGenerationPanelProps) {
+  // applicationId is passed but not used in this implementation
+  console.debug('AutoGenerationPanel initialized for application:', applicationId);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress[]>([]);
-  const [organizationData, setOrganizationData] = useState<any>(null);
-  const [grantData, setGrantData] = useState<any>(null);
+  const [organizationData, setOrganizationData] = useState<Record<string, unknown> | null>(null);
+  const [grantData, setGrantData] = useState<Record<string, unknown> | null>(null);
   const [generatedSections, setGeneratedSections] = useState<string[]>([]);
 
   // Mock grant and organization data
@@ -104,7 +106,7 @@ export default function AutoGenerationPanel({
       setGenerationProgress([
         { stage: 'Organization analysis complete', progress: 100, status: 'completed' }
       ]);
-    } catch (error) {
+    } catch {
       setGenerationProgress([
         { stage: 'Analysis failed', progress: 0, status: 'error' }
       ]);
@@ -147,7 +149,7 @@ export default function AutoGenerationPanel({
       setGeneratedSections(prev => [...prev, sectionType]);
       onSectionGenerated(sectionType, result.content);
 
-    } catch (error) {
+    } catch {
       setGenerationProgress([
         { stage: 'Generation failed', progress: 0, status: 'error' }
       ]);
@@ -196,7 +198,7 @@ export default function AutoGenerationPanel({
         { stage: 'Complete application generated successfully', progress: 100, status: 'completed' }
       ]);
 
-    } catch (error) {
+    } catch {
       setGenerationProgress([
         { stage: 'Application generation failed', progress: 0, status: 'error' }
       ]);

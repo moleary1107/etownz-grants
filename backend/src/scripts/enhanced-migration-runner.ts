@@ -435,7 +435,7 @@ export async function runEnhancedMigrations() {
     const command = args[0];
 
     switch (command) {
-      case 'status':
+      case 'status': {
         const status = await runner.getStatus();
         console.log('\n📊 Migration Status:');
         console.log(`Total files: ${status.totalFiles}`);
@@ -447,8 +447,9 @@ export async function runEnhancedMigrations() {
           status.pending.forEach(file => console.log(`  - ${file}`));
         }
         break;
+      }
 
-      case 'run':
+      case 'run': {
         const dryRun = args.includes('--dry-run');
         const validateAll = args.includes('--validate');
         const createBackup = args.includes('--backup');
@@ -460,8 +461,9 @@ export async function runEnhancedMigrations() {
           stopOnError: true
         });
         break;
+      }
 
-      case 'rollback':
+      case 'rollback': {
         const filename = args[1];
         if (!filename) {
           console.error('❌ Please specify migration filename to rollback');
@@ -469,8 +471,9 @@ export async function runEnhancedMigrations() {
         }
         await runner.rollbackMigration(filename);
         break;
+      }
 
-      case 'validate':
+      case 'validate': {
         const validator = new MigrationValidator(runner['pool']);
         const validation = await validator.validateAllMigrations();
         
@@ -481,6 +484,7 @@ export async function runEnhancedMigrations() {
           process.exit(1);
         }
         break;
+      }
 
       default:
         console.log(`

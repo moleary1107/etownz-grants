@@ -84,7 +84,7 @@ export interface PerformanceDashboard {
     timestamp: Date;
     service: string;
     error: string;
-    context: Record<string, any>;
+    context: Record<string, unknown>;
   }>;
 }
 
@@ -254,12 +254,12 @@ export class AIMonitoringService {
       try {
         const metric = JSON.parse(event.data);
         onMetric(metric);
-      } catch (error) {
+      } catch {
         onError?.(new Error('Failed to parse metric'));
       }
     };
 
-    this.eventSource.onerror = (error) => {
+    this.eventSource.onerror = () => {
       onError?.(new Error('Connection lost'));
     };
 
@@ -281,7 +281,7 @@ export class AIMonitoringService {
     timestamp: Date;
     service: string;
     error: string;
-    context: Record<string, any>;
+    context: Record<string, unknown>;
     stackTrace?: string;
   }>> {
     const params = new URLSearchParams({ limit: limit.toString() });

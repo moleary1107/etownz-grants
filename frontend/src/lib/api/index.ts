@@ -143,7 +143,7 @@ export const apiService = {
     return { data: await response.json() };
   },
   
-  async post(endpoint: string, data: any) {
+  async post(endpoint: string, data: Record<string, unknown>) {
     const response = await fetch(`${API_CONFIG.baseUrl}${endpoint}`, {
       method: 'POST',
       headers: apiUtils.getAuthHeaders(),
@@ -179,14 +179,16 @@ export const apiUtils = {
   /**
    * Handle API errors consistently
    */
-  handleApiError(error: any, context: string): Error {
+  handleApiError(error: unknown, context: string): Error {
     console.error(`API Error in ${context}:`, error)
     
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+    const errorObj = error as Record<string, unknown>
+    
+    if (errorObj.name === 'TypeError' && typeof errorObj.message === 'string' && errorObj.message.includes('fetch')) {
       return new Error('Network error - please check your connection')
     }
     
-    if (error.status === 401) {
+    if (errorObj.status === 401) {
       // Handle unauthorized - redirect to login
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token')
@@ -196,19 +198,28 @@ export const apiUtils = {
       return new Error('Authentication required')
     }
     
-    if (error.status === 403) {
+    if (errorObj.status === 403) {
       return new Error('Access denied - insufficient permissions')
     }
     
-    if (error.status === 429) {
+    if (errorObj.status === 429) {
       return new Error('Rate limit exceeded - please try again later')
     }
     
-    if (error.status >= 500) {
+    if (typeof errorObj.status === 'number' && errorObj.status >= 500) {
       return new Error('Server error - please try again later')
     }
     
-    return error instanceof Error ? error : new Error(String(error))
+    if (error instanceof Error) {
+      return error
+    }
+    if (typeof error === 'string') {
+      return new Error(error)
+    }
+    if (error && typeof error === 'object' && 'message' in error) {
+      return new Error(String(error.message))
+    }
+    return new Error('An unknown error occurred')
   },
 
   /**
@@ -224,7 +235,7 @@ export const apiUtils = {
   /**
    * Debounce function for search inputs
    */
-  debounce<T extends (...args: any[]) => any>(
+  debounce<T extends (...args: unknown[]) => unknown>(
     func: T,
     wait: number
   ): (...args: Parameters<T>) => void {

@@ -354,13 +354,13 @@ export const AITransparencyWrapper: React.FC<AITransparencyWrapperProps> = ({
 
 // Helper hook for managing AI transparency state
 export const useAITransparency = () => {
-  const [interactions, setInteractions] = useState<Map<string, any>>(new Map())
+  const [interactions, setInteractions] = useState<Map<string, Record<string, unknown>>>(new Map())
 
-  const recordInteraction = (id: string, data: any) => {
+  const recordInteraction = (id: string, data: Record<string, unknown>) => {
     setInteractions(prev => new Map(prev.set(id, data)))
   }
 
-  const updateInteraction = (id: string, updates: any) => {
+  const updateInteraction = (id: string, updates: Record<string, unknown>) => {
     setInteractions(prev => {
       const existing = prev.get(id) || {}
       return new Map(prev.set(id, { ...existing, ...updates }))

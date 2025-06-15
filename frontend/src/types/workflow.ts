@@ -95,7 +95,7 @@ export interface AssignmentCriteria {
 export interface StageCondition {
   id: string
   type: 'all_tasks_complete' | 'approval_received' | 'deadline_reached' | 'custom_condition'
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   isRequired: boolean
 }
 
@@ -119,7 +119,7 @@ export interface ApprovalUser {
 export interface ApprovalRule {
   condition: string
   action: 'approve' | 'reject' | 'escalate' | 'request_changes'
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
 }
 
 export interface EscalationRule {
@@ -147,7 +147,7 @@ export interface TaskAutomationTrigger {
 
 export interface CompletionCriteria {
   type: 'document_uploaded' | 'form_completed' | 'approval_received' | 'external_validation' | 'custom'
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   isRequired: boolean
   validationRules: ValidationRule[]
 }
@@ -163,33 +163,33 @@ export interface TaskResource {
 
 export interface TriggerCondition {
   type: 'time' | 'date' | 'event' | 'status_change' | 'user_action' | 'external_api'
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains' | 'matches'
-  value: any
+  value: unknown
 }
 
 export interface TriggerAction {
   type: 'create_task' | 'assign_task' | 'send_notification' | 'update_status' | 'run_automation' | 'external_api_call'
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   delay: number
 }
 
 export interface RuleTrigger {
   event: string
   source: 'task' | 'stage' | 'workflow' | 'user' | 'system' | 'external'
-  conditions: Record<string, any>
+  conditions: Record<string, unknown>
 }
 
 export interface RuleCondition {
   field: string
   operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains' | 'in' | 'not_in'
-  value: any
+  value: unknown
   logicalOperator?: 'and' | 'or'
 }
 
 export interface RuleAction {
   type: 'assign_task' | 'create_notification' | 'update_field' | 'send_email' | 'webhook' | 'escalate'
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   delay: number
   retries: number
 }
@@ -197,23 +197,23 @@ export interface RuleAction {
 export interface TaskCondition {
   field: string
   operator: string
-  value: any
+  value: unknown
 }
 
 export interface TaskAction {
   type: 'notify' | 'escalate' | 'reassign' | 'extend_deadline' | 'add_comment' | 'update_priority'
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
 }
 
 export interface ValidationRule {
   type: 'required_field' | 'file_format' | 'file_size' | 'data_validation' | 'external_check'
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   errorMessage: string
 }
 
 export interface AutomationAction {
   type: 'create_task' | 'send_notification' | 'update_status' | 'assign_user' | 'run_script' | 'api_call'
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   retries: number
   timeout: number
 }
@@ -322,7 +322,7 @@ export interface WorkflowEvent {
   timestamp: Date
   userId: string
   description: string
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
 }
 
 export interface WorkflowMetrics {

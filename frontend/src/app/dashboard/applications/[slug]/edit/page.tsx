@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "../../../../../components/ui/card"
 import { Button } from "../../../../../components/ui/button"
@@ -105,9 +105,9 @@ export default function EditApplicationPage() {
       console.error('Error parsing user data:', error)
       router.push('/auth/login')
     }
-  }, [router, applicationSlug])
+  }, [router, applicationSlug, loadApplication])
 
-  const loadApplication = async () => {
+  const loadApplication = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -209,7 +209,7 @@ export default function EditApplicationPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [applicationSlug, router])
 
   const handleLogout = () => {
     localStorage.removeItem('token')

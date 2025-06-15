@@ -69,8 +69,8 @@ interface FieldRecommendation {
 
 interface ProgressiveFormDisclosureProps {
   fields: FieldDefinition[];
-  formData: Record<string, any>;
-  onDataChange: (data: Record<string, any>) => void;
+  formData: Record<string, unknown>;
+  onDataChange: (data: Record<string, unknown>) => void;
   grantSchemeId?: string;
   sessionId?: string;
   onSessionCreated?: (sessionId: string) => void;
@@ -102,7 +102,7 @@ export const ProgressiveFormDisclosure: React.FC<ProgressiveFormDisclosureProps>
     if (!sessionId) {
       initializeSession();
     }
-  }, []);
+  }, [initializeSession, sessionId]);
 
   // Analyze form whenever data changes
   useEffect(() => {
@@ -116,7 +116,7 @@ export const ProgressiveFormDisclosure: React.FC<ProgressiveFormDisclosureProps>
         analyzeFormProgress();
       }, 1000);
     }
-  }, [formData, sessionId]);
+  }, [formData, sessionId, analyzeFormProgress]);
 
   const initializeSession = async () => {
     try {
@@ -178,7 +178,7 @@ export const ProgressiveFormDisclosure: React.FC<ProgressiveFormDisclosureProps>
     fieldName: string,
     interactionType: string,
     fieldValue?: string,
-    additionalData?: Record<string, any>
+    additionalData?: Record<string, unknown>
   ) => {
     if (!sessionId) return;
 
@@ -218,13 +218,13 @@ export const ProgressiveFormDisclosure: React.FC<ProgressiveFormDisclosureProps>
     }
     
     trackFieldInteraction(fieldName, 'blur', value);
-  }, [sessionId]);
+  }, [trackFieldInteraction]);
 
-  const handleFieldChange = useCallback((fieldName: string, value: any) => {
+  const handleFieldChange = useCallback((fieldName: string, value: unknown) => {
     const newData = { ...formData, [fieldName]: value };
     onDataChange(newData);
     trackFieldInteraction(fieldName, 'change', String(value));
-  }, [formData, onDataChange]);
+  }, [formData, onDataChange, trackFieldInteraction]);
 
   const handleRecommendationAction = async (recommendationId: string, action: 'accepted' | 'rejected' | 'ignored') => {
     try {

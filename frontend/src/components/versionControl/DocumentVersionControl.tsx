@@ -11,59 +11,24 @@ import {
   GitCommit,
   GitMerge,
   GitPullRequest,
-  History,
   ArrowLeftRight,
-  Tag,
-  Archive,
-  Download,
-  Upload,
   Copy,
-  Edit3,
   Eye,
   Users,
   Calendar,
-  FileText,
   Folder,
   Plus,
-  Minus,
   RotateCcw,
-  Save,
-  Share2,
   Lock,
-  Unlock,
   AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Clock,
   Search,
-  Filter,
   Settings,
   MoreHorizontal,
-  ChevronRight,
-  ChevronDown,
-  Code,
-  MessageSquare,
-  ThumbsUp,
-  ThumbsDown,
-  Star,
-  Flag,
-  Bookmark,
-  ExternalLink,
   RefreshCw,
-  Trash2,
-  Info,
-  Zap,
-  Shield,
   Database,
-  Cloud,
-  HardDrive,
-  Network,
-  Activity,
-  BarChart3,
   TrendingUp,
-  PieChart,
   User
-} from 'lucide-react'
+} from '@/lib/icons'
 import { User as UserType } from '../../lib/auth'
 import { 
   DocumentRepository, 
@@ -71,15 +36,13 @@ import {
   DocumentCommit, 
   PullRequest,
   MergeConflict,
-  ComparisonResult,
   VersionControlAnalytics
 } from '../../types/versionControl'
 
 interface DocumentVersionControlProps {
   user: UserType
   repositoryId?: string
-  onRepositoryCreate?: (repository: DocumentRepository) => void
-  onCommit?: (repositoryId: string, message: string, changes: any[]) => void
+  onCommit?: (repositoryId: string, message: string, changes: FileChange[]) => void
   onBranchCreate?: (repositoryId: string, branchName: string, sourceBranch: string) => void
   onMerge?: (repositoryId: string, sourceBranch: string, targetBranch: string) => void
   className?: string
@@ -88,7 +51,6 @@ interface DocumentVersionControlProps {
 export function DocumentVersionControl({ 
   user, 
   repositoryId,
-  onRepositoryCreate,
   onCommit,
   onBranchCreate,
   onMerge,
@@ -104,8 +66,10 @@ export function DocumentVersionControl({
   const [currentView, setCurrentView] = useState<'repositories' | 'branches' | 'commits' | 'pullrequests' | 'compare' | 'analytics'>('repositories')
   const [selectedCommits, setSelectedCommits] = useState<string[]>([])
   const [compareMode, setCompareMode] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [conflicts, setConflicts] = useState<MergeConflict[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [filterOptions, setFilterOptions] = useState({
     author: '',
     dateRange: '',
@@ -122,7 +86,7 @@ export function DocumentVersionControl({
   useEffect(() => {
     if (selectedRepository) {
       loadCommits(selectedRepository.id, currentBranch)
-      loadPullRequests(selectedRepository.id)
+      loadPullRequests()
     }
   }, [selectedRepository, currentBranch])
 
@@ -147,13 +111,13 @@ export function DocumentVersionControl({
     setIsLoading(false)
   }, [repositoryId])
 
-  const loadCommits = useCallback(async (repoId: string, branch: string) => {
+  const loadCommits = useCallback(async (_repoId: string, branch: string) => {
     // Simulate loading commits for specific repository and branch
     await new Promise(resolve => setTimeout(resolve, 500))
     setCommits(createMockCommits(branch))
   }, [])
 
-  const loadPullRequests = useCallback(async (repoId: string) => {
+  const loadPullRequests = useCallback(async () => {
     // Simulate loading pull requests
     await new Promise(resolve => setTimeout(resolve, 500))
     setPullRequests(createMockPullRequests())
@@ -483,7 +447,7 @@ export function DocumentVersionControl({
         </Card>
       )}
 
-      <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as any)} className="space-y-6">
+      <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as 'repositories' | 'branches' | 'commits' | 'pullrequests' | 'compare' | 'analytics')} className="space-y-6">
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="repositories">Repositories</TabsTrigger>
           <TabsTrigger value="branches">Branches</TabsTrigger>

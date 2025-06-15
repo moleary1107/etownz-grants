@@ -428,13 +428,13 @@ describe('Enhanced Scraping Dashboard Integration', () => {
 
     // Simulate SSE update
     const mockEventSource = {
-      onmessage: null as any,
-      onerror: null as any,
+      onmessage: null as ((this: EventSource, ev: MessageEvent) => unknown) | null,
+      onerror: null as ((this: EventSource, ev: Event) => unknown) | null,
       close: jest.fn()
     };
 
     // Mock EventSource constructor
-    (global as any).EventSource = jest.fn(() => mockEventSource);
+    (global as unknown as { EventSource: unknown }).EventSource = jest.fn(() => mockEventSource);
 
     // Simulate progress update
     const progressUpdate = {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -65,19 +65,7 @@ function AIEditorFullPageContent({
     }
   }, [router]);
 
-  useEffect(() => {
-    // Initialize or load session when component mounts
-    if (user && applicationId) {
-      initializeSession();
-    }
-
-    // Cleanup on unmount
-    return () => {
-      reset();
-    };
-  }, [user, applicationId, section]);
-
-  const initializeSession = async () => {
+  const initializeSession = useCallback(async () => {
     try {
       // Check if we have a session ID in URL params
       const sessionId = searchParams.get('sessionId');
@@ -93,7 +81,19 @@ function AIEditorFullPageContent({
     } catch (error) {
       console.error('Failed to initialize session:', error);
     }
-  };
+  }, [searchParams, loadSession, createSession, applicationId, section]);
+
+  useEffect(() => {
+    // Initialize or load session when component mounts
+    if (user && applicationId) {
+      initializeSession();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      reset();
+    };
+  }, [user, applicationId, initializeSession, reset]);
 
   const handleSave = async () => {
     await saveContent(true); // Force save

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     })).toString('base64')
 
     // Return user data without password
-    const { password: _, ...userWithoutPassword } = user
+    const { password, ...userWithoutPassword } = user
 
     return NextResponse.json({
       success: true,

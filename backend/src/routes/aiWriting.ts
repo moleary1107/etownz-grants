@@ -276,7 +276,7 @@ function buildEnhancedPrompt(basePrompt: string, settings: GenerationSettings, e
     detailed: 'Include comprehensive information with thorough explanations and supporting details.'
   };
 
-  let enhancedPrompt = `${basePrompt}
+  const enhancedPrompt = `${basePrompt}
 
 Writing Guidelines:
 - ${toneInstructions[settings.tone]}

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { 
@@ -12,17 +12,12 @@ import {
   FileText,
   Clock,
   Target,
-  Zap,
   BarChart3,
   ChevronRight,
-  Menu,
-  X,
   Home,
-  Bookmark,
   User,
   Grid,
   List,
-  Filter,
   RefreshCw,
   Smartphone,
   Wifi,
@@ -31,7 +26,7 @@ import {
 } from 'lucide-react'
 import { User as UserType, UserRole } from '../../lib/auth'
 import { DashboardWidget } from './DashboardGrid'
-import { useDashboardStore } from '../../lib/store/dashboardStore'
+// import { useDashboardStore } from '../../lib/store/dashboardStore'
 
 interface MobileDashboardProps {
   user: UserType
@@ -40,12 +35,15 @@ interface MobileDashboardProps {
   className?: string
 }
 
-export function MobileDashboard({ user, widgets, onWidgetUpdate, className = "" }: MobileDashboardProps) {
+export function MobileDashboard({ user, widgets, onWidgetUpdate: _onWidgetUpdate, className = "" }: MobileDashboardProps) {
+  // Note: onWidgetUpdate callback available for future use
+  // Suppress unused variable warning for required prop
+  void _onWidgetUpdate;
   const [activeTab, setActiveTab] = useState<'home' | 'widgets' | 'actions' | 'profile'>('home')
   const [isOnline, setIsOnline] = useState(true)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [showQuickActions, setShowQuickActions] = useState(false)
-  const { preferences } = useDashboardStore()
+  // const [showQuickActions, setShowQuickActions] = useState(false)
+  // const { preferences } = useDashboardStore()
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true)
@@ -118,7 +116,7 @@ export function MobileDashboard({ user, widgets, onWidgetUpdate, className = "" 
           </div>
         </CardHeader>
         <CardContent>
-          <MobileWidgetContent widget={widget} user={user} />
+          <MobileWidgetContent widget={widget} />
         </CardContent>
       </Card>
     )
@@ -400,7 +398,7 @@ export function MobileDashboard({ user, widgets, onWidgetUpdate, className = "" 
                 key={tab.id}
                 variant="ghost"
                 size="sm"
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as 'home' | 'widgets' | 'actions' | 'profile')}
                 className={`flex-col space-y-1 h-auto py-2 ${
                   isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'
                 }`}
@@ -417,7 +415,8 @@ export function MobileDashboard({ user, widgets, onWidgetUpdate, className = "" 
 }
 
 // Mobile Widget Content Component
-function MobileWidgetContent({ widget, user }: { widget: DashboardWidget; user: UserType }) {
+function MobileWidgetContent({ widget }: { widget: DashboardWidget; user: UserType }) {
+  // Note: user prop available for future widget customization
   switch (widget.type) {
     case 'stats_overview':
       return (

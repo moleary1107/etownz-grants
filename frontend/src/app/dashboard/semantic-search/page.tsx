@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -369,7 +369,7 @@ export default function SemanticSearchPage() {
             </div>
           ) : (
             <Card className="p-8 text-center">
-              <p className="text-gray-500">Enter a query and click "Get Relevant Context" to retrieve contextual information.</p>
+              <p className="text-gray-500">Enter a query and click &quot;Get Relevant Context&quot; to retrieve contextual information.</p>
             </Card>
           )}
         </TabsContent>
@@ -407,7 +407,7 @@ export default function SemanticSearchPage() {
             </div>
           ) : (
             <Card className="p-8 text-center">
-              <p className="text-gray-500">Enter text and click "Generate Embedding" to create vector representation.</p>
+              <p className="text-gray-500">Enter text and click &quot;Generate Embedding&quot; to create vector representation.</p>
             </Card>
           )}
         </TabsContent>

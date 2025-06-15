@@ -115,7 +115,7 @@ export class OpenAIService {
     }
     
     // Check for Unicode characters and sanitize if needed
-    const hasUnicode = /[^\x00-\x7F]/.test(apiKey);
+    const hasUnicode = /[^\x20-\x7E]/.test(apiKey);
     if (hasUnicode) {
       logger.warn('API key contains non-ASCII characters, sanitizing', { 
         keyLength: apiKey.length,
@@ -123,7 +123,7 @@ export class OpenAIService {
         unicodeDetected: true
       });
       // Remove non-ASCII characters and trim whitespace
-      apiKey = apiKey.replace(/[^\x00-\x7F]/g, '').trim();
+      apiKey = apiKey.replace(/[^\x20-\x7E]/g, '').trim();
       if (!apiKey.startsWith('sk-')) {
         throw new Error('Invalid OpenAI API key format after sanitization');
       }
@@ -320,6 +320,7 @@ export class OpenAIService {
   /**
    * Chat completion with string input (convenience method)
    */
+  // eslint-disable-next-line no-dupe-class-members
   async chatCompletion(
     prompt: string,
     options?: ChatCompletionOptions
@@ -328,11 +329,13 @@ export class OpenAIService {
   /**
    * Chat completion with message array input
    */
+  // eslint-disable-next-line no-dupe-class-members
   async chatCompletion(
     messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
     options?: ChatCompletionOptions
   ): Promise<{ content: string, usage: OpenAIUsageInfo }>;
 
+  // eslint-disable-next-line no-dupe-class-members
   async chatCompletion(
     input: string | { role: 'system' | 'user' | 'assistant'; content: string }[],
     options: ChatCompletionOptions = {}
@@ -402,7 +405,7 @@ export class OpenAIService {
         });
         
         // Fallback to fetch with comprehensive sanitization
-        function sanitizeText(text: string): string {
+        const sanitizeText = (text: string): string => {
           return text
             // Convert to ASCII-safe characters
             .replace(/[\u2018\u2019]/g, "'")     // Smart single quotes
@@ -414,11 +417,11 @@ export class OpenAIService {
             .replace(/[\u2000-\u200F]/g, ' ')    // Various Unicode spaces
             .replace(/[\u2028\u2029]/g, '\n')    // Line/paragraph separators
             // Remove any character above ASCII range to prevent ByteString errors
-            .replace(/[^\x00-\x7F]/g, '')
+            .replace(/[^\x20-\x7E]/g, '')
             // Clean up any double spaces
             .replace(/\s+/g, ' ')
             .trim();
-        }
+        };
         
         const sanitizedParams = {
           ...requestParams,

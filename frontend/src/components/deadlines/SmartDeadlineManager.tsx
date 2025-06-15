@@ -18,16 +18,9 @@ import {
   Bell,
   Filter,
   RefreshCw,
-  Plus,
-  Edit,
-  ArrowRight,
-  Timer,
-  Flame,
   CalendarDays,
-  AlarmClock,
-  MessageSquare,
-  BookOpen,
-  User,
+  Timer,
+  Edit,
   Users
 } from 'lucide-react'
 import { User as UserType } from '../../lib/auth'
@@ -95,7 +88,6 @@ interface SmartDeadlineManagerProps {
 }
 
 export function SmartDeadlineManager({ 
-  user, 
   deadlines = [],
   onDeadlineUpdate,
   onReminderCreate,
@@ -490,7 +482,7 @@ export function SmartDeadlineManager({
                 <span className="text-sm text-gray-500">Sort by:</span>
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
+                  onChange={(e) => setSortBy(e.target.value as 'deadline' | 'risk' | 'priority')}
                   className="text-sm border rounded px-2 py-1"
                 >
                   <option value="deadline">Deadline</option>
@@ -705,7 +697,7 @@ function DeadlineListView({ deadlines, onDeadlineSelect }: { deadlines: Deadline
   )
 }
 
-function DeadlineCalendarView({ deadlines, onDeadlineSelect }: { deadlines: DeadlineItem[]; onDeadlineSelect: (deadline: DeadlineItem) => void }) {
+function DeadlineCalendarView({ }: { deadlines: DeadlineItem[]; onDeadlineSelect: (deadline: DeadlineItem) => void }) {
   // Simple calendar implementation - would typically use a calendar library
   return (
     <Card>
@@ -785,7 +777,7 @@ function AIInsightsPanel({ deadlines, analytics }: { deadlines: DeadlineItem[]; 
   )
 }
 
-function DeadlineDetailModal({ deadline, onClose, onUpdate }: { 
+function DeadlineDetailModal({ deadline, onClose }: { 
   deadline: DeadlineItem; 
   onClose: () => void; 
   onUpdate?: (deadline: DeadlineItem) => void;

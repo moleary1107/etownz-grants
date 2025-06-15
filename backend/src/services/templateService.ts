@@ -502,7 +502,7 @@ Write ${section.word_count_range.min}-${section.word_count_range.max} words in p
       .replace(/\u2013/g, '-')             // En dash
       .replace(/\u2014/g, '--')            // Em dash
       .replace(/\u00A0/g, ' ')             // Non-breaking space
-      .replace(/[^\x00-\x7F]/g, '')        // Remove all non-ASCII characters
+      .replace(/[^\x20-\x7E]/g, '')        // Remove all non-ASCII characters
       .replace(/\s+/g, ' ')                // Normalize whitespace
       .trim();
   }

@@ -1,18 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import AIEditorAdmin from '@/components/ai/AIEditorAdmin';
-import { User as AuthUser, UserRole } from '@/lib/auth';
 
 export default function AIEditorAdminTest() {
-  const [user] = useState<AuthUser | null>({
-    id: 'test-user',
-    email: 'test@example.com',
-    name: 'Test User',
-    role: UserRole.GRANT_WRITER,
-    organizationId: 'test-org',
-    verified: true
-  });
 
   const handleBack = () => {
     // In production, this would navigate back to applications list

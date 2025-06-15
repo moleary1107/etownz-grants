@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Progress } from '../ui/progress'
@@ -13,18 +13,14 @@ import {
   CheckCircle,
   AlertTriangle,
   Eye,
-  Download,
   Trash2,
   Search,
-  Filter,
   Clock,
   Calendar,
   DollarSign,
   Target,
   Zap,
   RefreshCw,
-  Copy,
-  ExternalLink,
   FileCheck,
   FileX,
   Loader2,
@@ -33,7 +29,6 @@ import {
   TrendingUp,
   MessageSquare,
   ArrowRight,
-  Info,
   Star,
   X,
   Building
@@ -130,14 +125,13 @@ interface AIDocumentAnalyzerProps {
 }
 
 export function AIDocumentAnalyzer({ 
-  user, 
   onAnalysisComplete,
   className = "" 
 }: AIDocumentAnalyzerProps) {
   const [documents, setDocuments] = useState<DocumentAnalysisResult[]>([])
   const [selectedDocument, setSelectedDocument] = useState<DocumentAnalysisResult | null>(null)
   const [isUploading, setIsUploading] = useState(false)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [,] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [filterType, setFilterType] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -524,7 +518,7 @@ export function AIDocumentAnalyzer({
         </div>
       </div>
 
-      <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as any)} className="space-y-6">
+      <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as 'upload' | 'results' | 'insights')} className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="upload">Document Upload</TabsTrigger>
           <TabsTrigger value="results">Analysis Results</TabsTrigger>

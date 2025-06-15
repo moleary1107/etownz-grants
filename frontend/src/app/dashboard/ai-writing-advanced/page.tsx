@@ -38,12 +38,12 @@ export default function AdvancedAIWritingPage() {
     router.push('/')
   }
 
-  const handleSave = (project: any) => {
+  const handleSave = (project: unknown) => {
     console.log('Project saved:', project)
     // Could sync with backend API
   }
 
-  const handleExport = (project: any, format: 'pdf' | 'docx' | 'txt') => {
+  const handleExport = (project: unknown, format: 'pdf' | 'docx' | 'txt') => {
     console.log('Exporting project:', { project, format })
     // Could trigger document export
   }

@@ -8,10 +8,10 @@ import { BudgetOptimizer } from '../../../components/budget/BudgetOptimizer';
 
 interface OptimizationHistory {
   id: string;
-  projectScope: any;
-  fundingRules: any;
-  optimizedBudget: any;
-  analysisResults: any;
+  projectScope: Record<string, unknown>;
+  fundingRules: Record<string, unknown>;
+  optimizedBudget: Record<string, unknown>;
+  analysisResults: Record<string, unknown>;
   createdAt: string;
 }
 

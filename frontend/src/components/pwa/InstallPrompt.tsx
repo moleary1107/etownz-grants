@@ -13,7 +13,6 @@ import {
   Zap,
   Shield,
   Sparkles,
-  CheckCircle
 } from 'lucide-react'
 import { usePWAInstallPrompt, useMobileDetection } from '../../lib/hooks/useMobileDetection'
 
@@ -25,7 +24,7 @@ interface InstallPromptProps {
 
 export function InstallPrompt({ onInstall, onDismiss, className = "" }: InstallPromptProps) {
   const { isInstallable, isInstalled, promptInstall } = usePWAInstallPrompt()
-  const { isMobile, isIOS, isAndroid } = useMobileDetection()
+  const { isMobile, isIOS } = useMobileDetection()
   const [isDismissed, setIsDismissed] = useState(false)
   const [showInstructions, setShowInstructions] = useState(false)
 
@@ -99,7 +98,7 @@ export function InstallPrompt({ onInstall, onDismiss, className = "" }: InstallP
               </div>
               <div>
                 <p className="text-sm font-medium text-blue-900">Tap the Share button</p>
-                <p className="text-xs text-blue-700">Look for the share icon in Safari's toolbar</p>
+                <p className="text-xs text-blue-700">Look for the share icon in Safari&apos;s toolbar</p>
               </div>
             </div>
             
@@ -108,7 +107,7 @@ export function InstallPrompt({ onInstall, onDismiss, className = "" }: InstallP
                 2
               </div>
               <div>
-                <p className="text-sm font-medium text-blue-900">Select "Add to Home Screen"</p>
+                <p className="text-sm font-medium text-blue-900">Select &quot;Add to Home Screen&quot;</p>
                 <p className="text-xs text-blue-700">Scroll down in the share menu to find this option</p>
               </div>
             </div>
@@ -118,7 +117,7 @@ export function InstallPrompt({ onInstall, onDismiss, className = "" }: InstallP
                 3
               </div>
               <div>
-                <p className="text-sm font-medium text-blue-900">Tap "Add"</p>
+                <p className="text-sm font-medium text-blue-900">Tap &quot;Add&quot;</p>
                 <p className="text-xs text-blue-700">The app will be added to your home screen</p>
               </div>
             </div>

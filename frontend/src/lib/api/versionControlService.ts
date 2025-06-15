@@ -12,6 +12,177 @@ import {
   SearchResult
 } from '../../types/versionControl'
 
+// Additional interfaces for complex objects
+interface FileChange {
+  path: string
+  type: 'added' | 'modified' | 'deleted' | 'renamed' | 'moved'
+  content?: string
+  oldPath?: string
+  size?: number
+  binary?: boolean
+}
+
+interface FileDiff {
+  path: string
+  oldPath?: string
+  status: 'added' | 'modified' | 'deleted' | 'renamed' | 'unchanged'
+  additions: number
+  deletions: number
+  changes: number
+  patch?: string
+  binary: boolean
+  hunks: DiffHunk[]
+}
+
+interface DiffHunk {
+  oldStart: number
+  oldLines: number
+  newStart: number
+  newLines: number
+  header: string
+  lines: string[]
+}
+
+interface Tag {
+  id: string
+  name: string
+  commit: string
+  message?: string
+  type: 'lightweight' | 'annotated'
+  tagger?: {
+    name: string
+    email: string
+    date: Date
+  }
+  createdAt: Date
+  protected?: boolean
+}
+
+interface Collaborator {
+  id: string
+  userId: string
+  name: string
+  email: string
+  role: 'owner' | 'admin' | 'write' | 'read'
+  avatar?: string
+  addedAt: Date
+  addedBy: string
+  permissions: string[]
+  isActive: boolean
+}
+
+interface RepositoryAnalytics {
+  commits: {
+    total: number
+    thisWeek: number
+    thisMonth: number
+    trend: { date: Date; count: number }[]
+    byAuthor: { userId: string; name: string; count: number }[]
+  }
+  branches: {
+    total: number
+    active: number
+    merged: number
+    stale: number
+  }
+  pullRequests: {
+    open: number
+    merged: number
+    closed: number
+    averageTimeToMerge: number
+  }
+  contributors: {
+    total: number
+    active: number
+    topContributors: { userId: string; name: string; contributions: number }[]
+  }
+  activity: {
+    date: Date
+    commits: number
+    additions: number
+    deletions: number
+  }[]
+  storage: {
+    totalSize: number
+    usage: { date: Date; size: number }[]
+  }
+}
+
+interface BackupInfo {
+  id: string
+  repositoryId: string
+  name: string
+  description?: string
+  type: 'full' | 'incremental' | 'differential'
+  status: 'pending' | 'in_progress' | 'completed' | 'failed'
+  createdAt: Date
+  completedAt?: Date
+  size: number
+  location: string
+  checksum?: string
+  metadata: {
+    branches: string[]
+    commits: number
+    files: number
+    compression: string
+    encryption: boolean
+  }
+}
+
+interface RestoreResult {
+  id: string
+  backupId: string
+  repositoryId: string
+  status: 'pending' | 'in_progress' | 'completed' | 'failed'
+  progress: number
+  startedAt: Date
+  completedAt?: Date
+  targetBranch?: string
+  preserveHistory: boolean
+  restoredFiles: number
+  errors: string[]
+}
+
+interface Webhook {
+  id: string
+  url: string
+  events: string[]
+  secret?: string
+  active: boolean
+  createdAt: Date
+  updatedAt: Date
+  lastTriggered?: Date
+  deliveries: {
+    id: string
+    event: string
+    status: 'success' | 'failed' | 'pending'
+    timestamp: Date
+    response?: {
+      statusCode: number
+      headers: Record<string, string>
+      body: string
+    }
+  }[]
+}
+
+interface FileSearchResult {
+  path: string
+  repository: string
+  branch: string
+  commit: string
+  matches: {
+    line: number
+    content: string
+    lineNumber: number
+    highlights: { start: number; end: number }[]
+  }[]
+  score: number
+  lastModified: Date
+  size: number
+  type: 'file' | 'directory'
+  language?: string
+}
+
 export class VersionControlService {
   private baseUrl: string
 
@@ -204,7 +375,7 @@ export class VersionControlService {
     message: string
     description?: string
     branch: string
-    changes: any[]
+    changes: FileChange[]
     parentCommits?: string[]
   }): Promise<DocumentCommit> {
     const response = await fetch(`${this.baseUrl}/repositories/${repositoryId}/commits`, {
@@ -376,7 +547,7 @@ export class VersionControlService {
     return response.json()
   }
 
-  async getFileDiff(repositoryId: string, commitHash: string, path: string): Promise<any> {
+  async getFileDiff(repositoryId: string, commitHash: string, path: string): Promise<FileDiff> {
     const response = await fetch(`${this.baseUrl}/repositories/${repositoryId}/commits/${commitHash}/diff/${encodeURIComponent(path)}`)
     if (!response.ok) throw new Error('Failed to fetch file diff')
     return response.json()
@@ -410,7 +581,7 @@ export class VersionControlService {
   }
 
   // Tags
-  async getTags(repositoryId: string): Promise<any[]> {
+  async getTags(repositoryId: string): Promise<Tag[]> {
     const response = await fetch(`${this.baseUrl}/repositories/${repositoryId}/tags`)
     if (!response.ok) throw new Error('Failed to fetch tags')
     return response.json()
@@ -421,7 +592,7 @@ export class VersionControlService {
     commit: string
     message?: string
     type?: 'lightweight' | 'annotated'
-  }): Promise<any> {
+  }): Promise<Tag> {
     const response = await fetch(`${this.baseUrl}/repositories/${repositoryId}/tags`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -439,13 +610,13 @@ export class VersionControlService {
   }
 
   // Collaborators and Permissions
-  async getCollaborators(repositoryId: string): Promise<any[]> {
+  async getCollaborators(repositoryId: string): Promise<Collaborator[]> {
     const response = await fetch(`${this.baseUrl}/repositories/${repositoryId}/collaborators`)
     if (!response.ok) throw new Error('Failed to fetch collaborators')
     return response.json()
   }
 
-  async addCollaborator(repositoryId: string, userId: string, role: string): Promise<any> {
+  async addCollaborator(repositoryId: string, userId: string, role: string): Promise<Collaborator> {
     const response = await fetch(`${this.baseUrl}/repositories/${repositoryId}/collaborators`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -455,7 +626,7 @@ export class VersionControlService {
     return response.json()
   }
 
-  async updateCollaborator(repositoryId: string, userId: string, role: string): Promise<any> {
+  async updateCollaborator(repositoryId: string, userId: string, role: string): Promise<Collaborator> {
     const response = await fetch(`${this.baseUrl}/repositories/${repositoryId}/collaborators/${userId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -508,7 +679,7 @@ export class VersionControlService {
     branch?: string
     path?: string
     extension?: string
-  }): Promise<any[]> {
+  }): Promise<FileSearchResult[]> {
     const params = new URLSearchParams()
     params.append('q', query)
     if (options) {
@@ -543,7 +714,7 @@ export class VersionControlService {
     return response.json()
   }
 
-  async getRepositoryAnalytics(repositoryId: string, dateRange?: { start: Date; end: Date }): Promise<any> {
+  async getRepositoryAnalytics(repositoryId: string, dateRange?: { start: Date; end: Date }): Promise<RepositoryAnalytics> {
     const params = new URLSearchParams()
     if (dateRange) {
       params.append('since', dateRange.start.toISOString())
@@ -560,7 +731,7 @@ export class VersionControlService {
     includeHistory?: boolean
     compression?: boolean
     encryption?: boolean
-  }): Promise<any> {
+  }): Promise<BackupInfo> {
     const response = await fetch(`${this.baseUrl}/repositories/${repositoryId}/backup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -570,7 +741,7 @@ export class VersionControlService {
     return response.json()
   }
 
-  async getBackups(repositoryId: string): Promise<any[]> {
+  async getBackups(repositoryId: string): Promise<BackupInfo[]> {
     const response = await fetch(`${this.baseUrl}/repositories/${repositoryId}/backups`)
     if (!response.ok) throw new Error('Failed to fetch backups')
     return response.json()
@@ -579,7 +750,7 @@ export class VersionControlService {
   async restoreFromBackup(repositoryId: string, backupId: string, options?: {
     targetBranch?: string
     preserveHistory?: boolean
-  }): Promise<any> {
+  }): Promise<RestoreResult> {
     const response = await fetch(`${this.baseUrl}/repositories/${repositoryId}/restore/${backupId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -590,7 +761,7 @@ export class VersionControlService {
   }
 
   // Webhooks and Events
-  async getWebhooks(repositoryId: string): Promise<any[]> {
+  async getWebhooks(repositoryId: string): Promise<Webhook[]> {
     const response = await fetch(`${this.baseUrl}/repositories/${repositoryId}/webhooks`)
     if (!response.ok) throw new Error('Failed to fetch webhooks')
     return response.json()
@@ -601,7 +772,7 @@ export class VersionControlService {
     events: string[]
     secret?: string
     active?: boolean
-  }): Promise<any> {
+  }): Promise<Webhook> {
     const response = await fetch(`${this.baseUrl}/repositories/${repositoryId}/webhooks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -10,84 +10,39 @@ import {
   Settings,
   Play,
   Pause,
-  Square,
-  RotateCcw,
-  Users,
   Clock,
   CheckCircle,
-  AlertTriangle,
-  XCircle,
-  Zap,
-  GitBranch,
   Activity,
-  BarChart3,
-  Calendar,
-  Target,
-  Workflow,
-  Bot,
   TrendingUp,
-  AlertCircle,
-  ChevronRight,
-  ChevronDown,
   Plus,
   Edit3,
   Copy,
-  Trash2,
   Eye,
-  Filter,
   Search,
-  Download,
-  Upload,
   RefreshCw,
-  Bell,
-  MessageSquare,
-  FileText,
-  User,
-  Timer,
   Gauge,
-  PieChart,
-  LineChart,
-  ArrowRight,
-  ArrowDown,
-  CheckSquare,
-  Square as SquareIcon,
-  Minus,
-  ExternalLink,
-  Link,
-  Bookmark,
-  Star,
-  Flag,
   Lightbulb,
   Cpu,
-  Database,
-  Network,
   Shield,
-  Lock,
-  Unlock
-} from 'lucide-react'
+  Workflow
+} from '@/lib/icons'
 import { User as UserType } from '../../lib/auth'
 import { 
   WorkflowTemplate, 
   WorkflowInstance, 
-  WorkflowTaskInstance, 
   WorkflowAnalytics,
-  AutomationRule,
-  WorkflowMetrics 
+  AutomationRule
 } from '../../types/workflow'
 
 interface WorkflowAutomationHubProps {
   user: UserType
-  onWorkflowCreate?: (workflow: WorkflowTemplate) => void
   onWorkflowStart?: (templateId: string) => void
-  onTaskAssign?: (taskId: string, userId: string) => void
   className?: string
 }
 
 export function WorkflowAutomationHub({ 
   user, 
-  onWorkflowCreate,
   onWorkflowStart,
-  onTaskAssign,
   className = "" 
 }: WorkflowAutomationHubProps) {
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([])
@@ -96,7 +51,7 @@ export function WorkflowAutomationHub({
   const [analytics, setAnalytics] = useState<WorkflowAnalytics | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [currentView, setCurrentView] = useState<'dashboard' | 'templates' | 'instances' | 'automation' | 'analytics'>('dashboard')
-  const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null)
+  // const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [autoRefresh, setAutoRefresh] = useState(true)
@@ -367,7 +322,7 @@ export function WorkflowAutomationHub({
         </div>
       </div>
 
-      <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as any)} className="space-y-6">
+      <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as 'dashboard' | 'templates' | 'instances' | 'automation' | 'analytics')} className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>

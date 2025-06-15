@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Express } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { enhancedFirecrawlService } from '../services/enhancedFirecrawlService';
 import { grantIntegrationService } from '../services/grantIntegrationService';

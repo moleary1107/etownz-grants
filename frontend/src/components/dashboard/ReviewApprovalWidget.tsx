@@ -46,11 +46,11 @@ export default function ReviewApprovalWidget() {
         const data = result.data;
         
         // Extract and calculate summary metrics
-        const urgentCount = data.pendingApprovals?.filter((approval: any) => 
+        const urgentCount = data.pendingApprovals?.filter((approval: { priority: string }) => 
           approval.priority === 'urgent'
         ).length || 0;
         
-        const todayCompletedCount = data.recentRequests?.filter((request: any) => {
+        const todayCompletedCount = data.recentRequests?.filter((request: { completedAt?: string }) => {
           if (!request.completedAt) return false;
           const completedDate = new Date(request.completedAt);
           const today = new Date();

@@ -16,7 +16,8 @@
     "test": "npm test --workspaces",
     "lint": "npm run lint --workspaces",
     "clean": "docker-compose down && docker system prune -f",
-    "docs": "cd docs && npm run build"
+    "docs": "cd docs && npm run build",
+    "prepare": "husky"
   },
   "repository": {
     "type": "git",
@@ -34,10 +35,20 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "eslint": "^8.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.2",
     "prettier": "^3.0.0",
     "typescript": "^5.0.0"
   },
   "dependencies": {
     "@pinecone-database/pinecone": "^6.1.0"
+  },
+  "lint-staged": {
+    "frontend/**/*.{ts,tsx}": [
+      "cd frontend && npm run lint -- --fix"
+    ],
+    "backend/**/*.{ts,js}": [
+      "cd backend && npm run lint -- --fix"
+    ]
   }
 }

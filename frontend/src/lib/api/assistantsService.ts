@@ -14,7 +14,7 @@ export interface AssistantThread {
   id: string;
   assistantId: string;
   grantApplicationId?: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   createdAt: Date;
 }
 
@@ -26,7 +26,7 @@ export interface GenerateContentRequest {
   requirements?: string[];
   wordLimit?: number;
   previousSections?: Record<string, string>;
-  organizationProfile?: any;
+  organizationProfile?: Record<string, unknown>;
 }
 
 export interface GeneratedContent {
@@ -44,8 +44,8 @@ export interface GeneratedContent {
 
 export interface ComplianceCheckRequest {
   threadId: string;
-  applicationData: any;
-  grantScheme: any;
+  applicationData: Record<string, unknown>;
+  grantScheme: Record<string, unknown>;
 }
 
 export interface ComplianceCheckResult {
@@ -63,14 +63,14 @@ export interface ComplianceCheckResult {
 
 export interface BudgetOptimizationRequest {
   threadId: string;
-  budgetData: any;
-  projectScope: any;
-  fundingRules: any;
+  budgetData: Record<string, unknown>;
+  projectScope: Record<string, unknown>;
+  fundingRules: Record<string, unknown>;
 }
 
 export interface BudgetOptimizationResult {
   success: boolean;
-  optimizedBudget: any;
+  optimizedBudget: Record<string, unknown>;
   savings: number;
   recommendations: string[];
   warnings: string[];
@@ -120,7 +120,7 @@ export class AssistantsService {
   async createThread(
     assistantKey: string,
     grantApplicationId?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<{ threadId: string; assistantKey: string; createdAt: Date }> {
     const response = await fetch(`${this.baseUrl}/assistants/${assistantKey}/threads`, {
       method: 'POST',
@@ -300,7 +300,7 @@ export class AssistantsService {
   /**
    * Get analytics
    */
-  async getAnalytics(startDate?: Date, endDate?: Date, assistantKey?: string): Promise<any> {
+  async getAnalytics(startDate?: Date, endDate?: Date, assistantKey?: string): Promise<Record<string, unknown>> {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate.toISOString());
     if (endDate) params.append('endDate', endDate.toISOString());

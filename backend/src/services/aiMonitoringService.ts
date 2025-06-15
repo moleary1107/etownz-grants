@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { logger } from './logger';
 import { DatabaseService } from './database';
 import AICostManagementService from './aiCostManagementService';

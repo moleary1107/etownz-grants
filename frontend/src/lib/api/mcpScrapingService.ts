@@ -10,7 +10,18 @@ export interface MCPFetchResult {
   url: string;
   content: string;
   markdown?: string;
-  structuredData?: any;
+  structuredData?: {
+    grantName?: string
+    program?: string
+    fundingAmount?: string | number
+    amount?: string | number
+    deadline?: string
+    applicationDeadline?: string
+    eligibility?: string | string[]
+    eligibilityCriteria?: string | string[]
+    confidence?: number
+    [key: string]: unknown
+  };
   metadata: {
     title?: string;
     description?: string;
@@ -38,7 +49,14 @@ export interface BatchScrapingConfig {
 
 export interface BatchScrapingResult {
   results: MCPFetchResult[];
-  progressUpdates: any[];
+  progressUpdates: Array<{
+    timestamp: string
+    status: string
+    message: string
+    progress: number
+    url?: string
+    error?: string
+  }>;
   summary: {
     totalUrls: number;
     successfulScrapes: number;
@@ -95,7 +113,17 @@ class MCPScrapingService {
       totalSources: number;
       successfulScans: number;
       newOpportunities: number;
-      opportunities: any[];
+      opportunities: Array<{
+        id: string
+        title: string
+        source: string
+        url: string
+        deadline?: string
+        amount?: string | number
+        category?: string
+        extractedAt: string
+        confidence: number
+      }>;
     };
     recommendations: string;
   }> {
@@ -147,7 +175,17 @@ class MCPScrapingService {
    */
   async monitorNewOpportunities(categories: string[] = []): Promise<{
     hasNewOpportunities: boolean;
-    opportunities: any[];
+    opportunities: Array<{
+      id: string
+      title: string
+      source: string
+      url: string
+      deadline?: string
+      amount?: string | number
+      category?: string
+      extractedAt: string
+      confidence: number
+    }>;
     lastChecked: string;
   }> {
     const scanResult = await this.quickScan(categories, true);
@@ -163,8 +201,26 @@ class MCPScrapingService {
    * Get enhanced grant data with AI extraction
    */
   async getEnhancedGrantData(urls: string[]): Promise<{
-    grants: any[];
-    extractedData: any[];
+    grants: Array<{
+      id: string
+      source: string
+      title: string
+      funding?: string | number
+      deadline?: string
+      eligibility?: string | string[]
+      extractedAt: string
+      confidence: number
+    }>;
+    extractedData: Array<{
+    grantName?: string
+    program?: string
+    fundingAmount?: string | number
+    deadline?: string
+    eligibility?: string | string[]
+    source?: string
+    confidence?: number
+    [key: string]: unknown
+  }>;
     confidence: number;
   }> {
     const results = await this.batchScrapeGrants({
@@ -187,7 +243,7 @@ class MCPScrapingService {
 
     const extractedData = results.results
       .filter(r => r.structuredData)
-      .map(r => r.structuredData);
+      .map(r => r.structuredData!);
 
     const grants = extractedData.map((data, index) => ({
       id: `extracted_${index}`,

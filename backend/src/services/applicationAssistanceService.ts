@@ -991,7 +991,7 @@ export class ApplicationAssistanceService {
 
   private validateField(value: any, rule: ValidationRule): ValidationResult {
     switch (rule.rule_type) {
-      case 'min_length':
+      case 'min_length': {
         const minLength = rule.parameters.min_length || 0
         const isValid = value && value.toString().length >= minLength
         return {
@@ -1001,8 +1001,9 @@ export class ApplicationAssistanceService {
           message: isValid ? 'Minimum length met' : rule.error_message,
           auto_fix_available: false
         }
+      }
       
-      case 'max_length':
+      case 'max_length': {
         const maxLength = rule.parameters.max_length || Infinity
         const isValidMax = !value || value.toString().length <= maxLength
         return {
@@ -1012,6 +1013,7 @@ export class ApplicationAssistanceService {
           message: isValidMax ? 'Maximum length respected' : rule.error_message,
           auto_fix_available: true
         }
+      }
 
       default:
         return {

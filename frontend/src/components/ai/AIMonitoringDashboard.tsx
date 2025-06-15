@@ -14,36 +14,22 @@ import {
   CheckCircle,
   Clock,
   DollarSign,
-  TrendingUp,
   TrendingDown,
   Server,
-  Zap,
-  Eye,
   Download,
   RefreshCw,
-  Settings,
-  Bell,
   XCircle,
-  BarChart3,
-  PieChart,
-  LineChart,
   AlertCircle,
   Loader2,
   Play,
   Pause,
   Target,
-  Cpu,
-  Database,
-  Network,
   Users
 } from 'lucide-react';
 import type { 
   PerformanceDashboard, 
   AIAlert, 
-  CostAnalytics,
-  ProviderStatus,
-  ServiceMetrics,
-  ModelUsage
+  CostAnalytics
 } from '@/lib/api/aiMonitoringService';
 
 interface AIMonitoringDashboardProps {
@@ -74,7 +60,7 @@ export const AIMonitoringDashboard: React.FC<AIMonitoringDashboardProps> = ({
   // Initialize dashboard
   useEffect(() => {
     loadDashboardData();
-  }, [timeRange]);
+  }, [timeRange, loadDashboardData]);
   
   // Handle live mode toggle
   useEffect(() => {
@@ -85,7 +71,7 @@ export const AIMonitoringDashboard: React.FC<AIMonitoringDashboardProps> = ({
     }
     
     return () => stopLiveUpdates();
-  }, [isLiveMode]);
+  }, [isLiveMode, startLiveUpdates, stopLiveUpdates]);
   
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
@@ -123,8 +109,8 @@ export const AIMonitoringDashboard: React.FC<AIMonitoringDashboardProps> = ({
           [metric.metricName]: metric.value
         }));
       },
-      (error) => {
-        console.error('Live metrics error:', error);
+      () => {
+        console.error('Live metrics error');
         toast({
           title: 'Live updates failed',
           description: 'Connection to real-time metrics lost',
@@ -166,7 +152,7 @@ export const AIMonitoringDashboard: React.FC<AIMonitoringDashboardProps> = ({
       a.download = `ai-metrics-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (error) {
+    } catch {
       toast({
         title: 'Export failed',
         description: 'Unable to export metrics data',
@@ -175,14 +161,14 @@ export const AIMonitoringDashboard: React.FC<AIMonitoringDashboardProps> = ({
     }
   }, [toast]);
   
-  const getStatusColor = (status: string): string => {
-    switch (status) {
-      case 'healthy': return 'text-green-600';
-      case 'degraded': return 'text-yellow-600';
-      case 'down': return 'text-red-600';
-      default: return 'text-gray-600';
-    }
-  };
+  // const getStatusColor = (status: string): string => {
+  //   switch (status) {
+  //     case 'healthy': return 'text-green-600';
+  //     case 'degraded': return 'text-yellow-600';
+  //     case 'down': return 'text-red-600';
+  //     default: return 'text-gray-600';
+  //   }
+  // };
   
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -239,7 +225,7 @@ export const AIMonitoringDashboard: React.FC<AIMonitoringDashboardProps> = ({
           <div className="flex items-center gap-2">
             <select
               value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value as any)}
+              onChange={(e) => setTimeRange(e.target.value as '1h' | '24h' | '7d' | '30d')}
               className="px-3 py-1 border border-gray-300 rounded-md text-sm"
             >
               <option value="1h">Last Hour</option>

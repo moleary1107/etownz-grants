@@ -5,18 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Button } from "../ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
 import { Progress } from "../ui/progress"
-import { Badge } from "../ui/badge"
 import { 
   BarChart3, 
   TrendingUp, 
   TrendingDown, 
-  Users, 
   FileText, 
-  Clock, 
   DollarSign, 
-  Calendar, 
   Target, 
-  Zap,
   Filter,
   Download,
   RefreshCw,
@@ -290,7 +285,7 @@ export function AnalyticsDashboard({
     }
   }
 
-  const renderMetricCard = (title: string, icon: any, metric: MetricData, format?: string) => {
+  const renderMetricCard = (title: string, icon: React.ComponentType<React.SVGProps<SVGSVGElement>>, metric: MetricData, format?: string) => {
     const IconComponent = icon
     const isPositive = metric.trend === 'up'
     const progressValue = metric.target ? (metric.current / metric.target) * 100 : 0
@@ -328,12 +323,12 @@ export function AnalyticsDashboard({
     )
   }
 
-  const renderSimpleChart = (data: ChartDataPoint[], type: 'bar' | 'line' = 'bar') => {
+  const renderSimpleChart = (data: ChartDataPoint[]) => {
     const maxValue = Math.max(...data.map(d => d.value))
     
     return (
       <div className="space-y-3">
-        {data.map((point, index) => (
+        {data.map((point) => (
           <div key={point.label} className="flex items-center space-x-3">
             <div className="w-24 text-sm text-gray-600 font-medium">
               {point.label}

@@ -37,14 +37,31 @@ export interface ScrapedPage {
   created_at: string
 }
 
+export interface ExtractedGrant {
+  title: string
+  description: string
+  funding_amount?: number
+  deadline?: string
+  eligibility?: string[]
+  application_url?: string
+}
+
+export interface ExtractedContact {
+  name: string
+  email?: string
+  phone?: string
+  role?: string
+  organization?: string
+}
+
 export interface ScrapedDocument {
   id: string
   url: string
   title: string
   file_type: 'pdf' | 'docx' | 'doc' | 'txt'
   extracted_data: {
-    grants?: any[]
-    contacts?: any[]
+    grants?: ExtractedGrant[]
+    contacts?: ExtractedContact[]
   }
   confidence_score: number
   created_at: string

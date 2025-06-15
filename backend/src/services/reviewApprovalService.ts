@@ -283,8 +283,8 @@ export class ReviewApprovalService {
     offset?: number;
   } = {}): Promise<{ requests: ReviewRequest[]; total: number }> {
     try {
-      let whereConditions: string[] = [];
-      let values: any[] = [];
+      const whereConditions: string[] = [];
+      const values: any[] = [];
       let paramCount = 0;
 
       if (filters.organizationId) {

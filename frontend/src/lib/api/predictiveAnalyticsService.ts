@@ -123,7 +123,12 @@ export interface PredictiveInsights {
     type: 'success_trend' | 'market_opportunity' | 'competitive_advantage' | 'timing_alert'
     title: string
     description: string
-    data_points: any[]
+    data_points: Array<{
+      date: string
+      value: number
+      category?: string
+      metadata?: Record<string, unknown>
+    }>
     actionable_recommendations: string[]
     priority_score: number // 1-10
     expires_at?: Date
@@ -140,7 +145,15 @@ export interface PredictiveInsights {
 export interface PredictionRequest {
   grant_id: string
   organization_id: string
-  application_data?: any
+  application_data?: {
+    budget?: number
+    timeline?: string
+    team_size?: number
+    previous_grants?: number
+    sector?: string
+    location?: string
+    [key: string]: unknown
+  }
 }
 
 export interface BudgetOptimizationRequest {
@@ -283,7 +296,15 @@ class PredictiveAnalyticsService {
     return {
       ...data,
       generated_at: new Date(data.generated_at),
-      insights: data.insights.map((insight: any) => ({
+      insights: data.insights.map((insight: {
+        type: string
+        title: string
+        description: string
+        data_points: unknown[]
+        actionable_recommendations: string[]
+        priority_score: number
+        expires_at?: string
+      }) => ({
         ...insight,
         expires_at: insight.expires_at ? new Date(insight.expires_at) : undefined
       }))
@@ -314,7 +335,23 @@ class PredictiveAnalyticsService {
 
     const data = await response.json()
     
-    return data.predictions.map((prediction: any) => ({
+    return data.predictions.map((prediction: {
+      grant_id: string
+      organization_id: string
+      success_probability: number
+      confidence_score: number
+      predicted_factors: Record<string, number>
+      recommendations: unknown[]
+      historical_comparison: Record<string, unknown>
+      competitive_analysis: Record<string, unknown>
+      optimal_timing: {
+        recommended_submission_window: {
+          start_date: string
+          end_date: string
+        }
+      }
+      created_at: string
+    }) => ({
       ...prediction,
       created_at: new Date(prediction.created_at),
       optimal_timing: {
@@ -404,7 +441,23 @@ class PredictiveAnalyticsService {
     
     return {
       ...data,
-      predictions: data.predictions.map((prediction: any) => ({
+      predictions: data.predictions.map((prediction: {
+        grant_id: string
+        organization_id: string
+        success_probability: number
+        confidence_score: number
+        predicted_factors: Record<string, number>
+        recommendations: unknown[]
+        historical_comparison: Record<string, unknown>
+        competitive_analysis: Record<string, unknown>
+        optimal_timing: {
+          recommended_submission_window: {
+            start_date: string
+            end_date: string
+          }
+        }
+        created_at: string
+      }) => ({
         ...prediction,
         created_at: new Date(prediction.created_at),
         optimal_timing: {

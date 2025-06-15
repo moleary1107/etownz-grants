@@ -3,6 +3,8 @@
  * Frontend utility for interacting with AI-powered backend APIs
  */
 
+import type { Grant } from './grantsService'
+
 export interface OrganizationProfile {
   id: string
   name: string
@@ -15,7 +17,7 @@ export interface OrganizationProfile {
 }
 
 export interface GrantMatchResult {
-  grant: any
+  grant: Grant
   matchScore: number
   analysisResult: {
     overallCompatibility: number
@@ -30,12 +32,40 @@ export interface GrantMatchResult {
   recommendations: string[]
 }
 
+export interface GrantFilters {
+  categories?: string[]
+  funderType?: string[]
+  amountRange?: { min?: number; max?: number }
+  location?: string[]
+  deadline?: { from?: Date; to?: Date }
+}
+
+export interface AIResponseMetadata {
+  processingTime?: number
+  model?: string
+  confidence?: number
+  version?: string
+  [key: string]: unknown
+}
+
+export interface GrantAnalysis {
+  compatibility: number
+  eligibilityStatus: 'ELIGIBLE' | 'PARTIALLY_ELIGIBLE' | 'NOT_ELIGIBLE' | 'UNCLEAR'
+  strengths: string[]
+  weaknesses: string[]
+  recommendations: string[]
+  requirements: string[]
+  competitiveness: 'HIGH' | 'MEDIUM' | 'LOW'
+  riskFactors: string[]
+  timeline: string
+}
+
 export interface SemanticSearchResult {
   id: string
   title: string
   content: string
   similarity: number
-  metadata: any
+  metadata: Record<string, unknown>
   reasoning?: string
 }
 
@@ -70,13 +100,13 @@ class AIService {
    */
   async matchGrants(
     organizationProfile: OrganizationProfile,
-    filters?: any,
+    filters?: GrantFilters,
     limit: number = 10
   ): Promise<{
     matches: GrantMatchResult[]
     processingTime: number
     aiModel: string
-    metadata: any
+    metadata: AIResponseMetadata
   }> {
     const response = await fetch(`${this.baseUrl}/ai/grants/match`, {
       method: 'POST',
@@ -108,14 +138,14 @@ class AIService {
   async semanticSearch(
     query: string,
     organizationId?: string,
-    filters?: any,
+    filters?: GrantFilters,
     limit: number = 10
   ): Promise<{
     results: SemanticSearchResult[]
     query: string
     processingTime: number
     totalResults: number
-    metadata: any
+    metadata: AIResponseMetadata
   }> {
     const response = await fetch(`${this.baseUrl}/ai/grants/search/semantic`, {
       method: 'POST',
@@ -151,9 +181,9 @@ class AIService {
   ): Promise<{
     grantId: string
     organizationId: string
-    analysis: any
+    analysis: GrantAnalysis
     processingTime: number
-    metadata: any
+    metadata: AIResponseMetadata
   }> {
     const response = await fetch(`${this.baseUrl}/ai/grants/${grantId}/analyze`, {
       method: 'POST',
@@ -226,9 +256,14 @@ class AIService {
    */
   async legacyAISearch(
     orgProfile: OrganizationProfile,
-    filters?: any,
+    filters?: GrantFilters,
     limit: number = 10
-  ): Promise<any> {
+  ): Promise<{
+    results: Grant[]
+    totalResults: number
+    processingTime: number
+    metadata: AIResponseMetadata
+  }> {
     const response = await fetch(`${this.baseUrl}/grants/search/ai`, {
       method: 'POST',
       headers: {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import AIEditorV2 from './AIEditorV2';
 import AutoGenerationPanel from './AutoGenerationPanel';
 import { Card } from '@/components/ui/card';
@@ -8,16 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  FileText, 
   Calendar, 
   DollarSign, 
-  Target, 
   Building, 
   User,
   Clock,
   CheckCircle,
-  AlertTriangle,
-  Info,
   ArrowLeft,
   Save,
   Send
@@ -125,11 +121,11 @@ export default function AIEditorAdmin({
     size: "Large (>1000 researchers)"
   });
 
-  const [content, setContent] = useState(initialContent);
+  const [, _setContent] = useState(initialContent);
   const [wordCount, setWordCount] = useState(0);
 
   const handleContentChange = (newContent: string) => {
-    setContent(newContent);
+    _setContent(newContent);
     const words = newContent.split(/\s+/).filter(word => word.length > 0);
     setWordCount(words.length);
   };
@@ -387,7 +383,7 @@ export default function AIEditorAdmin({
                   applicationId={applicationId}
                   onSectionGenerated={(sectionType, content) => {
                     // Update the editor content
-                    setContent(content);
+                    _setContent(content);
                     const words = content.split(/\s+/).filter(word => word.length > 0);
                     setWordCount(words.length);
                   }}

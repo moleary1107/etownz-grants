@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, 
   MessageSquare, 
@@ -14,9 +14,7 @@ import {
   Video,
   Phone,
   CheckCircle,
-  AlertCircle,
   Activity,
-  Hash,
   AtSign,
   Paperclip,
   MoreVertical,
@@ -234,7 +232,12 @@ export default function TeamCollaborationHub() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [cursors, setCursors] = useState<CursorPosition[]>([]);
   const [sections, setSections] = useState<Section[]>(mockSections);
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [tasks] = useState<Task[]>(mockTasks);
+  // Future functionality: task management
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const setTasks = (_tasks: Task[]) => {
+    // Task management functionality to be implemented
+  };
   const [comments, setComments] = useState<Comment[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [collaborationState, setCollaborationState] = useState<CollaborationState>({
@@ -243,6 +246,7 @@ export default function TeamCollaborationHub() {
     showActivity: true,
     showChat: false
   });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [newComment, setNewComment] = useState('');

@@ -7,6 +7,22 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 // Types for AI results and interactions
+export interface AIInteraction {
+  id: string
+  interactionType: string
+  promptText?: string
+  responseText?: string
+  modelUsed: string
+  confidenceScore?: number
+  processingTimeMs?: number
+  userRating?: number
+  userFeedback?: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  createdAt: string
+  updatedAt: string
+  metadata?: Record<string, unknown>
+}
+
 export interface AISearchResult {
   id: string
   query: string
@@ -20,6 +36,7 @@ export interface AISearchResult {
   }
   organizationProfile?: Record<string, unknown>
   filters?: Record<string, unknown>
+  interactionId?: string // Link to backend interaction
 }
 
 export interface GrantAnalysis {
@@ -79,6 +96,11 @@ interface AIStore {
   applications: Record<string, ApplicationData>
   currentApplication: ApplicationData | null
   
+  // AI interaction history (from backend)
+  interactionHistory: AIInteraction[]
+  isLoadingHistory: boolean
+  lastHistorySync: string | null
+  
   // AI preferences
   preferences: {
     defaultModel: string
@@ -86,6 +108,8 @@ interface AIStore {
     shareAcrossOrganization: boolean
     rateLimitRemaining: number
     rateLimitReset: string
+    syncWithBackend: boolean
+    historyRetentionDays: number
   }
   
   // Actions for search results
@@ -107,6 +131,16 @@ interface AIStore {
   // Actions for preferences
   updatePreferences: (preferences: Partial<AIStore['preferences']>) => void
   
+  // Actions for interaction history
+  setInteractionHistory: (interactions: AIInteraction[]) => void
+  addInteraction: (interaction: AIInteraction) => void
+  updateInteraction: (id: string, updates: Partial<AIInteraction>) => void
+  rateInteraction: (id: string, rating: number, feedback?: string) => Promise<void>
+  
+  // Sync actions
+  syncWithBackend: () => Promise<void>
+  setLoadingHistory: (loading: boolean) => void
+  
   // Persistence actions
   clearAllData: () => void
   exportData: () => string
@@ -122,12 +156,17 @@ export const useAIStore = create<AIStore>()(
       grantAnalyses: {},
       applications: {},
       currentApplication: null,
+      interactionHistory: [],
+      isLoadingHistory: false,
+      lastHistorySync: null,
       preferences: {
         defaultModel: 'gpt-4o-mini',
         autoSave: true,
         shareAcrossOrganization: false,
         rateLimitRemaining: 100,
-        rateLimitReset: new Date(Date.now() + 3600000).toISOString() // 1 hour from now
+        rateLimitReset: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
+        syncWithBackend: true,
+        historyRetentionDays: 7
       },
       
       // Search result actions
@@ -218,13 +257,82 @@ export const useAIStore = create<AIStore>()(
         preferences: { ...state.preferences, ...preferences }
       })),
       
+      // Interaction history actions
+      setInteractionHistory: (interactions) => set({
+        interactionHistory: interactions,
+        lastHistorySync: new Date().toISOString()
+      }),
+      
+      addInteraction: (interaction) => set((state) => ({
+        interactionHistory: [interaction, ...state.interactionHistory]
+      })),
+      
+      updateInteraction: (id, updates) => set((state) => ({
+        interactionHistory: state.interactionHistory.map(interaction =>
+          interaction.id === id ? { ...interaction, ...updates } : interaction
+        )
+      })),
+      
+      rateInteraction: async (id, rating, feedback) => {
+        const state = get()
+        const interaction = state.interactionHistory.find(i => i.id === id)
+        
+        if (!interaction) return
+        
+        try {
+          const response = await fetch(`/api/ai/interactions/${id}/rating`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({ rating, feedback })
+          })
+          
+          if (response.ok) {
+            state.updateInteraction(id, { userRating: rating, userFeedback: feedback })
+          }
+        } catch (error) {
+          console.error('Failed to submit rating:', error)
+        }
+      },
+      
+      // Sync actions
+      syncWithBackend: async () => {
+        const state = get()
+        if (!state.preferences.syncWithBackend) return
+        
+        set({ isLoadingHistory: true })
+        
+        try {
+          const response = await fetch(`/api/ai/history?days=${state.preferences.historyRetentionDays}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            state.setInteractionHistory(data.interactions || [])
+          }
+        } catch (error) {
+          console.error('Failed to sync with backend:', error)
+        } finally {
+          set({ isLoadingHistory: false })
+        }
+      },
+      
+      setLoadingHistory: (loading) => set({ isLoadingHistory: loading }),
+      
       // Persistence actions
       clearAllData: () => set({
         searchHistory: [],
         currentSearch: null,
         grantAnalyses: {},
         applications: {},
-        currentApplication: null
+        currentApplication: null,
+        interactionHistory: [],
+        lastHistorySync: null
       }),
       
       exportData: () => {
@@ -255,6 +363,8 @@ export const useAIStore = create<AIStore>()(
         searchHistory: state.searchHistory,
         grantAnalyses: state.grantAnalyses,
         applications: state.applications,
+        interactionHistory: state.interactionHistory,
+        lastHistorySync: state.lastHistorySync,
         preferences: state.preferences
       })
     }
@@ -317,5 +427,59 @@ export const useAIPreferences = () => {
   return {
     preferences,
     updatePreferences
+  }
+}
+
+export const useAIHistory = () => {
+  const interactionHistory = useAIStore((state) => state.interactionHistory)
+  const isLoadingHistory = useAIStore((state) => state.isLoadingHistory)
+  const lastHistorySync = useAIStore((state) => state.lastHistorySync)
+  const setInteractionHistory = useAIStore((state) => state.setInteractionHistory)
+  const addInteraction = useAIStore((state) => state.addInteraction)
+  const updateInteraction = useAIStore((state) => state.updateInteraction)
+  const rateInteraction = useAIStore((state) => state.rateInteraction)
+  const syncWithBackend = useAIStore((state) => state.syncWithBackend)
+  const setLoadingHistory = useAIStore((state) => state.setLoadingHistory)
+  
+  return {
+    interactionHistory,
+    isLoadingHistory,
+    lastHistorySync,
+    setInteractionHistory,
+    addInteraction,
+    updateInteraction,
+    rateInteraction,
+    syncWithBackend,
+    setLoadingHistory
+  }
+}
+
+// Utility hook to automatically sync with backend on mount
+export const useAISync = () => {
+  const syncWithBackend = useAIStore((state) => state.syncWithBackend)
+  const preferences = useAIStore((state) => state.preferences)
+  const lastHistorySync = useAIStore((state) => state.lastHistorySync)
+  
+  const shouldSync = () => {
+    if (!preferences.syncWithBackend) return false
+    if (!lastHistorySync) return true
+    
+    const lastSync = new Date(lastHistorySync)
+    const now = new Date()
+    const hoursSinceSync = (now.getTime() - lastSync.getTime()) / (1000 * 60 * 60)
+    
+    return hoursSinceSync >= 1 // Sync every hour
+  }
+  
+  const autoSync = () => {
+    if (shouldSync()) {
+      syncWithBackend()
+    }
+  }
+  
+  return {
+    syncWithBackend,
+    autoSync,
+    shouldSync: shouldSync()
   }
 }

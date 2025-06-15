@@ -235,7 +235,9 @@ router.post('/upload', authenticateToken, upload.single('file'), asyncHandler(as
     // Clean up uploaded file on error
     try {
       await fs.unlink(req.file.path);
-    } catch {}
+    } catch {
+      // Ignore cleanup errors
+    }
     throw error;
   }
 }));

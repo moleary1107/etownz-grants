@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card"
+import { Card, CardContent } from "../../../components/ui/card"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Badge } from "../../../components/ui/badge"
@@ -12,19 +12,15 @@ import {
   Users, 
   UserPlus, 
   Search,
-  Filter,
-  MoreVertical,
   Edit,
   Trash2,
   Mail,
-  Shield,
   CheckCircle,
   XCircle,
   Clock,
   Eye,
   UserCheck,
   AlertCircle,
-  Settings,
   Download
 } from "lucide-react"
 import { User, UserRole, hasPermission, getRoleDisplayName } from "../../../lib/auth"
@@ -456,7 +452,7 @@ export default function UsersPage() {
                 </div>
                 <select
                   value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value as any)}
+                  onChange={(e) => setRoleFilter(e.target.value)}
                   className="flex h-10 w-48 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="all">All Roles</option>
@@ -466,7 +462,7 @@ export default function UsersPage() {
                 </select>
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  onChange={(e) => setStatusFilter(e.target.value)}
                   className="flex h-10 w-48 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="all">All Status</option>
@@ -651,7 +647,7 @@ export default function UsersPage() {
                     <Mail className="h-12 w-12 mx-auto text-gray-400 mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No invitations sent</h3>
                     <p className="text-gray-600 mb-4">
-                      You haven't sent any invitations yet
+                      You haven&apos;t sent any invitations yet
                     </p>
                     <Button onClick={() => setShowInviteModal(true)}>
                       <UserPlus className="w-4 h-4 mr-2" />

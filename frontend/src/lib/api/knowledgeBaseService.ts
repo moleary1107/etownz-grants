@@ -55,7 +55,7 @@ export interface DocumentUploadRequest {
   category: string;
   tags: string[];
   source: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class KnowledgeBaseService {

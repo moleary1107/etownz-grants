@@ -104,7 +104,7 @@ export const useDashboardAnalytics = () => {
     // In a real app, this would send to analytics service
   }
 
-  const trackDashboardCustomization = (action: string, data?: any) => {
+  const trackDashboardCustomization = (action: string, data?: unknown) => {
     // Track customization events
     console.log(`Dashboard customization: ${action}`, data)
   }

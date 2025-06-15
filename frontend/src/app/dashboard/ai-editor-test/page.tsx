@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import AIEditor from '@/components/ai/AIEditor';
 import { User as AuthUser, UserRole } from '@/lib/auth';

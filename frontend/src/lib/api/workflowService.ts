@@ -100,7 +100,7 @@ export class WorkflowService {
     assignedTeam?: string[]
     priority?: 'low' | 'medium' | 'high' | 'urgent'
     dueDate?: Date
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   }): Promise<WorkflowInstance> {
     const response = await fetch(`${this.baseUrl}/instances`, {
       method: 'POST',
@@ -295,9 +295,9 @@ export class WorkflowService {
     return response.json()
   }
 
-  async testAutomationRule(id: string, testData?: any): Promise<{
+  async testAutomationRule(id: string, testData?: Record<string, unknown>): Promise<{
     success: boolean
-    result: any
+    result: Record<string, unknown>
     errors?: string[]
   }> {
     const response = await fetch(`${this.baseUrl}/automation/rules/${id}/test`, {
@@ -315,7 +315,15 @@ export class WorkflowService {
     status?: 'success' | 'failed' | 'partial'
     dateRange?: { start: Date; end: Date }
     limit?: number
-  }): Promise<any[]> {
+  }): Promise<Array<{
+    id: string
+    ruleId: string
+    instanceId: string
+    status: 'success' | 'failed' | 'partial'
+    executedAt: string
+    result?: Record<string, unknown>
+    error?: string
+  }>> {
     const params = new URLSearchParams()
     if (filters) {
       if (filters.ruleId) params.append('ruleId', filters.ruleId)
@@ -354,7 +362,20 @@ export class WorkflowService {
     return response.json()
   }
 
-  async getProductivityReport(userId?: string, dateRange?: { start: Date; end: Date }): Promise<any> {
+  async getProductivityReport(userId?: string, dateRange?: { start: Date; end: Date }): Promise<{
+    userId?: string
+    period: { start: string; end: string }
+    tasksCompleted: number
+    hoursLogged: number
+    averageCompletionTime: number
+    productivityScore: number
+    trends: {
+      tasksPerDay: number[]
+      hoursPerDay: number[]
+      completionRates: number[]
+    }
+    topCategories: Array<{ category: string; count: number; hours: number }>
+  }> {
     const params = new URLSearchParams()
     if (userId) params.append('userId', userId)
     if (dateRange) {
@@ -367,7 +388,22 @@ export class WorkflowService {
     return response.json()
   }
 
-  async getBottleneckAnalysis(templateId?: string): Promise<any> {
+  async getBottleneckAnalysis(templateId?: string): Promise<{
+    templateId?: string
+    bottlenecks: Array<{
+      taskName: string
+      averageTime: number
+      frequency: number
+      impact: 'high' | 'medium' | 'low'
+      suggestions: string[]
+    }>
+    workflow: {
+      totalSteps: number
+      averageCompletionTime: number
+      efficiency: number
+    }
+    recommendations: string[]
+  }> {
     const params = new URLSearchParams()
     if (templateId) params.append('templateId', templateId)
 
@@ -376,7 +412,25 @@ export class WorkflowService {
     return response.json()
   }
 
-  async getCapacityReport(department?: string): Promise<any> {
+  async getCapacityReport(department?: string): Promise<{
+    department?: string
+    currentCapacity: {
+      totalTeamMembers: number
+      activeWorkflows: number
+      utilizationRate: number
+    }
+    workload: Array<{
+      userId: string
+      userName: string
+      activeTasks: number
+      completionRate: number
+      availability: number
+    }>
+    projections: {
+      nextWeek: { expectedWorkload: number; capacity: number }
+      nextMonth: { expectedWorkload: number; capacity: number }
+    }
+  }> {
     const params = new URLSearchParams()
     if (department) params.append('department', department)
 
@@ -385,7 +439,14 @@ export class WorkflowService {
     return response.json()
   }
 
-  async exportWorkflowData(format: 'csv' | 'excel' | 'pdf', filters?: any): Promise<Blob> {
+  async exportWorkflowData(format: 'csv' | 'excel' | 'pdf', filters?: {
+    templateIds?: string[]
+    dateRange?: { start: Date; end: Date }
+    status?: string[]
+    assignedTo?: string
+    includeMetrics?: boolean
+    includeComments?: boolean
+  }): Promise<Blob> {
     const response = await fetch(`${this.baseUrl}/export/${format}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -400,7 +461,15 @@ export class WorkflowService {
     type?: string[]
     read?: boolean
     limit?: number
-  }): Promise<any[]> {
+  }): Promise<Array<{
+    id: string
+    type: 'task_assigned' | 'deadline_approaching' | 'status_change' | 'comment_added' | 'workflow_completed'
+    title: string
+    message: string
+    read: boolean
+    createdAt: string
+    metadata?: Record<string, unknown>
+  }>> {
     const params = new URLSearchParams()
     if (filters) {
       if (filters.type) params.append('type', filters.type.join(','))
@@ -441,7 +510,12 @@ export class WorkflowService {
     instanceId: string
     taskId: string
     assignTo: string
-  }>): Promise<{ success: number; failed: number; errors: any[] }> {
+  }>): Promise<{ success: number; failed: number; errors: Array<{
+    taskId: string
+    instanceId: string
+    error: string
+    code?: string
+  }> }> {
     const response = await fetch(`${this.baseUrl}/tasks/bulk-assign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -456,7 +530,12 @@ export class WorkflowService {
     taskId: string
     status: string
     comment?: string
-  }>): Promise<{ success: number; failed: number; errors: any[] }> {
+  }>): Promise<{ success: number; failed: number; errors: Array<{
+    taskId: string
+    instanceId: string
+    error: string
+    code?: string
+  }> }> {
     const response = await fetch(`${this.baseUrl}/tasks/bulk-status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -467,7 +546,18 @@ export class WorkflowService {
   }
 
   // Integration Endpoints
-  async syncWithExternalSystem(system: string, config: any): Promise<any> {
+  async syncWithExternalSystem(system: string, config: {
+    apiKey?: string
+    endpoint?: string
+    mappings?: Record<string, string>
+    syncDirection?: 'import' | 'export' | 'bidirectional'
+    options?: Record<string, unknown>
+  }): Promise<{
+    success: boolean
+    syncedItems: number
+    errors: string[]
+    lastSyncAt: string
+  }> {
     const response = await fetch(`${this.baseUrl}/integrations/${system}/sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -477,13 +567,40 @@ export class WorkflowService {
     return response.json()
   }
 
-  async getIntegrationStatus(system: string): Promise<any> {
+  async getIntegrationStatus(system: string): Promise<{
+    system: string
+    connected: boolean
+    lastSync?: string
+    status: 'active' | 'error' | 'disconnected'
+    configuration: {
+      endpoint?: string
+      version?: string
+      capabilities: string[]
+    }
+    metrics: {
+      totalSyncs: number
+      successRate: number
+      lastError?: string
+    }
+  }> {
     const response = await fetch(`${this.baseUrl}/integrations/${system}/status`)
     if (!response.ok) throw new Error(`Failed to get ${system} integration status`)
     return response.json()
   }
 
-  async configureIntegration(system: string, config: any): Promise<any> {
+  async configureIntegration(system: string, config: {
+    apiKey?: string
+    endpoint?: string
+    settings?: Record<string, unknown>
+    enabledFeatures?: string[]
+    webhookUrl?: string
+  }): Promise<{
+    success: boolean
+    system: string
+    configuration: Record<string, unknown>
+    testConnection: boolean
+    message: string
+  }> {
     const response = await fetch(`${this.baseUrl}/integrations/${system}/configure`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

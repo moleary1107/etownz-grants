@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Sidebar } from "../../components/layout/Sidebar"
 import { DashboardGrid, generateDefaultWidgets } from "../../components/dashboard/DashboardGrid"
@@ -17,14 +17,8 @@ import {
   FileText, 
   Clock, 
   Users,
-  AlertCircle,
   CheckCircle,
-  ArrowRight,
-  Calendar,
   DollarSign,
-  Zap,
-  Database,
-  Globe,
   BarChart3,
   Building,
   Settings,
@@ -70,7 +64,7 @@ export default function DashboardPage() {
     crawledPages: 0,
     vectorEmbeddings: 0
   })
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
+  const [, setRecentActivity] = useState<RecentActivity[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showWelcome, setShowWelcome] = useState(false)
   const router = useRouter()
@@ -121,9 +115,9 @@ export default function DashboardPage() {
       console.error('Error parsing user data:', error)
       router.push('/auth/login')
     }
-  }, [router])
+  }, [router, loadDashboardData, widgets.length, setWidgets, trackDashboardCustomization])
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       // Load real data from APIs
       const [grantStats, aiStats, scrapingStats] = await Promise.all([
@@ -180,7 +174,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
   const handleLogout = () => {
     localStorage.removeItem('token')
@@ -188,7 +182,7 @@ export default function DashboardPage() {
     router.push('/')
   }
 
-  const handleWidgetUpdate = (updatedWidgets: any[]) => {
+  const handleWidgetUpdate = (updatedWidgets: unknown[]) => {
     setWidgets(updatedWidgets)
     trackDashboardCustomization('widgets_reordered', { count: updatedWidgets.length })
   }
@@ -264,7 +258,8 @@ export default function DashboardPage() {
     }
   }
 
-  const getRoleSpecificActions = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _getRoleSpecificActions = () => {
     switch (user.role) {
       case UserRole.SUPER_ADMIN:
         return [
@@ -395,7 +390,8 @@ export default function DashboardPage() {
     }
   }
 
-  const getRoleSpecificStats = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _getRoleSpecificStats = () => {
     switch (user.role) {
       case UserRole.SUPER_ADMIN:
         return [
@@ -493,7 +489,7 @@ export default function DashboardPage() {
                     </h3>
                     <p className="text-blue-700 text-sm">
                       Your dashboard has been customized for your role as {user.role.replace('_', ' ').toLowerCase()}. 
-                      You can drag widgets to reorder them and click 'Customize' to hide/show widgets.
+                      You can drag widgets to reorder them and click &apos;Customize&apos; to hide/show widgets.
                     </p>
                   </div>
                   <Button

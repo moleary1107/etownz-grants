@@ -67,7 +67,7 @@ export default function AIWritingPage() {
         <label className="block text-sm font-medium mb-2">Section Type</label>
         <select
           value={sectionType}
-          onChange={(e) => setSectionType(e.target.value as any)}
+          onChange={(e) => setSectionType(e.target.value)}
           className="p-2 border rounded-md"
         >
           <option value="project_description">Project Description</option>

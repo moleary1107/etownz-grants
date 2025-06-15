@@ -8,7 +8,7 @@ import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
-import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
+import { $generateNodesFromDOM } from '@lexical/html';
 import { $getRoot, $insertNodes, EditorState } from 'lexical';
 import { HeadingNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
@@ -20,14 +20,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { 
   Bot, 
-  Save, 
   Lightbulb, 
   MessageSquare, 
-  Search, 
   Sparkles,
   Loader2,
-  CheckCircle,
-  AlertTriangle
+  CheckCircle
 } from 'lucide-react';
 import { aiEditorService, type EditorSession, type ContentSuggestion, type ChatMessage } from '@/lib/api/aiEditorService';
 
@@ -71,7 +68,6 @@ interface AIEditorProps {
 
 // Auto-save plugin
 function AutoSavePlugin({ 
-  sessionId, 
   onSave 
 }: { 
   sessionId: string; 
@@ -101,7 +97,6 @@ function AutoSavePlugin({
 
 // AI Suggestions Plugin
 function AISuggestionsPlugin({ 
-  sessionId, 
   suggestions, 
   onAcceptSuggestion 
 }: { 
@@ -138,7 +133,7 @@ function AISuggestionsPlugin({
 
   return (
     <div className="absolute top-2 right-2 max-w-sm">
-      {suggestions.map((suggestion, index) => (
+      {suggestions.map((suggestion) => (
         <div key={suggestion.id} className="mb-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg shadow-sm">
           <div className="flex items-start justify-between mb-2">
             <Badge variant="secondary" className="text-xs">
@@ -233,11 +228,9 @@ export default function AIEditor({
 
   // Handle content changes
   const handleContentChange = useCallback((editorState: EditorState) => {
-    let htmlContent = '';
     let textContent = '';
     
     editorState.read(() => {
-      htmlContent = $generateHtmlFromNodes(editor, null);
       textContent = $getRoot().getTextContent();
     });
     
@@ -401,10 +394,9 @@ export default function AIEditor({
                 />
                 <OnChangePlugin onChange={handleContentChange} />
                 <HistoryPlugin />
-                {session && <AutoSavePlugin sessionId={session.id} onSave={handleAutoSave} />}
+                {session && <AutoSavePlugin onSave={handleAutoSave} />}
                 {session && (
                   <AISuggestionsPlugin 
-                    sessionId={session.id}
                     suggestions={suggestions}
                     onAcceptSuggestion={handleAcceptSuggestion}
                   />

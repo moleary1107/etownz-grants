@@ -38,12 +38,12 @@ export default function VersionControlPage() {
     router.push('/')
   }
 
-  const handleRepositoryCreate = (repository: any) => {
+  const handleRepositoryCreate = (repository: unknown) => {
     console.log('Repository created:', repository)
     // Could sync with backend API
   }
 
-  const handleCommit = (repositoryId: string, message: string, changes: any[]) => {
+  const handleCommit = (repositoryId: string, message: string, changes: unknown[]) => {
     console.log('Commit created:', { repositoryId, message, changes })
     // Could sync with backend version control system
   }

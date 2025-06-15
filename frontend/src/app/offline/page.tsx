@@ -16,7 +16,7 @@ import {
 
 export default function OfflinePage() {
   const [isOnline, setIsOnline] = useState(false)
-  const [cachedData, setCachedData] = useState<any>(null)
+  const [cachedData, setCachedData] = useState<{ activeApplications?: number; upcomingDeadlines?: number } | null>(null)
   const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
@@ -73,9 +73,9 @@ export default function OfflinePage() {
           <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
             <WifiOff className="h-8 w-8 text-blue-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">You're Offline</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">You&apos;re Offline</h1>
           <p className="text-gray-600">
-            No internet connection detected. Don't worry, you can still access some features.
+            No internet connection detected. Don&apos;t worry, you can still access some features.
           </p>
         </div>
 
@@ -213,8 +213,8 @@ export default function OfflinePage() {
                 <h4 className="text-sm font-medium text-blue-900 mb-1">Offline Tips</h4>
                 <ul className="text-xs text-blue-800 space-y-1">
                   <li>• Your work is automatically saved locally</li>
-                  <li>• Changes will sync when you're back online</li>
-                  <li>• Use mobile data if WiFi isn't available</li>
+                  <li>• Changes will sync when you&apos;re back online</li>
+                  <li>• Use mobile data if WiFi isn&apos;t available</li>
                   <li>• Check your connection and try refreshing</li>
                 </ul>
               </div>

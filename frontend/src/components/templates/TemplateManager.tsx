@@ -7,22 +7,18 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
 import { 
   FileText, 
-  Play, 
+ 
   Eye, 
   RefreshCw,
   Search,
   Plus,
-  CheckCircle,
-  Clock,
   Activity,
   Download,
   Settings,
   Zap,
   BookOpen,
-  PenTool,
   Layers,
   Target,
   Users,
@@ -31,9 +27,8 @@ import {
   BarChart,
   Archive,
   Copy,
-  Edit
 } from 'lucide-react';
-import { templatesService, GrantTemplate, SectionTemplate, GeneratedSection, TemplateVariable } from '@/lib/api/templatesService';
+import { templatesService, GrantTemplate, GeneratedSection } from '@/lib/api/templatesService';
 
 interface Organization {
   id: string;
@@ -58,11 +53,12 @@ export default function TemplateManager() {
   const [activeTab, setActiveTab] = useState('browse');
   
   // Generation state
-  const [variables, setVariables] = useState<Record<string, any>>({});
+  const [variables, setVariables] = useState<Record<string, unknown>>({});
   const [selectedOrganization, setSelectedOrganization] = useState<string>('');
   const [selectedGrant, setSelectedGrant] = useState<string>('');
   const [generatedSections, setGeneratedSections] = useState<GeneratedSection[]>([]);
-  const [generationProgress, setGenerationProgress] = useState(0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [generationProgress, setGenerationProgress] = useState<number>(0);
   
   // Available options
   const [categories, setCategories] = useState<string[]>([]);
@@ -90,8 +86,8 @@ export default function TemplateManager() {
         limit: 50
       });
       setTemplates(result.templates);
-    } catch (error) {
-      console.error('Failed to load templates:', error);
+    } catch (_error) {
+      console.error('Failed to load templates:', _error);
     } finally {
       setLoading(false);
     }
@@ -102,8 +98,8 @@ export default function TemplateManager() {
       const result = await templatesService.getCategories();
       setCategories(result.categories);
       setGrantTypes(result.grant_types);
-    } catch (error) {
-      console.error('Failed to load categories:', error);
+    } catch (_error) {
+      console.error('Failed to load categories:', _error);
     }
   };
 
@@ -118,8 +114,8 @@ export default function TemplateManager() {
         const data = await response.json();
         setOrganizations(data.organizations || []);
       }
-    } catch (error) {
-      console.error('Failed to load organizations:', error);
+    } catch (_error) {
+      console.error('Failed to load organizations:', _error);
     }
   };
 
@@ -134,8 +130,8 @@ export default function TemplateManager() {
         const data = await response.json();
         setGrants(data.grants || []);
       }
-    } catch (error) {
-      console.error('Failed to load grants:', error);
+    } catch (_error) {
+      console.error('Failed to load grants:', _error);
     }
   };
 
@@ -143,8 +139,8 @@ export default function TemplateManager() {
     try {
       await templatesService.seedDefaultTemplates();
       await loadTemplates();
-    } catch (error) {
-      console.error('Failed to seed default templates:', error);
+    } catch (_error) {
+      console.error('Failed to seed default templates:', _error);
     }
   };
 
@@ -175,8 +171,8 @@ export default function TemplateManager() {
 
       setGeneratedSections(result.sections);
       setGenerationProgress(100);
-    } catch (error) {
-      console.error('Failed to generate application:', error);
+    } catch (_error) {
+      console.error('Failed to generate application:', _error);
       alert('Failed to generate application. Please try again.');
     } finally {
       setGenerating(false);
@@ -210,8 +206,8 @@ export default function TemplateManager() {
           return [...prev, result];
         }
       });
-    } catch (error) {
-      console.error('Failed to generate section:', error);
+    } catch (_error) {
+      console.error('Failed to generate section:', _error);
       alert('Failed to generate section. Please try again.');
     } finally {
       setGenerating(false);
@@ -242,7 +238,7 @@ export default function TemplateManager() {
   };
 
   const getSectionIcon = (sectionType: string) => {
-    const icons: Record<string, any> = {
+    const icons: Record<string, React.ReactElement> = {
       executive_summary: <FileText className="h-4 w-4" />,
       project_description: <BookOpen className="h-4 w-4" />,
       methodology: <Settings className="h-4 w-4" />,
