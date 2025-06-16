@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { 
   Activity, 
   AlertTriangle, 
@@ -182,10 +181,12 @@ export default function AutomationMonitoringDashboard() {
 
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div className="flex items-center">
+          <AlertTriangle className="h-4 w-4 text-red-600 mr-2" />
+          <span className="text-red-800">{error}</span>
+        </div>
+      </div>
     );
   }
 
