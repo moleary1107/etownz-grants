@@ -201,6 +201,16 @@ router.post('/', authenticateToken, asyncHandler(async (req: AuthenticatedReques
       });
     }
 
+    // Validate and format website URL
+    let validatedWebsite = null;
+    if (website && website.trim() !== '') {
+      const websiteResult = await db.query(
+        'SELECT validate_organization_url($1) as validated_url',
+        [website.trim()]
+      );
+      validatedWebsite = websiteResult.rows[0].validated_url;
+    }
+
     const organizationId = uuidv4();
     
     const result = await db.query(`
@@ -212,7 +222,7 @@ router.post('/', authenticateToken, asyncHandler(async (req: AuthenticatedReques
       organizationId,
       name.trim(),
       description || null,
-      website || null,
+      validatedWebsite,
       type || 'research',
       req.user?.email || null
     ]);
@@ -220,15 +230,28 @@ router.post('/', authenticateToken, asyncHandler(async (req: AuthenticatedReques
     logger.info('Organization created', {
       organizationId,
       name,
+      website: validatedWebsite,
       createdBy: req.user?.id
     });
 
     res.status(201).json({
       success: true,
-      organization: result.rows[0]
+      organization: result.rows[0],
+      message: validatedWebsite && validatedWebsite !== website ? 
+        'Organization created. Website URL was automatically formatted with https://' : 
+        'Organization created successfully'
     });
   } catch (error) {
     logger.error('Failed to create organization:', error);
+    
+    // Check if it's a database constraint error
+    if (error instanceof Error && error.message.includes('duplicate key')) {
+      return res.status(409).json({
+        success: false,
+        error: 'An organization with this name already exists'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: 'Failed to create organization'
