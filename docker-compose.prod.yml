@@ -51,6 +51,23 @@ services:
       - redis
     restart: unless-stopped
 
+  # AI Crawler Service
+  crawler:
+    build:
+      context: ./crawler
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+    ports:
+      - "8002:8002"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
