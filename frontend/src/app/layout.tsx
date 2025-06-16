@@ -17,6 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NODE_ENV === 'production' ? 'https://grants.etownz.com' : 'http://localhost:3000'),
   title: "eTownz Grants - AI-Powered Grant Discovery for Ireland",
   description: "Discover and apply for grants in Ireland 10x faster with our AI-powered platform. Automatically find relevant opportunities from Enterprise Ireland, SFI, councils, and EU sources.",
   keywords: ["grants", "ireland", "AI", "automation", "enterprise ireland", "funding", "SFI", "council grants"],
