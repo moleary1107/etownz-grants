@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   
+  
   // Temporarily disable for build
   eslint: {
     ignoreDuringBuilds: true,
