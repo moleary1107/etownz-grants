@@ -1,5 +1,7 @@
 import { CronJob } from 'cron';
 import { logger } from './logger';
+import { grantSourcesService } from './grantSourcesService';
+import { jobQueueService } from './jobQueueService';
 
 interface AutomationConfig {
   grantDiscovery: {
@@ -62,7 +64,7 @@ class AutomationPipeline {
     };
   }
 
-  public start(): void {
+  public async start(): Promise<void> {
     if (this.isRunning) {
       logger.warn('Automation pipeline is already running');
       return;
@@ -70,6 +72,9 @@ class AutomationPipeline {
 
     logger.info('Starting eTownz Grants Automation Pipeline');
     this.isRunning = true;
+
+    // Start the job queue service
+    await jobQueueService.startProcessing();
 
     // Schedule grant discovery
     if (this.config.grantDiscovery.enabled) {
@@ -120,9 +125,77 @@ class AutomationPipeline {
     );
     this.cronJobs.push(cleanupJob);
     logger.info('Document cleanup scheduled: 3 AM every Sunday');
+
+    // Schedule periodic crawls for each schedule type
+    this.schedulePeriodicCrawls();
   }
 
-  public stop(): void {
+  private schedulePeriodicCrawls(): void {
+    // Daily crawls at 6 AM
+    const dailyCrawlJob = new CronJob(
+      '0 6 * * *', // 6 AM daily
+      () => this.runScheduledCrawls('daily'),
+      null,
+      true,
+      'Europe/Dublin'
+    );
+    this.cronJobs.push(dailyCrawlJob);
+    logger.info('Daily crawls scheduled: 6 AM daily');
+
+    // Weekly crawls on Monday at 7 AM
+    const weeklyCrawlJob = new CronJob(
+      '0 7 * * 1', // 7 AM every Monday
+      () => this.runScheduledCrawls('weekly'),
+      null,
+      true,
+      'Europe/Dublin'
+    );
+    this.cronJobs.push(weeklyCrawlJob);
+    logger.info('Weekly crawls scheduled: 7 AM every Monday');
+
+    // Monthly crawls on the 1st at 8 AM
+    const monthlyCrawlJob = new CronJob(
+      '0 8 1 * *', // 8 AM on the 1st of each month
+      () => this.runScheduledCrawls('monthly'),
+      null,
+      true,
+      'Europe/Dublin'
+    );
+    this.cronJobs.push(monthlyCrawlJob);
+    logger.info('Monthly crawls scheduled: 8 AM on the 1st of each month');
+  }
+
+  private async runScheduledCrawls(schedule: 'daily' | 'weekly' | 'monthly'): Promise<void> {
+    try {
+      logger.info(`🕐 Running scheduled crawls: ${schedule}`);
+
+      const sources = await grantSourcesService.getActiveSourcesForSchedule(schedule);
+      
+      for (const source of sources) {
+        try {
+          // Queue crawl job
+          await jobQueueService.enqueueJob('crawl_grant_source', {
+            sourceId: source.id,
+            sourceName: source.name,
+            sourceUrl: source.url,
+            scheduleType: schedule
+          }, {
+            priority: 7 // Normal priority for scheduled crawls
+          });
+          
+          logger.info(`Scheduled ${schedule} crawl queued for ${source.name}`);
+        } catch (error) {
+          logger.error(`Failed to queue ${schedule} crawl for ${source.name}:`, error);
+        }
+      }
+
+      logger.info(`✅ ${schedule} crawls queued for ${sources.length} sources`);
+    } catch (error) {
+      logger.error(`Failed to run ${schedule} crawls:`, error);
+    }
+  }
+
+  public async stop(): Promise<void> {
     if (!this.isRunning) {
       logger.warn('Automation pipeline is not running');
       return;
@@ -131,6 +204,10 @@ class AutomationPipeline {
     // Stop all cron jobs
     this.cronJobs.forEach(job => job.stop());
     this.cronJobs = [];
+    
+    // Stop the job queue service
+    await jobQueueService.stopProcessing();
+    
     this.isRunning = false;
     logger.info('Automation pipeline stopped');
   }
@@ -139,31 +216,30 @@ class AutomationPipeline {
     try {
       logger.info('🔍 Starting automated grant discovery');
 
-      const discoveredGrants: any[] = [];
+      // Get all active sources that should be crawled
+      const sources = await grantSourcesService.getAllSources();
+      const activeSources = sources.filter(source => source.isActive);
 
-      for (const source of this.config.grantDiscovery.sources) {
+      for (const source of activeSources) {
         try {
-          logger.info(`Scanning: ${source}`);
+          logger.info(`Queueing crawl job for: ${source.name}`);
           
-          // TODO: Integrate with crawler service
-          // const grants = await this.scrapeGrantSource(source);
-          // discoveredGrants.push(...grants);
+          // Queue crawl job with high priority
+          await jobQueueService.enqueueJob('crawl_grant_source', {
+            sourceId: source.id,
+            sourceName: source.name,
+            sourceUrl: source.url
+          }, {
+            priority: 8 // High priority for scheduled crawls
+          });
           
-          logger.info(`Scanning completed for ${source}`);
+          logger.info(`Crawl job queued for ${source.name}`);
         } catch (error) {
-          logger.error(`Failed to scan ${source}:`, error);
+          logger.error(`Failed to queue crawl for ${source.name}:`, error);
         }
       }
 
-      // TODO: Process discovered grants
-      // for (const grant of discoveredGrants) {
-      //   await this.processDiscoveredGrant(grant);
-      // }
-
-      // TODO: Send notifications for high-match grants
-      // await this.sendMatchNotifications(discoveredGrants);
-
-      logger.info(`✅ Grant discovery completed`);
+      logger.info(`✅ Grant discovery jobs queued for ${activeSources.length} sources`);
     } catch (error) {
       logger.error('Grant discovery failed:', error);
     }

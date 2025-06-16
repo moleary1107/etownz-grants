@@ -1,13 +1,15 @@
 import express from 'express'
 import { GrantSource, CrawlSettings } from '../types/grants'
 import { FirecrawlService } from '../services/firecrawlService'
+import { DatabaseService } from '../services/databaseService'
 import { logger } from '../utils/logger'
 
 const router = express.Router()
 const firecrawlService = new FirecrawlService()
+const databaseService = new DatabaseService()
 
-// In-memory storage for demo (replace with database in production)
-const grantSources: GrantSource[] = [
+// Legacy in-memory sources (will be migrated to database)
+const legacyGrantSources: GrantSource[] = [
   {
     id: 'source-1',
     name: 'Local Government Grants and Funding',

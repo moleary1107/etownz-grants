@@ -72,10 +72,13 @@ import grantIntelligenceRoutes from './routes/grantIntelligence';
 import templatesRoutes from './routes/templates';
 import databaseSyncRoutes from './routes/databaseSync';
 import reviewApprovalRoutes from './routes/reviewApproval';
+import automationRoutes from './routes/automation';
+import grantSourcesRoutes from './routes/grantSources';
 // import partnerCoordinationRoutes from './routes/partnerCoordination';
 
 // Import database service
 import { db } from './services/database';
+import { automationPipeline } from './services/automationPipeline';
 
 // TODO: Add Sentry integration in production
 
@@ -290,6 +293,8 @@ app.use('/grant-intelligence', grantIntelligenceRoutes);
 app.use('/templates', templatesRoutes);
 app.use('/database-sync', databaseSyncRoutes);
 app.use('/review-approval', reviewApprovalRoutes);
+app.use('/automation', automationRoutes);
+app.use('/grant-sources', grantSourcesRoutes);
 // app.use('/partner-coordination', partnerCoordinationRoutes);
 
 // 404 handler
@@ -314,11 +319,30 @@ async function startServer() {
       logger.info('✅ Database connection established');
     }
 
+    // Start automation pipeline in production
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_AUTOMATION !== 'false') {
+      try {
+        await automationPipeline.start();
+        logger.info('🤖 Automation pipeline started');
+      } catch (error) {
+        logger.error('Failed to start automation pipeline', { error });
+        // Don't exit - server can run without automation
+      }
+    } else {
+      logger.info('⏸️ Automation pipeline disabled (development mode or ENABLE_AUTOMATION=false)');
+    }
+
     // Start server
     app.listen(PORT, '0.0.0.0', () => {
       logger.info(`🚀 Server running on port ${PORT}`);
       logger.info(`📚 API Documentation available at http://localhost:${PORT}/docs`);
       logger.info(`🏥 Health check available at http://localhost:${PORT}/health`);
+      
+      if (process.env.NODE_ENV === 'production') {
+        logger.info('🔄 Automated grant discovery enabled');
+        logger.info('📊 Job queue processing active');
+        logger.info('🚨 Crawl monitoring active');
+      }
     });
   } catch (error) {
     logger.error('❌ Failed to start server', { error });
