@@ -17,7 +17,7 @@
     "lint": "npm run lint --workspaces",
     "clean": "docker-compose down && docker system prune -f",
     "docs": "cd docs && npm run build",
-    "prepare": "husky"
+    "prepare": "husky || exit 0"
   },
   "repository": {
     "type": "git",

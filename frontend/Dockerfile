@@ -1,5 +1,5 @@
-# Use Node 20 for better compatibility with Tailwind CSS 4
-FROM node:20-alpine AS base
+# Use Node 22 for compatibility with all packages
+FROM node:22-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -9,8 +9,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies with legacy peer deps flag
+RUN npm install --legacy-peer-deps
 
 # Rebuild the source code only when needed
 FROM base AS builder
