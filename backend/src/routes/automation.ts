@@ -347,4 +347,236 @@ router.get('/crawl/failures', requireRole(['super_admin', 'organization_admin'])
   }
 });
 
+// Get comprehensive automation metrics for dashboard
+router.get('/metrics', requireRole(['super_admin', 'organization_admin']), async (req, res) => {
+  try {
+    logger.info('Fetching comprehensive automation metrics');
+
+    const [sourceMetrics, jobMetrics, alertMetrics, performanceMetrics] = await Promise.all([
+      grantSourcesService.getSourceMetrics(),
+      jobQueueService.getQueueMetrics(),
+      crawlMonitoringService.getDashboardMetrics(),
+      grantSourcesService.getPerformanceMetrics()
+    ]);
+
+    const metrics = {
+      sources: sourceMetrics,
+      jobs: jobMetrics,
+      alerts: alertMetrics,
+      performance: performanceMetrics
+    };
+
+    res.json({
+      success: true,
+      data: metrics
+    });
+
+  } catch (error) {
+    logger.error('Failed to fetch automation metrics', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch automation metrics'
+    });
+  }
+});
+
+// Get all grant sources with detailed status
+router.get('/grant-sources', requireRole(['super_admin', 'organization_admin']), async (req, res) => {
+  try {
+    const sources = await grantSourcesService.getAllSources();
+    
+    res.json({
+      success: true,
+      data: sources
+    });
+
+  } catch (error) {
+    logger.error('Failed to fetch grant sources', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch grant sources'
+    });
+  }
+});
+
+// Get recent alerts with enhanced details
+router.get('/alerts/recent', requireRole(['super_admin', 'organization_admin']), async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const alerts = await crawlMonitoringService.getRecentAlerts(limit);
+
+    res.json({
+      success: true,
+      data: alerts
+    });
+
+  } catch (error) {
+    logger.error('Failed to fetch recent alerts', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch recent alerts'
+    });
+  }
+});
+
+// Acknowledge alert with enhanced tracking
+router.post('/alerts/:alertId/acknowledge', requireRole(['super_admin', 'organization_admin']), async (req, res) => {
+  try {
+    const { alertId } = req.params;
+    const { acknowledgedBy } = req.body;
+
+    const userId = acknowledgedBy || req.user?.id || 'unknown';
+    await crawlMonitoringService.acknowledgeAlert(alertId, userId);
+
+    logger.info('Alert acknowledged', { alertId, acknowledgedBy: userId });
+
+    res.json({
+      success: true,
+      message: 'Alert acknowledged successfully'
+    });
+
+  } catch (error) {
+    logger.error('Failed to acknowledge alert', { alertId: req.params.alertId, error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to acknowledge alert'
+    });
+  }
+});
+
+// Trigger manual crawl for specific source
+router.post('/crawl/trigger', requireRole(['super_admin', 'organization_admin']), async (req, res) => {
+  try {
+    const { sourceId, priority = 'normal' } = req.body;
+
+    if (!sourceId) {
+      return res.status(400).json({
+        success: false,
+        error: 'sourceId is required'
+      });
+    }
+
+    // Get source details
+    const source = await grantSourcesService.getSourceById(sourceId);
+    if (!source) {
+      return res.status(404).json({
+        success: false,
+        error: 'Grant source not found'
+      });
+    }
+
+    if (!source.isActive) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot crawl inactive source'
+      });
+    }
+
+    // Enqueue crawl job
+    const jobId = await jobQueueService.enqueueJob('crawl_grant_source', {
+      sourceId,
+      sourceName: source.name,
+      url: source.url,
+      settings: source.crawlSettings,
+      triggeredBy: req.user?.id,
+      manual: true
+    }, {
+      priority: priority === 'high' ? 9 : priority === 'low' ? 1 : 5,
+      maxRetries: 2
+    });
+
+    logger.info('Manual crawl triggered', { sourceId, jobId, sourceName: source.name });
+
+    res.json({
+      success: true,
+      data: { jobId },
+      message: `Crawl job queued for ${source.name}`
+    });
+
+  } catch (error) {
+    logger.error('Failed to trigger manual crawl', { sourceId: req.body.sourceId, error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to trigger crawl job'
+    });
+  }
+});
+
+// Send test email notification
+router.post('/test-email', requireRole(['super_admin']), async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email address is required'
+      });
+    }
+
+    const success = await crawlMonitoringService.sendTestNotification(email);
+
+    if (success) {
+      logger.info('Test email sent', { email });
+      res.json({
+        success: true,
+        message: 'Test email sent successfully'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to send test email'
+      });
+    }
+
+  } catch (error) {
+    logger.error('Failed to send test email', { email: req.body.email, error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to send test email'
+    });
+  }
+});
+
+// Get automation system health status
+router.get('/health', async (req, res) => {
+  try {
+    const [
+      sourcesHealthy,
+      jobQueueHealthy,
+      emailConfigValid
+    ] = await Promise.all([
+      grantSourcesService.healthCheck(),
+      jobQueueService.healthCheck(),
+      crawlMonitoringService.verifyEmailConfiguration()
+    ]);
+
+    const overallHealth = sourcesHealthy && jobQueueHealthy && emailConfigValid;
+
+    const healthStatus = {
+      overall: overallHealth ? 'healthy' : 'degraded',
+      components: {
+        grantSources: sourcesHealthy ? 'healthy' : 'unhealthy',
+        jobQueue: jobQueueHealthy ? 'healthy' : 'unhealthy',
+        emailNotifications: emailConfigValid ? 'healthy' : 'unhealthy'
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    const statusCode = overallHealth ? 200 : 503;
+
+    res.status(statusCode).json({
+      success: overallHealth,
+      data: healthStatus
+    });
+
+  } catch (error) {
+    logger.error('Failed to check automation health', { error });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check system health'
+    });
+  }
+});
+
 export default router;

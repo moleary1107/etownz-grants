@@ -1,4 +1,4 @@
-import { pool } from '../config/database';
+import { DatabaseService } from './database';
 import { logger } from './logger';
 import { EventEmitter } from 'events';
 
@@ -23,9 +23,10 @@ export type JobHandler = (job: Job) => Promise<void>;
 class JobQueueService extends EventEmitter {
   private handlers: Map<string, JobHandler> = new Map();
   private isProcessing: boolean = false;
-  private processingInterval?: NodeJS.Timeout;
+  private processingInterval?: NodeJS.Timer;
   private readonly PROCESSING_INTERVAL = 5000; // 5 seconds
   private readonly BATCH_SIZE = 10;
+  private db = DatabaseService.getInstance();
 
   constructor() {
     super();
@@ -61,7 +62,7 @@ class JobQueueService extends EventEmitter {
         maxRetries = 3
       } = options;
 
-      const result = await pool.query(`
+      const result = await this.db.query(`
         INSERT INTO job_queue (
           job_type, job_data, priority, scheduled_at, max_retries
         ) VALUES ($1, $2, $3, $4, $5)
@@ -108,7 +109,7 @@ class JobQueueService extends EventEmitter {
 
     this.isProcessing = false;
     if (this.processingInterval) {
-      clearInterval(this.processingInterval);
+      clearInterval(this.processingInterval as any);
       this.processingInterval = undefined;
     }
 
@@ -118,7 +119,7 @@ class JobQueueService extends EventEmitter {
   private async processJobs(): Promise<void> {
     try {
       // Get pending jobs ordered by priority and scheduled time
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
           id, job_type as "jobType", job_data as "jobData",
           status, priority, scheduled_at as "scheduledAt",
@@ -187,7 +188,7 @@ class JobQueueService extends EventEmitter {
       if (job.retryCount < job.maxRetries) {
         await this.scheduleRetry(job);
       } else {
-        await this.markJobFailed(job.id, error.message);
+        await this.markJobFailed(job.id, (error as any).message);
       }
 
       this.emit('jobFailed', { job, error });
@@ -204,7 +205,7 @@ class JobQueueService extends EventEmitter {
         UPDATE job_queue 
         SET status = $1, updated_at = NOW()
       `;
-      const params = [status];
+      const params: any[] = [status];
 
       if (status === 'processing') {
         query += `, started_at = NOW()`;
@@ -220,7 +221,7 @@ class JobQueueService extends EventEmitter {
       query += ` WHERE id = $${params.length + 1}`;
       params.push(jobId);
 
-      await pool.query(query, params);
+      await this.db.query(query, params);
     } catch (error) {
       logger.error('Failed to update job status', { jobId, status, error });
     }
@@ -233,7 +234,7 @@ class JobQueueService extends EventEmitter {
       const delaySeconds = retryDelays[job.retryCount] || 900;
       const retryAt = new Date(Date.now() + delaySeconds * 1000);
 
-      await pool.query(`
+      await this.db.query(`
         UPDATE job_queue 
         SET 
           status = 'retry',
@@ -291,7 +292,7 @@ class JobQueueService extends EventEmitter {
       await grantSourcesService.recordCrawlCompletion(monitoringId, 'failed', {
         grantsFound: 0,
         pagesCrawled: 0,
-        errorMessage: error.message
+        errorMessage: (error as any).message
       });
       throw error;
     }
@@ -341,7 +342,7 @@ class JobQueueService extends EventEmitter {
   // Public methods for job management
   async getJobById(jobId: string): Promise<Job | null> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
           id, job_type as "jobType", job_data as "jobData",
           status, priority, scheduled_at as "scheduledAt",
@@ -362,7 +363,7 @@ class JobQueueService extends EventEmitter {
 
   async getJobStats(): Promise<any> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
           status,
           COUNT(*) as count,
@@ -387,13 +388,13 @@ class JobQueueService extends EventEmitter {
 
   async cancelJob(jobId: string): Promise<boolean> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         UPDATE job_queue 
         SET status = 'failed', error_message = 'Cancelled by user', updated_at = NOW()
         WHERE id = $1 AND status = 'pending'
       `, [jobId]);
 
-      return result.rowCount > 0;
+      return (result.rowCount || 0) > 0;
     } catch (error) {
       logger.error('Failed to cancel job', { jobId, error });
       throw error;
@@ -402,6 +403,39 @@ class JobQueueService extends EventEmitter {
 
   isRunning(): boolean {
     return this.isProcessing;
+  }
+
+  async getQueueMetrics(): Promise<any> {
+    try {
+      const result = await this.db.query(`
+        SELECT 
+          COUNT(CASE WHEN status = 'pending' THEN 1 END) as total_pending,
+          COUNT(CASE WHEN status = 'processing' THEN 1 END) as total_running,
+          COUNT(CASE WHEN status = 'completed' THEN 1 END) as total_completed,
+          COUNT(CASE WHEN status = 'failed' THEN 1 END) as total_failed,
+          AVG(CASE 
+            WHEN status = 'completed' AND started_at IS NOT NULL AND completed_at IS NOT NULL 
+            THEN EXTRACT(EPOCH FROM (completed_at - started_at)) 
+          END) as avg_duration_seconds
+        FROM job_queue
+        WHERE created_at > NOW() - INTERVAL '24 hours'
+      `);
+      
+      return result.rows[0];
+    } catch (error) {
+      logger.error('Failed to fetch queue metrics', { error });
+      throw error;
+    }
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.db.query('SELECT 1 FROM job_queue LIMIT 1');
+      return this.isProcessing;
+    } catch (error) {
+      logger.error('Job queue health check failed', { error });
+      return false;
+    }
   }
 }
 

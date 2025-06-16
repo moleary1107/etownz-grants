@@ -1,4 +1,4 @@
-import { pool } from '../config/database';
+import { DatabaseService } from './database';
 import { logger } from './logger';
 
 export interface GrantSource {
@@ -6,8 +6,8 @@ export interface GrantSource {
   name: string;
   url: string;
   description?: string;
-  category: 'government' | 'private' | 'eu' | 'international' | 'academic' | 'foundation' | 'other';
-  location: string;
+  category?: 'government' | 'private' | 'eu' | 'international' | 'academic' | 'foundation' | 'other';
+  location?: string;
   isActive: boolean;
   lastCrawled?: Date;
   crawlSettings: {
@@ -40,11 +40,13 @@ export interface CrawlMonitoringRecord {
 }
 
 class GrantSourcesService {
+  private db = DatabaseService.getInstance();
+
   async getAllSources(): Promise<GrantSource[]> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
-          id, name, url, description, category, location,
+          id, name, url,
           is_active as "isActive", last_crawled as "lastCrawled",
           crawl_settings as "crawlSettings", crawl_schedule as "crawlSchedule",
           success_count as "successCount", failure_count as "failureCount",
@@ -62,9 +64,9 @@ class GrantSourcesService {
 
   async getActiveSourcesForSchedule(schedule: string): Promise<GrantSource[]> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
-          id, name, url, description, category, location,
+          id, name, url,
           is_active as "isActive", last_crawled as "lastCrawled",
           crawl_settings as "crawlSettings", crawl_schedule as "crawlSchedule",
           success_count as "successCount", failure_count as "failureCount",
@@ -83,9 +85,9 @@ class GrantSourcesService {
 
   async getSourceById(id: string): Promise<GrantSource | null> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
-          id, name, url, description, category, location,
+          id, name, url,
           is_active as "isActive", last_crawled as "lastCrawled",
           crawl_settings as "crawlSettings", crawl_schedule as "crawlSchedule",
           success_count as "successCount", failure_count as "failureCount",
@@ -101,23 +103,16 @@ class GrantSourcesService {
     }
   }
 
-  async createSource(source: Omit<GrantSource, 'id' | 'createdAt' | 'updatedAt' | 'successCount' | 'failureCount'>): Promise<GrantSource> {
+  async createSource(source: Omit<GrantSource, 'id' | 'createdAt' | 'updatedAt' | 'successCount' | 'failureCount' | 'lastError' | 'description' | 'category' | 'location'>): Promise<string> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         INSERT INTO grant_sources (
-          name, url, description, category, location, is_active,
-          crawl_settings, crawl_schedule
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING 
-          id, name, url, description, category, location,
-          is_active as "isActive", last_crawled as "lastCrawled",
-          crawl_settings as "crawlSettings", crawl_schedule as "crawlSchedule",
-          success_count as "successCount", failure_count as "failureCount",
-          last_error as "lastError", created_at as "createdAt", updated_at as "updatedAt"
+          name, url, is_active, crawl_settings, crawl_schedule
+        ) VALUES ($1, $2, $3, $4, $5)
+        RETURNING id
       `, [
-        source.name, source.url, source.description, source.category,
-        source.location, source.isActive, JSON.stringify(source.crawlSettings),
-        source.crawlSchedule
+        source.name, source.url, source.isActive, 
+        JSON.stringify(source.crawlSettings), source.crawlSchedule
       ]);
       
       logger.info('Created new grant source', { 
@@ -126,7 +121,7 @@ class GrantSourcesService {
         url: source.url 
       });
       
-      return result.rows[0];
+      return result.rows[0].id;
     } catch (error) {
       logger.error('Failed to create grant source', { source, error });
       throw error;
@@ -135,8 +130,8 @@ class GrantSourcesService {
 
   async updateSource(id: string, updates: Partial<GrantSource>): Promise<GrantSource | null> {
     try {
-      const setParts = [];
-      const values = [];
+      const setParts: string[] = [];
+      const values: any[] = [];
       let valueIndex = 1;
 
       if (updates.name !== undefined) {
@@ -147,18 +142,7 @@ class GrantSourcesService {
         setParts.push(`url = $${valueIndex++}`);
         values.push(updates.url);
       }
-      if (updates.description !== undefined) {
-        setParts.push(`description = $${valueIndex++}`);
-        values.push(updates.description);
-      }
-      if (updates.category !== undefined) {
-        setParts.push(`category = $${valueIndex++}`);
-        values.push(updates.category);
-      }
-      if (updates.location !== undefined) {
-        setParts.push(`location = $${valueIndex++}`);
-        values.push(updates.location);
-      }
+      // Skip description, category, location as they don't exist in current schema
       if (updates.isActive !== undefined) {
         setParts.push(`is_active = $${valueIndex++}`);
         values.push(updates.isActive);
@@ -178,12 +162,12 @@ class GrantSourcesService {
 
       values.push(id);
       
-      const result = await pool.query(`
+      const result = await this.db.query(`
         UPDATE grant_sources 
         SET ${setParts.join(', ')}
         WHERE id = $${valueIndex}
         RETURNING 
-          id, name, url, description, category, location,
+          id, name, url,
           is_active as "isActive", last_crawled as "lastCrawled",
           crawl_settings as "crawlSettings", crawl_schedule as "crawlSchedule",
           success_count as "successCount", failure_count as "failureCount",
@@ -203,11 +187,11 @@ class GrantSourcesService {
 
   async deleteSource(id: string): Promise<boolean> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         DELETE FROM grant_sources WHERE id = $1
       `, [id]);
       
-      const deleted = result.rowCount > 0;
+      const deleted = (result.rowCount || 0) > 0;
       if (deleted) {
         logger.info('Deleted grant source', { sourceId: id });
       }
@@ -221,7 +205,7 @@ class GrantSourcesService {
 
   async recordCrawlStart(sourceId: string, jobId?: string): Promise<string> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         INSERT INTO crawl_monitoring (source_id, job_id, status, started_at)
         VALUES ($1, $2, 'started', NOW())
         RETURNING id
@@ -246,7 +230,7 @@ class GrantSourcesService {
     }
   ): Promise<void> {
     try {
-      await pool.query(`
+      await this.db.query(`
         UPDATE crawl_monitoring 
         SET 
           status = $1,
@@ -269,7 +253,7 @@ class GrantSourcesService {
 
       // Update source success/failure counts
       if (status === 'completed') {
-        await pool.query(`
+        await this.db.query(`
           UPDATE grant_sources 
           SET 
             success_count = success_count + 1,
@@ -280,7 +264,7 @@ class GrantSourcesService {
           )
         `, [monitoringId]);
       } else {
-        await pool.query(`
+        await this.db.query(`
           UPDATE grant_sources 
           SET 
             failure_count = failure_count + 1,
@@ -309,7 +293,7 @@ class GrantSourcesService {
 
   async getRecentCrawlFailures(limit: number = 10): Promise<CrawlMonitoringRecord[]> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
           cm.id, cm.source_id as "sourceId", cm.job_id as "jobId",
           cm.status, cm.grants_found as "grantsFound", 
@@ -336,7 +320,7 @@ class GrantSourcesService {
       const whereClause = sourceId ? 'WHERE cm.source_id = $1' : '';
       const params = sourceId ? [sourceId] : [];
       
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
           COUNT(*) as total_crawls,
           COUNT(CASE WHEN status = 'completed' THEN 1 END) as successful_crawls,
@@ -352,6 +336,61 @@ class GrantSourcesService {
     } catch (error) {
       logger.error('Failed to fetch crawl stats', { sourceId, error });
       throw error;
+    }
+  }
+
+  async getSourceMetrics(): Promise<any> {
+    try {
+      const result = await this.db.query(`
+        SELECT 
+          COUNT(*) as total,
+          COUNT(CASE WHEN is_active = true THEN 1 END) as active,
+          COUNT(CASE WHEN crawl_schedule != 'manual' THEN 1 END) as scheduled,
+          COUNT(CASE WHEN crawl_schedule = 'manual' THEN 1 END) as manual
+        FROM grant_sources
+      `);
+      
+      return result.rows[0];
+    } catch (error) {
+      logger.error('Failed to fetch source metrics', { error });
+      throw error;
+    }
+  }
+
+  async getPerformanceMetrics(): Promise<any> {
+    try {
+      const result = await this.db.query(`
+        SELECT 
+          COALESCE(
+            CAST(COUNT(CASE WHEN cm.status = 'completed' THEN 1 END) AS FLOAT) / 
+            NULLIF(COUNT(*), 0) * 100, 0
+          ) as success_rate,
+          COALESCE(AVG(cm.duration_seconds), 0) as avg_crawl_duration,
+          COALESCE(SUM(cm.grants_found), 0) as total_grants_found,
+          COUNT(DISTINCT CASE 
+            WHEN gs.failure_count > gs.success_count 
+            OR gs.last_error IS NOT NULL 
+            THEN gs.id 
+          END) as sources_needing_attention
+        FROM grant_sources gs
+        LEFT JOIN crawl_monitoring cm ON gs.id = cm.source_id
+        WHERE cm.started_at > NOW() - INTERVAL '7 days' OR cm.started_at IS NULL
+      `);
+      
+      return result.rows[0];
+    } catch (error) {
+      logger.error('Failed to fetch performance metrics', { error });
+      throw error;
+    }
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.db.query('SELECT 1 FROM grant_sources LIMIT 1');
+      return true;
+    } catch (error) {
+      logger.error('Grant sources health check failed', { error });
+      return false;
     }
   }
 }

@@ -1,6 +1,7 @@
-import { pool } from '../config/database';
+import { DatabaseService } from './database';
 import { logger } from './logger';
 import { EventEmitter } from 'events';
+import { emailNotificationService } from './emailNotificationService';
 
 export interface CrawlAlert {
   id: string;
@@ -33,6 +34,7 @@ class CrawlMonitoringService extends EventEmitter {
     noRecentCrawlsHours: 48,
     maxCrawlDurationMinutes: 30
   };
+  private db = DatabaseService.getInstance();
 
   constructor() {
     super();
@@ -48,10 +50,10 @@ class CrawlMonitoringService extends EventEmitter {
       }
 
       // Create default monitoring rules
-      const defaultRules = [
+      const defaultRules: Omit<MonitoringRule, 'id' | 'createdAt' | 'updatedAt'>[] = [
         {
           name: 'Consecutive Failures Alert',
-          ruleType: 'failure_threshold',
+          ruleType: 'failure_threshold' as const,
           enabled: true,
           parameters: {
             maxConsecutiveFailures: 3,
@@ -60,7 +62,7 @@ class CrawlMonitoringService extends EventEmitter {
         },
         {
           name: 'Low Success Rate Alert', 
-          ruleType: 'success_rate',
+          ruleType: 'success_rate' as const,
           enabled: true,
           parameters: {
             minSuccessRate: 0.7,
@@ -70,7 +72,7 @@ class CrawlMonitoringService extends EventEmitter {
         },
         {
           name: 'No Recent Crawls Alert',
-          ruleType: 'no_recent_crawls',
+          ruleType: 'no_recent_crawls' as const,
           enabled: true,
           parameters: {
             maxHoursSinceLastCrawl: 48,
@@ -79,7 +81,7 @@ class CrawlMonitoringService extends EventEmitter {
         },
         {
           name: 'Crawl Timeout Alert',
-          ruleType: 'timeout_threshold',
+          ruleType: 'timeout_threshold' as const,
           enabled: true,
           parameters: {
             maxDurationMinutes: 30,
@@ -100,7 +102,7 @@ class CrawlMonitoringService extends EventEmitter {
 
   async createMonitoringRule(rule: Omit<MonitoringRule, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         INSERT INTO crawl_monitoring_rules (
           name, rule_type, enabled, parameters
         ) VALUES ($1, $2, $3, $4)
@@ -116,7 +118,7 @@ class CrawlMonitoringService extends EventEmitter {
 
   async getMonitoringRules(): Promise<MonitoringRule[]> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
           id, name, rule_type as "ruleType", enabled, parameters,
           created_at as "createdAt", updated_at as "updatedAt"
@@ -152,6 +154,9 @@ class CrawlMonitoringService extends EventEmitter {
       if (alerts.length > 0) {
         logger.warn(`Generated ${alerts.length} crawl monitoring alerts`);
         this.emit('alertsGenerated', alerts);
+        
+        // Send email notifications for critical and high severity alerts
+        await this.sendEmailNotifications(alerts);
       }
 
       return alerts;
@@ -191,7 +196,7 @@ class CrawlMonitoringService extends EventEmitter {
     const alerts: CrawlAlert[] = [];
 
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         WITH consecutive_failures AS (
           SELECT 
             gs.id as source_id,
@@ -236,7 +241,7 @@ class CrawlMonitoringService extends EventEmitter {
     const alerts: CrawlAlert[] = [];
 
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         WITH success_rates AS (
           SELECT 
             gs.id as source_id,
@@ -285,7 +290,7 @@ class CrawlMonitoringService extends EventEmitter {
     const alerts: CrawlAlert[] = [];
 
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
           gs.id as source_id,
           gs.name as source_name,
@@ -331,7 +336,7 @@ class CrawlMonitoringService extends EventEmitter {
     const alerts: CrawlAlert[] = [];
 
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
           gs.id as source_id,
           gs.name as source_name,
@@ -373,7 +378,7 @@ class CrawlMonitoringService extends EventEmitter {
 
   private async saveAlert(alert: CrawlAlert): Promise<void> {
     try {
-      await pool.query(`
+      await this.db.query(`
         INSERT INTO crawl_alerts (
           source_id, alert_type, severity, message, details, acknowledged
         ) VALUES ($1, $2, $3, $4, $5, $6)
@@ -385,7 +390,7 @@ class CrawlMonitoringService extends EventEmitter {
         JSON.stringify(alert.details),
         alert.acknowledged
       ]);
-    } catch (error) {
+    } catch (error: any) {
       // Ignore duplicate alerts
       if (error.code !== '23505') {
         logger.error('Failed to save alert', { alert, error });
@@ -395,7 +400,7 @@ class CrawlMonitoringService extends EventEmitter {
 
   async getRecentAlerts(limit: number = 50): Promise<CrawlAlert[]> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
           ca.id, ca.source_id as "sourceId", gs.name as "sourceName",
           ca.alert_type as "alertType", ca.severity, ca.message, ca.details,
@@ -416,7 +421,7 @@ class CrawlMonitoringService extends EventEmitter {
 
   async acknowledgeAlert(alertId: string, acknowledgedBy: string): Promise<void> {
     try {
-      await pool.query(`
+      await this.db.query(`
         UPDATE crawl_alerts 
         SET 
           acknowledged = true,
@@ -434,7 +439,7 @@ class CrawlMonitoringService extends EventEmitter {
 
   async getDashboardMetrics(): Promise<any> {
     try {
-      const result = await pool.query(`
+      const result = await this.db.query(`
         SELECT 
           COUNT(*) as total_alerts,
           COUNT(CASE WHEN acknowledged = false THEN 1 END) as unacknowledged_alerts,
@@ -459,6 +464,78 @@ class CrawlMonitoringService extends EventEmitter {
 
   getAlertThresholds() {
     return { ...this.alertThresholds };
+  }
+
+  private async sendEmailNotifications(alerts: CrawlAlert[]): Promise<void> {
+    try {
+      const notificationAlerts = alerts.filter(alert => 
+        ['critical', 'high'].includes(alert.severity)
+      );
+
+      if (notificationAlerts.length === 0) {
+        return;
+      }
+
+      // Get admin email addresses from environment or default
+      const adminEmails = this.getAdminEmailAddresses();
+      
+      if (adminEmails.length === 0) {
+        logger.warn('No admin email addresses configured for alert notifications');
+        return;
+      }
+
+      // Send bulk alert email to all admins
+      await emailNotificationService.sendBulkAlerts(notificationAlerts, adminEmails);
+      
+      logger.info('Email notifications sent for monitoring alerts', {
+        alertCount: notificationAlerts.length,
+        recipientCount: adminEmails.length
+      });
+
+    } catch (error) {
+      logger.error('Failed to send email notifications for alerts', { error });
+    }
+  }
+
+  private getAdminEmailAddresses(): string[] {
+    const adminEmails: string[] = [];
+    
+    // Get from environment variables
+    if (process.env.ADMIN_EMAIL) {
+      adminEmails.push(process.env.ADMIN_EMAIL);
+    }
+    
+    if (process.env.ADMIN_EMAIL_LIST) {
+      const emailList = process.env.ADMIN_EMAIL_LIST.split(',')
+        .map(email => email.trim())
+        .filter(email => email.length > 0);
+      adminEmails.push(...emailList);
+    }
+
+    // Default fallback
+    if (adminEmails.length === 0) {
+      adminEmails.push('admin@etownz.com');
+    }
+
+    return [...new Set(adminEmails)]; // Remove duplicates
+  }
+
+  async sendTestNotification(email: string): Promise<boolean> {
+    try {
+      return await emailNotificationService.sendTestEmail(email);
+    } catch (error) {
+      logger.error('Failed to send test notification', { email, error });
+      return false;
+    }
+  }
+
+  async verifyEmailConfiguration(): Promise<boolean> {
+    try {
+      return await emailNotificationService.verifyEmailConfiguration();
+    } catch (error) {
+      logger.error('Failed to verify email configuration', { error });
+      return false;
+    }
   }
 }
 

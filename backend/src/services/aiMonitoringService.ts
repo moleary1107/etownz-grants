@@ -95,8 +95,8 @@ export class AIMonitoringService {
   private config: MonitoringConfiguration;
   private metricsBuffer: AIMetric[] = [];
   private alertsCache: Map<string, AIAlert> = new Map();
-  private metricsCollectionInterval: NodeJS.Timeout | null = null;
-  private alertCheckInterval: NodeJS.Timeout | null = null;
+  private metricsCollectionInterval: NodeJS.Timer | null = null;
+  private alertCheckInterval: NodeJS.Timer | null = null;
 
   constructor() {
     this.db = new DatabaseService();

@@ -81,8 +81,8 @@ export class AILoadBalancerService {
   private loadBalancingStrategy: LoadBalancingStrategy;
   private scalingPolicies: ScalingPolicy[] = [];
   private lastProviderIndex = 0; // for round-robin
-  private healthCheckInterval: NodeJS.Timeout | null = null;
-  private rateLimitResetInterval: NodeJS.Timeout | null = null;
+  private healthCheckInterval: NodeJS.Timer | null = null;
+  private rateLimitResetInterval: NodeJS.Timer | null = null;
 
   constructor() {
     this.db = new DatabaseService();
