@@ -1,7 +1,7 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { requireRole } from '../middleware/roleAuth';
-import { grantSourcesService } from '../services/grantSourcesService';
+import { grantSourcesService, GrantSource } from '../services/grantSourcesService';
 import { jobQueueService } from '../services/jobQueueService';
 import { logger } from '../services/logger';
 
@@ -150,7 +150,7 @@ router.delete('/:id', requireRole(['super_admin']), async (req, res) => {
 });
 
 // Trigger crawl for specific source
-router.post('/:id/crawl', requireRole(['super_admin', 'organization_admin']), async (req, res) => {
+router.post('/:id/crawl', requireRole(['super_admin', 'organization_admin']), async (req: AuthenticatedRequest, res) => {
   try {
     const source = await grantSourcesService.getSourceById(req.params.id);
     
@@ -326,7 +326,7 @@ router.patch('/bulk', requireRole(['super_admin']), async (req, res) => {
       });
     }
 
-    const results = [];
+    const results: Array<{ sourceId: string; success: boolean; data?: GrantSource; error?: string }> = [];
     for (const sourceId of sourceIds) {
       try {
         const updatedSource = await grantSourcesService.updateSource(sourceId, updates);
@@ -336,7 +336,7 @@ router.patch('/bulk', requireRole(['super_admin']), async (req, res) => {
           results.push({ sourceId, success: false, error: 'Source not found' });
         }
       } catch (error) {
-        results.push({ sourceId, success: false, error: error.message });
+        results.push({ sourceId, success: false, error: error instanceof Error ? error.message : 'Unknown error' });
       }
     }
 

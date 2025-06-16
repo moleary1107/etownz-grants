@@ -103,15 +103,15 @@ class GrantSourcesService {
     }
   }
 
-  async createSource(source: Omit<GrantSource, 'id' | 'createdAt' | 'updatedAt' | 'successCount' | 'failureCount' | 'lastError' | 'description' | 'category' | 'location'>): Promise<string> {
+  async createSource(source: Omit<GrantSource, 'id' | 'createdAt' | 'updatedAt' | 'successCount' | 'failureCount' | 'lastError'>): Promise<string> {
     try {
       const result = await this.db.query(`
         INSERT INTO grant_sources (
-          name, url, is_active, crawl_settings, crawl_schedule
-        ) VALUES ($1, $2, $3, $4, $5)
+          name, url, description, category, location, is_active, crawl_settings, crawl_schedule
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id
       `, [
-        source.name, source.url, source.isActive, 
+        source.name, source.url, source.description, source.category, source.location, source.isActive, 
         JSON.stringify(source.crawlSettings), source.crawlSchedule
       ]);
       

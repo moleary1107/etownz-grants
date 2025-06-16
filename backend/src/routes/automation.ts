@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { requireRole } from '../middleware/roleAuth';
 import { automationPipeline } from '../services/automationPipeline';
 import { jobQueueService } from '../services/jobQueueService';
@@ -13,7 +13,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Get automation pipeline status
-router.get('/status', async (req, res) => {
+router.get('/status', async (req: AuthenticatedRequest, res) => {
   try {
     const automationStatus = automationPipeline.getStatus();
     const jobQueueStatus = {
@@ -112,7 +112,7 @@ router.get('/config', requireRole(['super_admin', 'organization_admin']), async 
 });
 
 // Manual trigger for grant discovery (admin only)
-router.post('/trigger/discovery', requireRole(['super_admin', 'organization_admin']), async (req, res) => {
+router.post('/trigger/discovery', requireRole(['super_admin', 'organization_admin']), async (req: AuthenticatedRequest, res) => {
   try {
     const { sourceIds } = req.body;
     let sources;
@@ -130,7 +130,7 @@ router.post('/trigger/discovery', requireRole(['super_admin', 'organization_admi
       sources = sources.filter(source => source.isActive);
     }
 
-    const jobIds = [];
+    const jobIds: string[] = [];
     for (const source of sources) {
       const jobId = await jobQueueService.enqueueJob('crawl_grant_source', {
         sourceId: source.id,
@@ -252,7 +252,7 @@ router.get('/monitoring/alerts', requireRole(['super_admin', 'organization_admin
 });
 
 // Acknowledge an alert
-router.post('/monitoring/alerts/:id/acknowledge', requireRole(['super_admin', 'organization_admin']), async (req, res) => {
+router.post('/monitoring/alerts/:id/acknowledge', requireRole(['super_admin', 'organization_admin']), async (req: AuthenticatedRequest, res) => {
   try {
     await crawlMonitoringService.acknowledgeAlert(req.params.id, req.user?.id || 'unknown');
     
@@ -420,7 +420,7 @@ router.get('/alerts/recent', requireRole(['super_admin', 'organization_admin']),
 });
 
 // Acknowledge alert with enhanced tracking
-router.post('/alerts/:alertId/acknowledge', requireRole(['super_admin', 'organization_admin']), async (req, res) => {
+router.post('/alerts/:alertId/acknowledge', requireRole(['super_admin', 'organization_admin']), async (req: AuthenticatedRequest, res) => {
   try {
     const { alertId } = req.params;
     const { acknowledgedBy } = req.body;
@@ -445,7 +445,7 @@ router.post('/alerts/:alertId/acknowledge', requireRole(['super_admin', 'organiz
 });
 
 // Trigger manual crawl for specific source
-router.post('/crawl/trigger', requireRole(['super_admin', 'organization_admin']), async (req, res) => {
+router.post('/crawl/trigger', requireRole(['super_admin', 'organization_admin']), async (req: AuthenticatedRequest, res) => {
   try {
     const { sourceId, priority = 'normal' } = req.body;
 
