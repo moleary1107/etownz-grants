@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card"
-import { Button } from "../../../components/ui/button"
-import { Input } from "../../../components/ui/input"
-import { Sidebar } from "../../../components/layout/Sidebar"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
+import { Button } from "../ui/button"
+import { Input } from "../ui/input"
+import { Sidebar } from "../layout/Sidebar"
 import { 
   Search, 
   MapPin,
@@ -17,10 +17,10 @@ import {
   Loader2,
   AlertCircle
 } from "lucide-react"
-import { User } from "../../../lib/auth"
-import { grantsService, aiService, Grant as APIGrant, OrganizationProfile } from "../../../lib/api"
-import { useSearchHistory, useGrantAnalyses, AISearchResult } from "../../../lib/store/aiStore"
-import { GrantCardSkeleton } from "../../../components/ui/loading-skeleton"
+import { User } from "../../lib/auth"
+import { grantsService, aiService, Grant as APIGrant, OrganizationProfile } from "../../lib/api"
+import { useSearchHistory, useGrantAnalyses, AISearchResult } from "../../lib/store/aiStore"
+import { GrantCardSkeleton } from "../ui/loading-skeleton"
 
 // Use the API Grant type and extend it with UI-specific properties
 interface Grant extends APIGrant {
