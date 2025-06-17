@@ -1,0 +1,65 @@
+name: Scheduled Maintenance
+
+on:
+  schedule:
+    # Run registry cleanup every Sunday at 2 AM UTC
+    - cron: '0 2 * * 0'
+    # Run database backup daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  registry-cleanup:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 2 * * 0' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Install doctl
+      uses: digitalocean/action-doctl@v2
+      with:
+        token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+    
+    - name: Run Registry Garbage Collection
+      run: |
+        doctl registry garbage-collection start \
+          --include-untagged-manifests \
+          --force \
+          ${{ secrets.DIGITALOCEAN_REGISTRY_NAME }}
+        
+        echo "Garbage collection started successfully"
+
+  database-backup:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 3 * * *' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install PostgreSQL client
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+    
+    - name: Create backup
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: |
+        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        BACKUP_FILE="etownz_grants_${TIMESTAMP}.sql"
+        
+        # Create backup
+        pg_dump "$DATABASE_URL" > "$BACKUP_FILE"
+        gzip "$BACKUP_FILE"
+        
+        echo "Backup created: ${BACKUP_FILE}.gz"
+    
+    - name: Upload to Spaces
+      uses: BetaHuhn/do-spaces-action@v2
+      with:
+        access_key: ${{ secrets.SPACES_ACCESS_KEY }}
+        secret_key: ${{ secrets.SPACES_SECRET_KEY }}
+        space_name: etownz-grants-doc
+        space_region: fra1
+        source: "*.sql.gz"
+        out_dir: backups/
