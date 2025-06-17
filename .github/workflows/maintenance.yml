@@ -36,27 +36,32 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Install PostgreSQL 17 client
-      run: |
-        # Add PostgreSQL official repository for version 17
-        sudo apt-get update
-        sudo apt-get install -y wget ca-certificates
-        wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-        echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
-        sudo apt-get update
-        sudo apt-get install -y postgresql-client-17
-    
-    - name: Create backup
+    - name: Create backup using PostgreSQL 17 Docker
       env:
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
       run: |
         TIMESTAMP=$(date +%Y%m%d_%H%M%S)
         BACKUP_FILE="etownz_grants_${TIMESTAMP}.sql"
         
-        # Create backup
-        pg_dump "$DATABASE_URL" > "$BACKUP_FILE"
-        gzip "$BACKUP_FILE"
+        # Extract connection details from DATABASE_URL
+        HOST=$(echo $DATABASE_URL | sed -n 's/.*@\([^:]*\):.*/\1/p')
+        PORT=$(echo $DATABASE_URL | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+        USER=$(echo $DATABASE_URL | sed -n 's/.*:\/\/\([^:]*\):.*/\1/p')
+        PASSWORD=$(echo $DATABASE_URL | sed -n 's/.*:\/\/[^:]*:\([^@]*\)@.*/\1/p')
+        DBNAME=$(echo $DATABASE_URL | sed -n 's/.*\/\([^?]*\).*/\1/p')
         
+        # Create backup using PostgreSQL 17 Docker image
+        docker run --rm \
+          -e PGPASSWORD="$PASSWORD" \
+          postgres:17 \
+          pg_dump \
+          -h "$HOST" \
+          -p "$PORT" \
+          -U "$USER" \
+          -d "$DBNAME" \
+          --no-password > "$BACKUP_FILE"
+        
+        gzip "$BACKUP_FILE"
         echo "Backup created: ${BACKUP_FILE}.gz"
     
     - name: Upload to Spaces
