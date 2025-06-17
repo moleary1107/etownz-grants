@@ -63,6 +63,13 @@ jobs:
         
         gzip "$BACKUP_FILE"
         echo "Backup created: ${BACKUP_FILE}.gz"
+        
+        # Verify file exists and show details
+        ls -la "${BACKUP_FILE}.gz"
+        echo "File size: $(stat -c%s "${BACKUP_FILE}.gz") bytes"
+        
+        # Store filename for upload step
+        echo "BACKUP_FILE_GZ=${BACKUP_FILE}.gz" >> $GITHUB_ENV
     
     - name: Upload to Spaces
       uses: BetaHuhn/do-spaces-action@v2
@@ -71,5 +78,5 @@ jobs:
         secret_key: ${{ secrets.SPACES_SECRET_KEY }}
         space_name: etownz-grants-doc
         space_region: fra1
-        source: "*.sql.gz"
+        source: ${{ env.BACKUP_FILE_GZ }}
         out_dir: backups/
